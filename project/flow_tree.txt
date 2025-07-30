@@ -1,0 +1,30 @@
+Home
+|---Explore
+|   |---Report
+|   |---Block
+|   |---Send Messages
+|   |---Not Interested In
+|---Friend's Post
+|   |---Report
+|   |---Block
+|   |---Send Messages
+Search
+|---Posts
+|---Accounts
+|---
+|
+ACM (Pop up options)
+|---Settings
+|---Notifications
+|
+|
+Messages
+|
+|
+|
+My Profile
+|---Friends
+|---My Items
+|---Create Item
+|
+|
