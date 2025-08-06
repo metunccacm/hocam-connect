@@ -13,3 +13,13 @@ tures like a second-hand marketplace and semester-course organizing tools.
  
 The goal is to enhance student life by providing a centralized platform for
 essential campus services and social needs.
+
+## Team
+ - Karpat Güzel
+ - Kamil Barış Gökmen
+ - Buğra Çetinkaya
+ - Fethi Başata
+ - Mert Yıldırım
+ - İrem Dede
+ - Eser Yavuz
+
