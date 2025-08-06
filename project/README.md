@@ -1,4 +1,4 @@
-# Hocam Connect
+# Hocam Connect by ACM
 
 METU NCC Super APP!
 
