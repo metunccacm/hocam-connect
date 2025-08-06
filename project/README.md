@@ -1,16 +1,15 @@
-# project
+# Hocam Connect
 
-A new Flutter project.
+METU NCC Super APP!
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The Hocam Connect Mobile Application is designed to serve as an all-in-one
+solution for the everyday needs of METU NCC students. 
+ 
+The app will consolidate functionalities from the NCClife website, such as dining hall menus,
+transportation options, and GPA calculators, while also introducing new fea
+tures like a second-hand marketplace and semester-course organizing tools.
+ 
+The goal is to enhance student life by providing a centralized platform for
+essential campus services and social needs.
