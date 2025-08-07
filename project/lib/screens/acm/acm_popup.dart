@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class BubbleMenuDemo extends StatefulWidget {
+  const BubbleMenuDemo({super.key});
+
   @override
   _BubbleMenuDemoState createState() => _BubbleMenuDemoState();
 }
