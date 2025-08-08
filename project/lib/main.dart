@@ -3,7 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'view/home_view.dart';
 import 'view/login_view.dart';
+import 'view/registration_view.dart';
+import 'view/welcome_view.dart';
 import 'viewmodel/login_viewmodel.dart';
+import 'model/auth_service.dart';
 
 // IMPORTANT: Replace with your actual Supabase credentials
 const supabaseUrl = 'YOUR_SUPABASE_URL';
@@ -29,6 +32,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Determine the initial route based on the current user's session
+    final initialRoute = Supabase.instance.client.auth.currentUser != null ? '/home' : '/welcome';
+
     return MaterialApp(
       title: 'Hocam Connect',
       theme: ThemeData(
@@ -68,10 +74,12 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      initialRoute: '/',
+      initialRoute: initialRoute,
       routes: {
+        '/welcome': (context) => const WelcomeView(),
         '/': (context) => const LoginView(),
         '/home': (context) => const HomeView(),
+        '/register': (context) => const RegistrationView(),
       },
     );
   }
