@@ -140,7 +140,7 @@ class _LoginViewState extends State<LoginView> {
                       ),
                       TextButton(
                         onPressed: () {
-                          // TODO: Navigate to registration page
+                          Navigator.pushNamed(context, '/register');
                         },
                         child: const Text(
                           'Sign up now',

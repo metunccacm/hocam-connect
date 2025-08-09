@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'view/home_view.dart';
 import 'view/login_view.dart';
+import 'view/register_view.dart';
 import 'viewmodel/login_viewmodel.dart';
+import 'viewmodel/register_viewmodel.dart';
 
 // IMPORTANT: Replace with your actual Supabase credentials
 const supabaseUrl = 'YOUR_SUPABASE_URL';
@@ -17,8 +19,15 @@ void main() async {
   );
 
   runApp(
-    ChangeNotifierProvider<LoginViewModel>(
-      create: (context) => LoginViewModel(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<LoginViewModel>(
+          create: (context) => LoginViewModel(),
+        ),
+        ChangeNotifierProvider<RegistrationViewModel>(
+          create: (context) => RegistrationViewModel(),
+        ),
+      ],
       child: const MyApp(),
     ),
   );
@@ -31,6 +40,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Hocam Connect',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         // Setting a light theme for the Figma design
         brightness: Brightness.light,
@@ -72,6 +82,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const LoginView(),
         '/home': (context) => const HomeView(),
+        '/register': (context) => const RegistrationView(),
       },
     );
   }
