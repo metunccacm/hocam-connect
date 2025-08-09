@@ -41,7 +41,7 @@ class RegistrationViewModel extends ChangeNotifier {
       debugPrint("Password: ${passwordController.text}");
       debugPrint("DOB: ${dobController.text}");
     } catch (e) {
-      debugPrint("Kayıt hatası: $e");
+      debugPrint("Registration error: $e");
     } finally {
       isLoading = false;
       notifyListeners();
