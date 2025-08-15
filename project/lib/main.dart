@@ -44,6 +44,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Determine the initial route based on the current user's session
+    final initialRoute = Supabase.instance.client.auth.currentUser != null ? '/home' : '/welcome';
+
     return MaterialApp(
       title: 'Hocam Connect',
       debugShowCheckedModeBanner: false,
@@ -84,8 +87,9 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      initialRoute: '/',
+      initialRoute: initialRoute,
       routes: {
+        '/welcome': (context) => const WelcomeView(),
         '/': (context) => const LoginView(),
         '/home': (context) => const HomeView(),
         '/register': (context) => const RegistrationView(),
