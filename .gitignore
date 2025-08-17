@@ -1,5 +1,6 @@
-.vscode/settings.json
+.vscode
 .vscode/
+.vscode/*
 project/macos/Runner.xcworkspace/contents.xcworkspacedata
 project/macos/Runner.xcodeproj/project.pbxproj
 project/macos/Flutter/Flutter-Release.xcconfig
@@ -17,3 +18,5 @@ project/ios/Podfile
 project/pubspec.lock
 project/devtools_options.yaml
 .vscode/settings.json
+project/macos/Runner.xcworkspace/contents.xcworkspacedata
+project/macos/Runner.xcworkspace/contents.xcworkspacedata
