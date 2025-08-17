@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../model/auth_service.dart';
 import 'package:email_validator/email_validator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // AuthException için
+import '../model/auth_service.dart';
 
 class LoginViewModel extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -19,33 +20,35 @@ class LoginViewModel extends ChangeNotifier {
     _errorMessage = '';
     notifyListeners();
 
-    if (!EmailValidator.validate(emailController.text)) {
-      _errorMessage = 'Please enter a valid email address.';
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
+    final email = emailController.text.trim();
+    final password = passwordController.text;
 
-    if (passwordController.text.length < 6) {
+    if (!EmailValidator.validate(email)) {
+      _errorMessage = 'Please enter a valid email address.';
+      _isLoading = false; notifyListeners(); return;
+    }
+    if (password.length < 6) {
       _errorMessage = 'Password must be at least 6 characters long.';
-      _isLoading = false;
-      notifyListeners();
-      return;
+      _isLoading = false; notifyListeners(); return;
     }
 
     try {
-      await _authService.signIn(
-        email: emailController.text,
-        password: passwordController.text,
-      );
-
-      // This is the key change for multi-screen navigation.
-      Navigator.pushNamed(context, '/home');
+      await _authService.signIn(email: email, password: password);
 
       emailController.clear();
       passwordController.clear();
+
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      }
+    } on AuthException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } catch (e) {
-      _errorMessage = e.toString();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login failed: $e')));
+      }
     } finally {
       _isLoading = false;
       notifyListeners();

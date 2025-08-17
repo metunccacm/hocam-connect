@@ -32,7 +32,7 @@ class _LoginViewState extends State<LoginView> {
                       height: 120,
                       decoration: const BoxDecoration(
                         image: DecorationImage(
-                          image: AssetImage('assets/logo.png'), // Placeholder image
+                          image: AssetImage('assets/logo/hc_logo.png'), // Placeholder image
                           fit: BoxFit.contain,
                         ),
                       ),
