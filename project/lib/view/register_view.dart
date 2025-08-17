@@ -268,18 +268,19 @@ class _RegistrationViewState extends State<RegistrationView> {
                       height: 50,
                       child: ElevatedButton(
                         onPressed: viewModel.isLoading
-                            ? null
-                            : () async {
-                                if (_formKey.currentState!.validate()) {
-                                  await viewModel.register(
-                                    name: _nameController.text,
-                                    surname: _surnameController.text,
-                                    email: _emailController.text,
-                                    password: _passwordController.text,
-                                    dob: _dobController.text,
-                                  );
-                                }
-                              },
+                        ? null
+                        : () async {
+                            if (_formKey.currentState!.validate()) {
+                              await viewModel.register(
+                                context,
+                                name: _nameController.text,
+                                surname: _surnameController.text,
+                                email: _emailController.text,
+                                password: _passwordController.text,
+                                dobText: _dobController.text,
+                              );
+                            }
+                          },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                         ),
