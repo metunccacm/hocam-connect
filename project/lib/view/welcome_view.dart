@@ -17,7 +17,7 @@ class WelcomeView extends StatelessWidget {
               // Logo
               Center(
                 child: Image.asset(
-                  'assets/logo.png', // Replace with your logo asset path
+                  'assets/logo/hc_logo.png', 
                   height: 150,
                 ),
               ),
@@ -46,7 +46,7 @@ class WelcomeView extends StatelessWidget {
               // ACM logo
               Center(
                 child: Image.asset(
-                  'assets/acm_logo.png', // Replace with your ACM logo asset path
+                  'assets/logo/acm_logo.png', 
                   height: 80,
                 ),
               ),
@@ -65,7 +65,7 @@ class WelcomeView extends StatelessWidget {
                 child: TextButton(
                   onPressed: () {
                     // Navigate to the login screen
-                    Navigator.pushNamed(context, '/');
+                    Navigator.pushNamed(context, '/login');
                   },
                   child: const Text(
                     'Already have an account? Log in',
