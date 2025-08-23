@@ -2,18 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// Your existing imports
 import 'view/home_view.dart';
 import 'view/login_view.dart';
 import 'view/register_view.dart';
 import 'view/welcome_view.dart';
-
 import 'viewmodel/login_viewmodel.dart';
 import 'viewmodel/register_viewmodel.dart';
 
-// SUPA CONNECTION //
+// New import for the scaling utility
+import 'config/size_config.dart';
+
+//SUPA CONNECTION
 const supabaseUrl = 'https://supa-api.avarion.com.tr';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
-
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -22,16 +24,13 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = Supabase.instance.client.auth;
 
-    // 1) Immediate check: if already logged in, jump to Home
     if (auth.currentSession != null) {
       return const HomeView();
     }
 
-    // 2) Otherwise, listen for future auth changes
     return StreamBuilder<AuthState>(
       stream: auth.onAuthStateChange,
       builder: (context, snap) {
-        // Tiny splash while waiting the first tick
         if (snap.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
@@ -41,7 +40,6 @@ class AuthGate extends StatelessWidget {
         final signedIn = auth.currentSession != null ||
             snap.data?.event == AuthChangeEvent.signedIn;
 
-        // If you want to show a Welcome screen before Login, keep WelcomeView
         return signedIn ? const HomeView() : const WelcomeView();
       },
     );
@@ -57,7 +55,6 @@ Future<void> main() async {
     debug: true,
   );
 
-  // Debug auth transitions
   Supabase.instance.client.auth.onAuthStateChange
       .listen((s) => debugPrint('Auth event: ${s.event}, session: ${s.session != null}'));
 
@@ -81,6 +78,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Initialize SizeConfig here at the root of the app
+    SizeConfig().init(context);
+
     return MaterialApp(
       title: 'Hocam Connect',
       debugShowCheckedModeBanner: false,
@@ -115,11 +115,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-
-      // IMPORTANT: AuthGate is the root; don’t use initialRoute to flip pages.
       home: const AuthGate(),
-
-      // ROUTES
       routes: {
         '/login': (_) => const LoginView(),
         '/welcome': (_) => const WelcomeView(),
