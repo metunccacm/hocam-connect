@@ -26,11 +26,24 @@ class HomeView extends StatelessWidget {
           ),
         ],
       ),
-      body: const Center(
-        child: Text(
-          'Welcome!',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Welcome',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20,),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.store),
+              label: const Text("Go to Marketplace"),
+              onPressed: () {
+                Navigator.pushNamed(context, '/marketplace');
+              },
+            )
+          ],
+        )
       ),
     );
   }
