@@ -9,6 +9,7 @@ import 'view/register_view.dart';
 import 'view/welcome_view.dart';
 
 import 'viewmodel/login_viewmodel.dart';
+import 'viewmodel/marketplace_viewmodel.dart'; // <-- Import the viewmodel
 import 'viewmodel/register_viewmodel.dart';
 
 // SUPA CONNECTION //
@@ -49,27 +50,24 @@ class AuthGate extends StatelessWidget {
   }
 }
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
-    debug: true,
   );
-
-  // Debug auth transitions
-  Supabase.instance.client.auth.onAuthStateChange
-      .listen((s) => debugPrint('Auth event: ${s.event}, session: ${s.session != null}'));
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<LoginViewModel>(
-          create: (_) => LoginViewModel(),
+          create: (context) => LoginViewModel(),
         ),
         ChangeNotifierProvider<RegistrationViewModel>(
-          create: (_) => RegistrationViewModel(),
+          create: (context) => RegistrationViewModel(),
+        ),
+        ChangeNotifierProvider<MarketplaceViewModel>( // <-- Add this provider
+          create: (context) => MarketplaceViewModel(),
         ),
       ],
       child: const MyApp(),
@@ -126,7 +124,7 @@ class MyApp extends StatelessWidget {
         '/welcome': (_) => const WelcomeView(),
         '/home': (_) => const HomeView(),
         '/register': (_) => const RegistrationView(),
-        '/marketplace': (_) => const MarketplaceView(),
+        '/marketplace': (_) => MarketplaceView(),
       },
     );
   }

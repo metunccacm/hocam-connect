@@ -1,133 +1,197 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:project/view/additem_view.dart';
 import 'package:project/viewmodel/marketplace_viewmodel.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:project/view/additem_view.dart'; // Make sure this is imported
+import 'package:provider/provider.dart';
 
-class MarketplaceView extends StatelessWidget {
+class MarketplaceView extends StatefulWidget {
   const MarketplaceView({super.key});
 
   @override
+  State<MarketplaceView> createState() => _MarketplaceViewState();
+}
+
+class _MarketplaceViewState extends State<MarketplaceView> {
+  bool _isSearching = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      Provider.of<MarketplaceViewModel>(context, listen: false)
+          .searchProducts(_searchController.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        // Clear search when closing the search bar
+        _searchController.clear();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => MarketplaceViewModel(),
-      child: Consumer<MarketplaceViewModel>(
-        builder: (context, viewModel, child) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text("Marketplace"),
-              centerTitle: true,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {},
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F8F8),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.white,
+        elevation: 1,
+        // Conditionally build the leading icon and title
+        leading: _isSearching
+            ? null // Hide leading icon when searching
+            : IconButton(
+                icon: const Icon(Icons.search, color: Colors.black),
+                onPressed: _toggleSearch,
+              ),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search products...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(color: Colors.black54),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.favorite_border),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () {
-                    // Navigate to the new AddItemView page
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const AddItemView(),
-                      ),
-                    );
+                style: const TextStyle(color: Colors.black, fontSize: 16),
+              )
+            : const Text('Marketplace',
+                style: TextStyle(color: Colors.black)),
+        centerTitle: true,
+        actions: [
+          // Show a clear/close button when searching
+          if (_isSearching)
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.black),
+              onPressed: _toggleSearch,
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.add, color: Colors.black),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AddItemView()),
+                );
+              },
+            )
+        ],
+      ),
+      body: Column(
+        children: [
+          _buildFilterAndSortControls(),
+          Expanded(
+            child: Consumer<MarketplaceViewModel>(
+              builder: (context, viewModel, child) {
+                if (viewModel.groupedProducts.isEmpty) {
+                  return const Center(child: Text('No products found.'));
+                }
+                // Main list of categories
+                return ListView.builder(
+                  itemCount: viewModel.groupedProducts.keys.length,
+                  itemBuilder: (context, index) {
+                    String category =
+                        viewModel.groupedProducts.keys.elementAt(index);
+                    List<Product> products =
+                        viewModel.groupedProducts[category]!;
+                    return _buildCategorySection(category, products);
                   },
-                ),
-              ],
+                );
+              },
             ),
-            body: viewModel.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : viewModel.errorMessage != null
-                    ? Center(child: Text(viewModel.errorMessage!))
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Recently Added
-                            _buildSection(
-                              title: "Recently added",
-                              items: viewModel.recentlyAdded,
-                              onSeeMore: () {
-                                // Navigate to a full list page
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                            // Old Posts
-                            _buildSection(
-                              title: "Old posts",
-                              items: viewModel.oldPosts,
-                              onSeeMore: () {},
-                            ),
-                          ],
-                        ),
-                      ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSection({
-    required String title,
-    required List<Map<String, dynamic>> items,
-    required VoidCallback onSeeMore,
-  }) {
+  // Builds a single category section (e.g., "Giysiler")
+  Widget _buildCategorySection(String category, List<Product> products) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton(onPressed: onSeeMore, child: const Text("See more")),
-          ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(category, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('See more', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.w600)),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
+        // Horizontal list of products for the category
         SizedBox(
-          height: 150,
-          child: ListView.separated(
+          height: 190, // Product card height
+          child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: products.length,
             itemBuilder: (context, index) {
-              final item = items[index];
-              return Container(
-                width: 140,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: item['image_url'] != null
-                          ? CachedNetworkImage(
-                              imageUrl: item['image_url'],
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) =>
-                                  const Center(child: CircularProgressIndicator()),
-                              errorWidget: (context, url, error) =>
-                                  const Icon(Icons.error),
-                            )
-                          : const Icon(Icons.image, size: 60, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(item["title"],
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
-                    Text("₺${item["price"]}",
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.bold)),
-                  ],
+              final product = products[index];
+              return SizedBox(
+                width: 190, // Product card width
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                  margin: const EdgeInsets.all(4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          color: const Color(0xFFEAF2FF),
+                          child: Image.network(
+                            product.imageUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 40)),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                        child: Text(product.name, style: const TextStyle(fontWeight: FontWeight.normal), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
+                        child: Text('₺${product.price.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      // SELLER INFO ADDED HERE
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundImage: NetworkImage(product.sellerImageUrl),
+                              backgroundColor: Colors.grey.shade200,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                product.sellerName,
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -136,4 +200,139 @@ class MarketplaceView extends StatelessWidget {
       ],
     );
   }
+
+  Widget _buildFilterAndSortControls() {
+    return Consumer<MarketplaceViewModel>(
+      builder: (context, viewModel, child) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Filter Button
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
+                onPressed: () => _showFilterDialog(viewModel),
+                icon: const Icon(Icons.filter_list, size: 20),
+                label: const Text('Filter'),
+              ),
+              // Sort Button
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
+                onPressed: () => _showSortDialog(viewModel),
+                icon: const Icon(Icons.sort, size: 20),
+                label: const Text('Sort'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSortDialog(MarketplaceViewModel viewModel) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Sırala'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<SortOption>(
+                title: const Text('En Yeni'),
+                value: SortOption.newest,
+                groupValue: viewModel.currentSortOption,
+                onChanged: (value) {
+                  if (value != null) {
+                    viewModel.sortProducts(value);
+                    Navigator.pop(dialogContext);
+                  }
+                },
+              ),
+              RadioListTile<SortOption>(
+                title: const Text('Fiyat: Düşükten Yükseğe'),
+                value: SortOption.priceAsc,
+                groupValue: viewModel.currentSortOption,
+                onChanged: (value) {
+                  if (value != null) {
+                    viewModel.sortProducts(value);
+                    Navigator.pop(dialogContext);
+                  }
+                },
+              ),
+              RadioListTile<SortOption>(
+                title: const Text('Fiyat: Yüksekten Düşüğe'),
+                value: SortOption.priceDesc,
+                groupValue: viewModel.currentSortOption,
+                onChanged: (value) {
+                  if (value != null) {
+                    viewModel.sortProducts(value);
+                    Navigator.pop(dialogContext);
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFilterDialog(MarketplaceViewModel viewModel) {
+    final Set<String> tempSelectedCategories = Set.from(viewModel.activeFilters);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Kategoriye Göre Filtrele'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: ['Giysiler', 'Mutfak Eşyaları', 'Elektronik'].map((category) {
+                  return CheckboxListTile(
+                    title: Text(category),
+                    value: tempSelectedCategories.contains(category),
+                    onChanged: (bool? selected) {
+                      setDialogState(() {
+                        if (selected == true) {
+                          tempSelectedCategories.add(category);
+                        } else {
+                          tempSelectedCategories.remove(category);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('İptal'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    viewModel.applyFilters(tempSelectedCategories);
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('Uygula'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }
+
