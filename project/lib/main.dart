@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:project/view/marketplace_view.dart';
+import 'package:project/view/bottombar_view.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'view/home_view.dart';
 import 'view/login_view.dart';
 import 'view/register_view.dart';
 import 'view/welcome_view.dart';
@@ -24,9 +23,9 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = Supabase.instance.client.auth;
 
-    // 1) Immediate check: if already logged in, jump to Home
+    // 1) Immediate check: if already logged in, jump to MainTabView
     if (auth.currentSession != null) {
-      return const HomeView();
+      return const MainTabView();
     }
 
     // 2) Otherwise, listen for future auth changes
@@ -44,7 +43,7 @@ class AuthGate extends StatelessWidget {
             snap.data?.event == AuthChangeEvent.signedIn;
 
         // If you want to show a Welcome screen before Login, keep WelcomeView
-        return signedIn ? const HomeView() : const WelcomeView();
+        return signedIn ? const MainTabView() : const WelcomeView();
       },
     );
   }
@@ -66,7 +65,7 @@ void main() async {
         ChangeNotifierProvider<RegistrationViewModel>(
           create: (context) => RegistrationViewModel(),
         ),
-        ChangeNotifierProvider<MarketplaceViewModel>( // <-- Add this provider
+        ChangeNotifierProvider<MarketplaceViewModel>(
           create: (context) => MarketplaceViewModel(),
         ),
       ],
@@ -115,16 +114,16 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      // IMPORTANT: AuthGate is the root; don’t use initialRoute to flip pages.
+      // IMPORTANT: AuthGate is the root
       home: const AuthGate(),
 
       // ROUTES
       routes: {
         '/login': (_) => const LoginView(),
         '/welcome': (_) => const WelcomeView(),
-        '/home': (_) => const HomeView(),
         '/register': (_) => const RegistrationView(),
-        '/marketplace': (_) => MarketplaceView(),
+        // '/home' and '/marketplace' are now handled by MainTabView
+        // and should be removed from here to avoid confusion.
       },
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:project/view/additem_view.dart';
+import 'package:project/view/category_view.dart';
+import 'package:project/view/productDetail_view.dart';
 import 'package:project/viewmodel/marketplace_viewmodel.dart';
 import 'package:provider/provider.dart';
 
@@ -126,14 +128,33 @@ class _MarketplaceViewState extends State<MarketplaceView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(category, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text('See more', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.w600)),
+              Text(category,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              // WRAP THE TEXT WITH INKWELL FOR TAPPING
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CategoryView(
+                        categoryName: category,
+                        products: products,
+                      ),
+                    ),
+                  );
+                },
+                child: Text('See more',
+                    style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontWeight: FontWeight.w600)),
+              ),
             ],
           ),
         ),
         // Horizontal list of products for the category
         SizedBox(
-          height: 190, // Product card height
+          height: 220,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -141,56 +162,66 @@ class _MarketplaceViewState extends State<MarketplaceView> {
             itemBuilder: (context, index) {
               final product = products[index];
               return SizedBox(
-                width: 190, // Product card width
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 2,
-                  margin: const EdgeInsets.all(4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Container(
-                          color: const Color(0xFFEAF2FF),
-                          child: Image.network(
-                            product.imageUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 40)),
+                width: 180,
+                child: GestureDetector( // <-- WRAP WITH GESTUREDETECTOR
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProductDetailView(product: product),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 2,
+                    margin: const EdgeInsets.all(4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            color: const Color(0xFFEAF2FF),
+                            child: Image.network(
+                              product.imageUrl,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 40)),
+                            ),
                           ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                        child: Text(product.name, style: const TextStyle(fontWeight: FontWeight.normal), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
-                        child: Text('₺${product.price.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      // SELLER INFO ADDED HERE
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 12,
-                              backgroundImage: NetworkImage(product.sellerImageUrl),
-                              backgroundColor: Colors.grey.shade200,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                product.sellerName,
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                          child: Text(product.name, style: const TextStyle(fontWeight: FontWeight.normal), maxLines: 1, overflow: TextOverflow.ellipsis),
                         ),
-                      ),
-                    ],
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
+                          child: Text('₺${product.price.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        // SELLER INFO ADDED HERE
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 12,
+                                backgroundImage: NetworkImage(product.sellerImageUrl),
+                                backgroundColor: Colors.grey.shade200,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  product.sellerName,
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -243,12 +274,12 @@ class _MarketplaceViewState extends State<MarketplaceView> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Sırala'),
+          title: const Text('Sort'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               RadioListTile<SortOption>(
-                title: const Text('En Yeni'),
+                title: const Text('Newest'),
                 value: SortOption.newest,
                 groupValue: viewModel.currentSortOption,
                 onChanged: (value) {
@@ -259,7 +290,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                 },
               ),
               RadioListTile<SortOption>(
-                title: const Text('Fiyat: Düşükten Yükseğe'),
+                title: const Text('Price: Low to High'),
                 value: SortOption.priceAsc,
                 groupValue: viewModel.currentSortOption,
                 onChanged: (value) {
@@ -270,7 +301,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                 },
               ),
               RadioListTile<SortOption>(
-                title: const Text('Fiyat: Yüksekten Düşüğe'),
+                title: const Text('Price: High to Low'),
                 value: SortOption.priceDesc,
                 groupValue: viewModel.currentSortOption,
                 onChanged: (value) {
@@ -296,10 +327,10 @@ class _MarketplaceViewState extends State<MarketplaceView> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Kategoriye Göre Filtrele'),
+              title: const Text('Filter by Category'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: ['Giysiler', 'Mutfak Eşyaları', 'Elektronik'].map((category) {
+                children: ['Clothes', 'Kitchen Items', 'Electronics'].map((category) {
                   return CheckboxListTile(
                     title: Text(category),
                     value: tempSelectedCategories.contains(category),
@@ -318,14 +349,14 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('İptal'),
+                  child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: () {
                     viewModel.applyFilters(tempSelectedCategories);
                     Navigator.pop(dialogContext);
                   },
-                  child: const Text('Uygula'),
+                  child: const Text('Apply'),
                 ),
               ],
             );

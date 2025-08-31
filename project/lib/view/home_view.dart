@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:project/view/marketplace_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
 
   void _logout(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     await Supabase.instance.client.auth.signOut();
-    Navigator.pushNamed(context, '/login');
-    ScaffoldMessenger.of(context).showSnackBar(
+
+    // Navigate to login and remove all previous routes
+    navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+    messenger.showSnackBar(
       const SnackBar(content: Text('Logged out')),
     );
   }
@@ -31,19 +37,23 @@ class HomeView extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
-              'Welcome',
+              'Welcome!',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 20,),
+            const SizedBox(height: 40),
             ElevatedButton.icon(
-              icon: const Icon(Icons.store),
-              label: const Text("Go to Marketplace"),
+              icon: const Icon(Icons.storefront),
+              label: const Text('Go to Marketplace'),
               onPressed: () {
-                Navigator.pushNamed(context, '/marketplace');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const MarketplaceView()),
+                );
               },
-            )
+            ),
           ],
-        )
+        ),
       ),
     );
   }
