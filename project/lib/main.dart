@@ -8,7 +8,7 @@ import 'view/register_view.dart';
 import 'view/welcome_view.dart';
 
 import 'viewmodel/login_viewmodel.dart';
-import 'viewmodel/marketplace_viewmodel.dart'; // <-- Import the viewmodel
+import 'viewmodel/marketplace_viewmodel.dart';
 import 'viewmodel/register_viewmodel.dart';
 
 // SUPA CONNECTION //
@@ -122,8 +122,7 @@ class MyApp extends StatelessWidget {
         '/login': (_) => const LoginView(),
         '/welcome': (_) => const WelcomeView(),
         '/register': (_) => const RegistrationView(),
-        // '/home' and '/marketplace' are now handled by MainTabView
-        // and should be removed from here to avoid confusion.
+        // '/home' and '/marketplace' are now handled by bottombar_view.dart
       },
     );
   }

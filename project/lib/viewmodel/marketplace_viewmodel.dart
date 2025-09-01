@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:collection/collection.dart'; // Add this import
+import 'package:collection/collection.dart';
 
 // A simple model for a product for demonstration purposes.
 class Product {

@@ -131,7 +131,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               Text(category,
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.bold)),
-              // WRAP THE TEXT WITH INKWELL FOR TAPPING
+              
               InkWell(
                 onTap: () {
                   Navigator.push(
@@ -163,7 +163,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               final product = products[index];
               return SizedBox(
                 width: 180,
-                child: GestureDetector( // <-- WRAP WITH GESTUREDETECTOR
+                child: GestureDetector(
                   onTap: () {
                     Navigator.push(
                       context,
@@ -199,7 +199,6 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                           padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
                           child: Text('₺${product.price.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
-                        // SELLER INFO ADDED HERE
                         Padding(
                           padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                           child: Row(
