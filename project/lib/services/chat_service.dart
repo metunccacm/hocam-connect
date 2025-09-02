@@ -319,6 +319,21 @@ Future<Map<String, UserDisplay>> getDisplayMap(List<String> userIds) async {
     };
   }
 }
+
+Future<BlockStatus> getBlockStatus(String conversationId) async {
+  final rows = await supa.rpc('get_dm_block_status', params: {'_conversation_id': conversationId});
+  final data = (rows as List).isNotEmpty ? rows.first as Map<String, dynamic> : {};
+  return BlockStatus(
+    isDm: (data['is_dm'] as bool?) ?? false,
+    iBlocked: (data['i_blocked'] as bool?) ?? false,
+    blockedMe: (data['blocked_me'] as bool?) ?? false,
+  );
+}
+
+Future<void> unblockInDm(String conversationId) async {
+  await supa.rpc('unblock_user_in_dm', params: {'_conversation_id': conversationId});
+}
+
 }
 
 // --- Display name model + bulk fetch ---
@@ -332,6 +347,13 @@ class UserDisplay {
     displayName: (m['display_name'] as String?) ?? '',
     avatarUrl: m['avatar_url'] as String?,
   );
+}
+
+class BlockStatus {
+  final bool isDm;
+  final bool iBlocked;
+  final bool blockedMe;
+  BlockStatus({required this.isDm, required this.iBlocked, required this.blockedMe});
 }
 
 
