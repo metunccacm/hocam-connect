@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:postgrest/postgrest.dart'; // hata ayıklama için
+// hata ayıklama için
 import 'package:project/services/auth_service.dart';
 
 class RegistrationViewModel extends ChangeNotifier {
