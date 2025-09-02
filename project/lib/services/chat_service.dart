@@ -25,7 +25,7 @@ class ChatMessage {
         ctB64 = m['body_ciphertext_base64'],
         nonceB64 = m['body_nonce_base64'],
         macB64 = m['body_mac_base64'],
-        createdAt = DateTime.parse(m['created_at']);
+        createdAt = DateTime.parse(m['created_at']).toLocal();
 }
 
 class ChatService {
@@ -334,6 +334,86 @@ Future<void> unblockInDm(String conversationId) async {
   await supa.rpc('unblock_user_in_dm', params: {'_conversation_id': conversationId});
 }
 
+
+// Who is in this conversation?
+Future<List<String>> getParticipantIds(String conversationId) async {
+  final rows = await supa
+      .from('participants')
+      .select('user_id')
+      .eq('conversation_id', conversationId);
+  return (rows as List).map((e) => (e as Map<String, dynamic>)['user_id'] as String).toList();
+}
+
+/// Realtime subscription: fire onChange whenever block/unblock toggles for this DM.
+Future<RealtimeChannel?> subscribeDmBlockStatus(
+  String conversationId,
+  FutureOr<void> Function() onChange,
+) async {
+  final ids = await getParticipantIds(conversationId);
+  if (ids.length != 2) return null; // not a DM => ignore
+  final me = supa.auth.currentUser!.id;
+  final other = ids.firstWhere((u) => u != me, orElse: () => me);
+
+  final ch = supa.channel('dmblocks:$conversationId')
+    // I block/unblock them
+    ..onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'user_blocks',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'blocker_id',
+        value: me,
+      ),
+      callback: (payload) {
+        if (payload.newRecord['blocked_id'] == other) onChange();
+      },
+    )
+    ..onPostgresChanges(
+      event: PostgresChangeEvent.delete,
+      schema: 'public',
+      table: 'user_blocks',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'blocker_id',
+        value: me,
+      ),
+      callback: (payload) {
+        if (payload.oldRecord['blocked_id'] == other) onChange();
+      },
+    )
+    // They block/unblock me
+    ..onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'user_blocks',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'blocker_id',
+        value: other,
+      ),
+      callback: (payload) {
+        if (payload.newRecord['blocked_id'] == me) onChange();
+      },
+    )
+    ..onPostgresChanges(
+      event: PostgresChangeEvent.delete,
+      schema: 'public',
+      table: 'user_blocks',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'blocker_id',
+        value: other,
+      ),
+      callback: (payload) {
+        if (payload.oldRecord['blocked_id'] == me) onChange();
+      },
+    )
+    ..subscribe();
+
+  return ch;
+}
+
 }
 
 // --- Display name model + bulk fetch ---
@@ -355,6 +435,8 @@ class BlockStatus {
   final bool blockedMe;
   BlockStatus({required this.isDm, required this.iBlocked, required this.blockedMe});
 }
+
+
 
 
 

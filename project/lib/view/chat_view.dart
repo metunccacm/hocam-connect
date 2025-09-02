@@ -26,6 +26,7 @@ class _ChatViewState extends State<ChatView> {
 
   RealtimeChannel? _msgChannel;
   RealtimeChannel? _presence;
+  RealtimeChannel? _blockCh;
   Set<String> _typing = {};
   Timer? _typingDebounce;
   bool _loadingOlder = false;
@@ -68,6 +69,12 @@ class _ChatViewState extends State<ChatView> {
       final myId = Supabase.instance.client.auth.currentUser!.id;
       set.remove(myId);
       setState(() => _typing = set);
+    });
+
+    _blockCh = await _svc.subscribeDmBlockStatus(widget.conversationId, () async {
+      // refresh flags immediately when block/unblock happens
+      await _loadBlockStatus();
+      if (mounted) setState(() {});
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -114,6 +121,7 @@ class _ChatViewState extends State<ChatView> {
     _controller.dispose();
     _scroll.dispose();
     _typingDebounce?.cancel();
+    _blockCh?.unsubscribe();
     super.dispose();
   }
 
@@ -156,28 +164,37 @@ class _ChatViewState extends State<ChatView> {
   Future<void> _loadOlder() async { /* unchanged */ }
 
   Future<void> _send() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
+  final text = _controller.text.trim();
+  if (text.isEmpty) return;
 
-    // NEW: guard if blocked
-    if (_isDm && (_iBlocked || _blockedMe)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You cannot send messages in this conversation.')),
-      );
-      return;
-    }
+  // client-side guard (instant UX)
+  if (_isDm && (_iBlocked || _blockedMe)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('You cannot send messages in this conversation.')),
+    );
+    return;
+  }
 
-    _controller.clear();
+  _controller.clear();
+
+  try {
     await _svc.sendTextEncrypted(
       conversationId: widget.conversationId,
       text: text,
     );
-
-    if (_presence != null) {
-      unawaited(_svc.trackTyping(_presence!, false));
-    }
-    _scrollToBottom();
+  } catch (e) {
+    // server-side RLS still blocks even if UI is stale for a moment
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Message not sent: blocked. ($e)')),
+    );
+    return;
   }
+
+  if (_presence != null) {
+    unawaited(_svc.trackTyping(_presence!, false));
+  }
+  _scrollToBottom();
+}
 
   void _onTypingChanged(String _) { /* unchanged */ }
   bool _isMine(ChatMessage m) => m.senderId == Supabase.instance.client.auth.currentUser!.id;

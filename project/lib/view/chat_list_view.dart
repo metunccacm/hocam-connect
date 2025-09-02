@@ -48,6 +48,7 @@ class _ChatListViewState extends State<ChatListView> {
     _msgCh?.unsubscribe();
     _partCh?.unsubscribe();
     _search.dispose();
+    _blockCh?.unsubscribe();
     super.dispose();
   }
 
@@ -56,6 +57,10 @@ class _ChatListViewState extends State<ChatListView> {
     await _loadUnread();
     _subscribeRealtime();
   }
+
+  final Map<String, List<String>> _members = {}; // convId -> userIds
+  RealtimeChannel? _blockCh; 
+
 
   // ----------------------- LOADERS -----------------------
 
@@ -122,6 +127,7 @@ class _ChatListViewState extends State<ChatListView> {
           .map((e) => (e as Map<String, dynamic>)['user_id'] as String)
           .toList();
 
+      _members[conversationId] = userIds;
       final others = userIds.where((u) => u != me).toList();
 
       if (others.length == 1) {
@@ -147,10 +153,10 @@ class _ChatListViewState extends State<ChatListView> {
         try {
           final text = await _svc.decryptMessageForUi(last);
           _snippet[conversationId] = text;
-          _lastTime[conversationId] = last.createdAt;
+          _lastTime[conversationId] = last.createdAt.toLocal();
         } catch (_) {
           _snippet[conversationId] = '(unable to decrypt)';
-          _lastTime[conversationId] = last.createdAt;
+          _lastTime[conversationId] = last.createdAt.toLocal();
         }
       }
     }
@@ -191,7 +197,7 @@ class _ChatListViewState extends State<ChatListView> {
           if (!_convIds.contains(m.conversationId)) {
             await _onNewConversationDetected(m.conversationId);
           }
-          _lastTime[m.conversationId] = m.createdAt;
+          _lastTime[m.conversationId] = m.createdAt.toLocal();
           try {
             final text = await _svc.decryptMessageForUi(m);
             _snippet[m.conversationId] = text;
@@ -247,6 +253,62 @@ class _ChatListViewState extends State<ChatListView> {
         },
       )
       ..subscribe();
+
+      final me = _supa.auth.currentUser!.id;
+
+      _blockCh = _supa.channel('chatlist:user_blocks')
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'user_blocks',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'blocker_id',
+            value: me,
+          ),
+          callback: (payload) async {
+            final other = payload.newRecord['blocked_id'] as String?;
+            if (other == null) return;
+            // find DM containing me + other
+            final cid = _findDmWith(other);
+            if (cid != null) {
+              _iBlocked[cid] = true;
+              _isDm[cid] = true;
+              if (mounted) setState(() {});
+            }
+          },
+        )
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'user_blocks',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'blocker_id',
+            value: me,
+          ),
+          callback: (payload) async {
+            final other = payload.oldRecord['blocked_id'] as String?;
+            if (other == null) return;
+            final cid = _findDmWith(other);
+            if (cid != null) {
+              _iBlocked[cid] = false;
+              if (mounted) setState(() {});
+            }
+          },
+        )
+        ..subscribe();
+  }
+
+  String? _findDmWith(String other) {
+    final me = _supa.auth.currentUser!.id;
+    for (final entry in _members.entries) {
+      final ids = entry.value;
+      if (ids.length == 2 && ids.contains(me) && ids.contains(other)) {
+        return entry.key;
+      }
+    }
+    return null;
   }
 
   Future<void> _onNewConversationDetected(String cid) async {
@@ -281,7 +343,18 @@ class _ChatListViewState extends State<ChatListView> {
       ),
     );
     await _loadUnread();
+    await _refreshBlockStatusFor(id);
   }
+
+  Future<void> _refreshBlockStatusFor(String id) async {
+  try {
+    final st = await _svc.getBlockStatus(id);
+    _isDm[id] = st.isDm;
+    _iBlocked[id] = st.iBlocked;
+    _blockedMe[id] = st.blockedMe;
+    if (mounted) setState(() {});
+  } catch (_) {}
+}
 
   Future<void> _deleteForMe(String id) async {
     try {
@@ -376,15 +449,39 @@ class _ChatListViewState extends State<ChatListView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chats'),
+        centerTitle: true,
+        title: const Text(
+          'Chats',
+          style: TextStyle(fontSize: 18),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              await _load();
-              await _loadUnread();
-            },
-          ),
+          // ------------- FOR DEBUG -------------
+          // IconButton(
+          //   icon: const Icon(Icons.refresh),
+          //   onPressed: () async {
+          //     await _load();
+          //     await _loadUnread();
+          //   },
+          // ),
+          // ------------- FOR DEBUG -------------
+          IconButton(icon: const Icon(Icons.question_mark_outlined),
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: const Text('Information'),
+                  content: const Text('You can swipe a DM left to reveal more options.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                );
+              },
+            );
+          })
         ],
       ),
       body: _loading
@@ -522,14 +619,16 @@ class _ChatListViewState extends State<ChatListView> {
   }
 
   String _fmtTime(DateTime t) {
+    final d = t.isUtc ? t.toLocal() : t;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final that = DateTime(t.year, t.month, t.day);
+    final that  = DateTime(d.year, d.month, d.day);
+
     if (that == today) {
-      final hh = t.hour.toString().padLeft(2, '0');
-      final mm = t.minute.toString().padLeft(2, '0');
-      return '$hh:$mm';
+      final hh = d.hour.toString().padLeft(2, '0');
+      final mm = d.minute.toString().padLeft(2, '0');
+      return '$hh:$mm'; // bugünse SAAT
     }
-    return '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 }
