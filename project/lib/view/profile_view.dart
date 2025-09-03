@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'settings_view.dart';
+
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
 
@@ -10,12 +12,18 @@ class ProfileView extends StatefulWidget {
 }
 
 class _ProfileViewState extends State<ProfileView> {
+  final supa = Supabase.instance.client;
+
   bool isEditing = false;
   late TextEditingController nameController;
   late TextEditingController emailController;
-  late TextEditingController dobController;
+  late TextEditingController dobController; // UI (DD/MM/YYYY)
   late TextEditingController departmentController;
-  String? profileImageUrl;
+
+  DateTime? _dob; // DB için gerçek tarih
+  String? profileImageUrl; // public/signed url
+
+  static const _bucket = 'profile'; // Supabase’te oluşturduğun bucket
 
   @override
   void initState() {
@@ -27,64 +35,201 @@ class _ProfileViewState extends State<ProfileView> {
     fetchProfile();
   }
 
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    dobController.dispose();
+    departmentController.dispose();
+    super.dispose();
+  }
+
+  String _fmtDateUI(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  String? _fmtDateISO(DateTime? d) => d == null
+      ? null
+      : '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  // Çok-biçimli parser: ISO (YYYY-MM-DD[/T..]), DD/MM/YYYY, epoch (s/ms)
+  DateTime? _parseDob(dynamic raw) {
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    if (s.isEmpty) return null;
+
+    // ISO / timestamptz
+    final iso = DateTime.tryParse(s);
+    if (iso != null) return iso;
+
+    // dd/MM/yyyy
+    final re = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$');
+    final m = re.firstMatch(s);
+    if (m != null) {
+      final d = int.parse(m.group(1)!);
+      final mo = int.parse(m.group(2)!);
+      final y = int.parse(m.group(3)!);
+      return DateTime(y, mo, d);
+    }
+
+    // epoch
+    if (RegExp(r'^\d+$').hasMatch(s)) {
+      final n = int.parse(s);
+      final ms = n > 20000000000 ? n : n * 1000;
+      return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true);
+    }
+    return null;
+  }
+
   Future<void> fetchProfile() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    final profileResponse = await Supabase.instance.client
+    final user = supa.auth.currentUser;
+    if (user == null) return;
+
+    // Sadece ihtiyacımız olan kolonları çekiyoruz (dob, department, avatar_url)
+    final data = await supa
         .from('profiles')
-        .select()
-        .eq('id', user!.id)
-        .single();
+        .select('dob, department, avatar_url')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (data == null || data is! Map<String, dynamic>) {
+      return;
+    }
+
+    final meta = user.userMetadata ?? {};
+    final first = (meta['name'] ?? '').toString();
+    final last = (meta['surname'] ?? '').toString();
+    final fullName = '$first $last'.trim();
+
+    final parsedDob = _parseDob(data['dob']);
 
     setState(() {
-      nameController.text = '${user.userMetadata?['name'] ?? ''} ${user.userMetadata?['surname'] ?? ''}'.trim();
+      nameController.text = fullName;
       emailController.text = user.email ?? '';
-      if (profileResponse['dob'] != null && profileResponse['dob'].toString().isNotEmpty) {
-        final dob = DateTime.tryParse(profileResponse['dob']);
-        dobController.text = dob != null
-        ? '${dob.day.toString().padLeft(2, '0')}/${dob.month.toString().padLeft(2, '0')}/${dob.year}'
-        : '';
+      _dob = parsedDob;
+
+      // Parse başarılıysa formatlı göster; değilse ham stringi göster (boş kalmasın)
+      final dobRaw = data['dob'];
+      if (parsedDob != null) {
+        dobController.text = _fmtDateUI(parsedDob);
+      } else if (dobRaw != null && dobRaw.toString().trim().isNotEmpty) {
+        dobController.text = dobRaw.toString();
       } else {
         dobController.text = '';
       }
-      departmentController.text = (profileResponse['department'] == null || profileResponse['department'].toString().trim().isEmpty)
-          ? 'Please add department'
-          : profileResponse['department'];
-      profileImageUrl = profileResponse['avatar_url'];
+
+      final dep = (data['department'] ?? '').toString().trim();
+      departmentController.text = dep.isEmpty ? 'Please add department' : dep;
+
+      profileImageUrl = (data['avatar_url'] ?? '').toString();
     });
   }
 
   Future<void> updateProfile() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    await Supabase.instance.client.from('profiles').update({
-      'dob': dobController.text,
+    final user = supa.auth.currentUser;
+    if (user == null) return;
+
+    // Kullanıcı metin kutusuna manuel yazdıysa ve _dob null ise, kaydetmeden parse et.
+    if (_dob == null && dobController.text.trim().isNotEmpty) {
+      _dob = _parseDob(dobController.text.trim());
+    }
+
+    await supa.auth.updateUser(UserAttributes(data: {
+      'display_name': nameController.text,
+    }));
+
+    final payload = <String, dynamic>{
       'avatar_url': profileImageUrl,
-      'department': departmentController.text,
-    }).eq('id', user!.id);
+      'department': departmentController.text.trim(),
+    };
 
-    await Supabase.instance.client.auth.updateUser(UserAttributes(
-      data: {'display_name': nameController.text},
-    ));
+    // _dob yoksa DB’deki dob’u ezme
+    final dobIso = _fmtDateISO(_dob);
+    if (dobIso != null) payload['dob'] = dobIso;
 
-    setState(() {
-      isEditing = false;
-    });
+    await supa.from('profiles').update(payload).eq('id', user.id);
+
+    if (!mounted) return;
+    setState(() => isEditing = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profile updated')),
+    );
+  }
+
+  String _mimeFromPath(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+        return 'image/heic';
+      default:
+        return 'application/octet-stream';
+    }
   }
 
   Future<void> pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      final bytes = await pickedFile.readAsBytes();
-      final user = Supabase.instance.client.auth.currentUser;
-      final fileName = '${user?.id}.png';
-      await Supabase.instance.client.storage
-          .from('avatars')
-          .uploadBinary(fileName, bytes, fileOptions: const FileOptions(upsert: true));
-      final url = Supabase.instance.client.storage
-          .from('avatars')
-          .getPublicUrl(fileName);
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.gallery);
+      if (picked == null) return;
+
+      final user = supa.auth.currentUser;
+      if (user == null) return;
+
+      final bytes = await picked.readAsBytes();
+      final contentType = _mimeFromPath(picked.path);
+
+      final objectPath = 'avatars/${user.id}';
+      await supa.storage
+          .from(_bucket)
+          .uploadBinary(objectPath, bytes,
+              fileOptions: FileOptions(
+                upsert: true,
+                contentType: contentType,
+              ));
+
+      final publicUrl =
+          supa.storage.from(_bucket).getPublicUrl(objectPath);
+      final urlWithTs =
+          '$publicUrl?ts=${DateTime.now().millisecondsSinceEpoch}';
+
       setState(() {
-        profileImageUrl = url;
+        profileImageUrl = urlWithTs;
+      });
+
+      await supa.from('profiles').update({
+        'avatar_url': urlWithTs,
+      }).eq('id', user.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Image upload failed: $e')),
+      );
+    }
+  }
+
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final initial = _dob ?? DateTime(now.year - 20, 1, 1);
+    final first = DateTime(1900);
+    final last = DateTime(now.year, now.month, now.day);
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: first,
+      lastDate: last,
+    );
+    if (picked != null) {
+      setState(() {
+        _dob = picked;
+        dobController.text = _fmtDateUI(picked);
       });
     }
   }
@@ -109,7 +254,11 @@ class _ProfileViewState extends State<ProfileView> {
               title: const Text('Settings'),
               onTap: () {
                 Navigator.pop(ctx);
-                // TODO: Navigate to settings page
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SettingsView()),
+                );
               },
             ),
           ],
@@ -120,6 +269,23 @@ class _ProfileViewState extends State<ProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    final avatar = CircleAvatar(
+      radius: 60,
+      backgroundImage: profileImageUrl != null && profileImageUrl!.isNotEmpty
+          ? NetworkImage(profileImageUrl!)
+          : const AssetImage('assets/profile_placeholder.png') as ImageProvider,
+      child: isEditing
+          ? const Align(
+              alignment: Alignment.bottomRight,
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.white,
+                child: Icon(Icons.camera_alt, size: 20),
+              ),
+            )
+          : null,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile', style: TextStyle(fontSize: 17)),
@@ -134,9 +300,7 @@ class _ProfileViewState extends State<ProfileView> {
             IconButton(
               icon: const Icon(Icons.save),
               tooltip: 'Save Profile',
-              onPressed: () async {
-                await updateProfile();
-              },
+              onPressed: updateProfile,
             ),
         ],
       ),
@@ -146,22 +310,7 @@ class _ProfileViewState extends State<ProfileView> {
             const SizedBox(height: 32),
             GestureDetector(
               onTap: isEditing ? pickImage : null,
-              child: CircleAvatar(
-                radius: 60,
-                backgroundImage: profileImageUrl != null
-                    ? NetworkImage(profileImageUrl!)
-                    : const AssetImage('assets/profile_placeholder.png') as ImageProvider,
-                child: isEditing
-                    ? const Align(
-                        alignment: Alignment.bottomRight,
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Colors.white,
-                          child: Icon(Icons.camera_alt, size: 20),
-                        ),
-                      )
-                    : null,
-              ),
+              child: avatar,
             ),
             const SizedBox(height: 16),
             isEditing
@@ -174,28 +323,23 @@ class _ProfileViewState extends State<ProfileView> {
                   )
                 : Text(
                     nameController.text,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold),
                   ),
             const SizedBox(height: 8),
-            isEditing
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                    ),
-                  )
-                : Text(
-                    emailController.text,
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
+            Text(
+              emailController.text,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
             const SizedBox(height: 24),
             Card(
               margin: const EdgeInsets.symmetric(horizontal: 24),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               elevation: 2,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                 child: Column(
                   children: [
                     ProfileInfoRow(
@@ -207,7 +351,13 @@ class _ProfileViewState extends State<ProfileView> {
                     isEditing
                         ? TextField(
                             controller: dobController,
-                            decoration: const InputDecoration(labelText: 'Date of Birth'),
+                            readOnly: true,
+                            onTap: _pickDob,
+                            decoration: const InputDecoration(
+                              labelText: 'Date of Birth',
+                              hintText: 'DD/MM/YYYY',
+                              suffixIcon: Icon(Icons.date_range_rounded),
+                            ),
                           )
                         : ProfileInfoRow(
                             icon: Icons.date_range_rounded,
@@ -218,7 +368,8 @@ class _ProfileViewState extends State<ProfileView> {
                     isEditing
                         ? TextField(
                             controller: departmentController,
-                            decoration: const InputDecoration(labelText: 'Department'),
+                            decoration: const InputDecoration(
+                                labelText: 'Department'),
                           )
                         : ProfileInfoRow(
                             icon: Icons.school,
@@ -232,10 +383,10 @@ class _ProfileViewState extends State<ProfileView> {
             const SizedBox(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.lock, size: 16, color: Colors.grey),
-                const SizedBox(width: 6),
-                const Text(
+              children: const [
+                Icon(Icons.lock, size: 16, color: Colors.grey),
+                SizedBox(width: 6),
+                Text(
                   'All sensitive data is stored securely.',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
@@ -273,8 +424,7 @@ class ProfileInfoRow extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            value,
-            style: const TextStyle(color: Colors.black87),
+            value.isEmpty ? '—' : value,
             overflow: TextOverflow.ellipsis,
           ),
         ),
