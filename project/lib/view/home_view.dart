@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
 import 'chat_view.dart';
 import 'chat_list_view.dart';
+import 'profile_view.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -35,6 +36,13 @@ class _HomeViewState extends State<HomeView> {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ChatListView()),
+    );
+  }
+
+  Future<void> _openProfile() async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProfileView()),
     );
   }
 
@@ -181,6 +189,11 @@ class _HomeViewState extends State<HomeView> {
             icon: const Icon(Icons.message_outlined),
             tooltip: 'New message',
             onPressed: _openNewMessagePicker,
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_box),
+            tooltip: 'Profile',
+            onPressed: _openProfile,
           ),
           IconButton(
             icon: const Icon(Icons.logout),
