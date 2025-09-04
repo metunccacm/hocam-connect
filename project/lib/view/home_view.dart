@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:project/view/marketplace_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeView extends StatelessWidget {
@@ -32,27 +31,10 @@ class HomeView extends StatelessWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Welcome!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 40),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.storefront),
-              label: const Text('Go to Marketplace'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const MarketplaceView()),
-                );
-              },
-            ),
-          ],
+      body: const Center(
+        child: Text(
+          'Welcome!',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
       ),
     );

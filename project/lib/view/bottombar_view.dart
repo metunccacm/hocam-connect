@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:project/view/home_view.dart';
 
+import 'package:project/view/home_view.dart';
+import 'package:project/view/marketplace_view.dart';
+
+import 'dart:math' as math;
 
 // This Week On Campus
 class TWOC extends StatelessWidget {
@@ -45,19 +48,27 @@ class MainTabView extends StatefulWidget {
   State<MainTabView> createState() => _MainTabViewState();
 }
 
-class _MainTabViewState extends State<MainTabView> {
+class _MainTabViewState extends State<MainTabView>
+    with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
-  bool _isMenuOpen = false; // State to control the custom menu
+  late AnimationController _animationController;
 
-  // Navigator keys for each tab to maintain their own navigation stacks
-  final List<GlobalKey<NavigatorState>> _navigatorKeys = [
-    GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+  }
 
-  static const List<Widget> _rootPages = <Widget>[
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  static const List<Widget> _pages = <Widget>[
     HomeView(),
     TWOC(),
     ChatView(),
@@ -65,197 +76,166 @@ class _MainTabViewState extends State<MainTabView> {
   ];
 
   void _onItemTapped(int index) {
-    if (_isMenuOpen) {
-      setState(() {
-        _isMenuOpen = false;
-      });
+    if (_animationController.isCompleted) {
+      _animationController.reverse();
     }
-    if (_selectedIndex == index) {
-      _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
-  // Toggles the visibility of the custom pop-up menu
   void _toggleMenu() {
-    setState(() {
-      _isMenuOpen = !_isMenuOpen;
-    });
+    if (_animationController.isCompleted) {
+      _animationController.reverse();
+    }
+    else {
+      _animationController.forward();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (bool didPop) async {
-        if (_isMenuOpen) {
-          _toggleMenu();
-          return;
-        }
-        if (didPop) return;
-        final navigator = _navigatorKeys[_selectedIndex].currentState;
-        if (navigator != null && navigator.canPop()) {
-          navigator.pop();
-        } else if (_selectedIndex != 0) {
-          setState(() {
-            _selectedIndex = 0;
-          });
-        } else {
-          final shouldPop = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Exit App?'),
-              content: const Text('Are you sure you want to exit?'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('No')),
-                TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Yes')),
-              ],
-            ),
-          );
-          if (shouldPop ?? false) {
-            Navigator.of(context).pop();
-          }
-        }
-      },
-      child: Stack(
+    return Scaffold(
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
+        floatingActionButton: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
         children: [
-          Scaffold(
-            body: IndexedStack(
-              index: _selectedIndex,
-              children: List.generate(_rootPages.length, (index) {
-                return Navigator(
-                  key: _navigatorKeys[index],
-                  onGenerateRoute: (routeSettings) {
-                    return MaterialPageRoute(
-                      builder: (context) => _rootPages[index],
-                    );
-                  },
+          // The main central button
+          FloatingActionButton(
+            shape: const CircleBorder(),
+            backgroundColor: Colors.white,
+            elevation: 4.0,
+            onPressed: _toggleMenu,
+            child: AnimatedBuilder(
+              animation: _animationController,
+              builder: (context, child) {
+                // When menu is open, show a close icon
+                if (_animationController.isCompleted) {
+                  return const Icon(Icons.close, color: Colors.black);
+                }
+                // Otherwise, show the logo
+                return Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Image.asset('assets/logo/acm_logo.png'),
                 );
-              }),
-            ),
-            floatingActionButton: FloatingActionButton(
-              onPressed: _toggleMenu, // Opens the custom menu
-              shape: const CircleBorder(),
-              backgroundColor: Colors.white,
-              elevation: 2.0,
-              child: _isMenuOpen
-                  ? const Icon(Icons.close)
-                  : Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Image.asset(
-                        'assets/logo/acm_logo.png',
-                      ),
-                    ),
-            ),
-            floatingActionButtonLocation:
-                FloatingActionButtonLocation.centerDocked,
-            bottomNavigationBar: BottomAppBar(
-              shape: const CircularNotchedRectangle(),
-              notchMargin: 8.0,
-              child: SizedBox(
-                height: 60,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        _buildTabItem(icon: Icons.home, label: 'Home', index: 0),
-                        _buildTabItem(
-                            icon: Icons.star_border, label: 'TWOC', index: 1),
-                      ],
-                    ),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        _buildTabItem(
-                            icon: Icons.chat_bubble_outline,
-                            label: 'Chat',
-                            index: 2),
-                        _buildTabItem(
-                            icon: Icons.person_outline,
-                            label: 'Profile',
-                            index: 3),
-                      ],
-                    )
-                  ],
-                ),
-              ),
+              },
             ),
           ),
-          // Custom menu overlay
-          if (_isMenuOpen) _buildMenuOverlay(),
+          // The circular menu items
+          _buildMenuOverlay(),
         ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  _buildTabItem(icon: Icons.home, label: 'Home', index: 0),
+                  _buildTabItem(
+                      icon: Icons.star_border, label: 'TWOC', index: 1),
+                ],
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  _buildTabItem(
+                      icon: Icons.chat_bubble_outline, label: 'Chats', index: 2),
+                  _buildTabItem(
+                      icon: Icons.person_outline, label: 'Profile', index: 3),
+                ],
+              )
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  // Builds the custom pop-up menu overlay
+  // This widget builds the arc menu. It no longer needs Align.
   Widget _buildMenuOverlay() {
-    return Stack(
-      children: [
-        // Full-screen detector to close the menu when tapped outside
-        GestureDetector(
-          onTap: _toggleMenu,
-          child: Container(
-            color: Colors.black.withOpacity(0.4),
-            width: double.infinity,
-            height: double.infinity,
-          ),
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        final animationValue =
+            CurvedAnimation(parent: _animationController, curve: Curves.easeOut)
+                .value;
+        // The menu is only visible when the animation is running or completed
+        if (animationValue == 0) return const SizedBox.shrink();
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // GPA Calculator
+            _buildMenuItem(
+              icon: Icons.calculate_outlined,
+              angle: -135, // Top-left
+              animationValue: animationValue,
+              onPressed: () {
+                _toggleMenu();
+              },
+            ),
+            // Marketplace
+            _buildMenuItem(
+              icon: Icons.storefront,
+              angle: -90, // Top-center
+              animationValue: animationValue,
+              onPressed: () {
+                _toggleMenu();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const MarketplaceView()),
+                );
+              },
+            ),
+            // Hitchhike
+            _buildMenuItem(
+              icon: Icons.directions_car_outlined,
+              angle: -45, // Top-right
+              animationValue: animationValue,
+              onPressed: () => _toggleMenu(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Helper to build and position each individual menu button
+  Widget _buildMenuItem({
+    required IconData icon,
+    required double angle,
+    required double animationValue,
+    required VoidCallback onPressed,
+  }) {
+    final radius = 70.0 * animationValue;
+    final x = radius * math.cos(angle * math.pi / 180);
+    // It adjusts 'y' to position it correctly relative to the FAB's center
+    final y = radius * math.sin(angle * math.pi / 180) - 40;
+
+    return Transform.translate(
+      offset: Offset(x, y),
+      child: Opacity(
+        opacity: animationValue,
+        child: FloatingActionButton(
+          heroTag: null,
+          mini: true,
+          onPressed: onPressed,
+          backgroundColor: Colors.white,
+          child: Icon(icon, color: Colors.grey.shade700),
         ),
-        // Positioned menu buttons
-        Positioned(
-          bottom: 95, // Position above the main FAB
-          left: 0,
-          right: 0,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // GPA Calculator Button
-              FloatingActionButton(
-                onPressed: () {
-                  _toggleMenu();
-                  // TODO: Navigate to GPA Calculator page
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('GPA Calculator Tapped')));
-                },
-                heroTag: 'gpa_calculator',
-                backgroundColor: Colors.white,
-                child: const Icon(Icons.calculate_outlined),
-              ),
-              const SizedBox(width: 15),
-              // Placeholder Button 1
-              FloatingActionButton(
-                onPressed: () {
-                  _toggleMenu();
-                  // TODO: Implement action
-                },
-                heroTag: 'placeholder_1',
-                backgroundColor: Colors.white,
-                child: const Icon(Icons.sell_outlined),
-              ),
-              const SizedBox(width: 15),
-              // Placeholder Button 2
-              FloatingActionButton(
-                onPressed: () {
-                  _toggleMenu();
-                  // TODO: Implement action
-                },
-                heroTag: 'placeholder_2',
-                backgroundColor: Colors.white,
-                child: const Icon(Icons.directions_car_outlined),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 

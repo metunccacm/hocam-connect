@@ -30,20 +30,20 @@ enum SortOption { priceAsc, priceDesc, newest }
 class MarketplaceViewModel extends ChangeNotifier {
   // Dummy data for demonstration.
   final List<Product> _allProducts = [
-    Product(id: '1', name: 'Vintage T-Shirt', price: 25.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 28), category: 'Giysiler', sellerName: 'Fethi Başata', sellerImageUrl: 'https://i.pravatar.cc/150?u=fethi'),
-    Product(id: '2', name: 'Used Textbook', price: 50.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 29), category: 'Mutfak Eşyaları', sellerName: 'Mert Yıldırım', sellerImageUrl: 'https://i.pravatar.cc/150?u=mert'),
-    Product(id: '3', name: 'Desk Lamp', price: 15.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 25), category: 'Elektronik', sellerName: 'Karpaz', sellerImageUrl: 'https://i.pravatar.cc/150?u=karpaz'),
-    Product(id: '4', name: 'Classic Jeans', price: 75.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 30), category: 'Giysiler', sellerName: 'Barış', sellerImageUrl: 'https://i.pravatar.cc/150?u=baris'),
-    Product(id: '5', name: 'Amazing T-shirt', price: 12.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 27), category: 'Giysiler', sellerName: 'Buğra', sellerImageUrl: 'https://i.pravatar.cc/150?u=bugra'),
-    Product(id: '6', name: 'Faboulous Pants', price: 15.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 26), category: 'Giysiler', sellerName: 'İrem', sellerImageUrl: 'https://i.pravatar.cc/150?u=irem'),
-    Product(id: '7', name: 'White Shirt', price: 120.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 24), category: 'Giysiler', sellerName: 'Eser', sellerImageUrl: 'https://i.pravatar.cc/150?u=eser'),
-    Product(id: '8', name: 'Heater', price: 500.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 23), category: 'Elektronik', sellerName: 'Eren Başata', sellerImageUrl: 'https://i.pravatar.cc/150?u=eren'),
+    Product(id: '1', name: 'Vintage T-Shirt', price: 25.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 28), category: 'Clothes', sellerName: 'Fethi Başata', sellerImageUrl: 'https://via.placeholder.com/150'),
+    Product(id: '2', name: 'Used Textbook', price: 50.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 29), category: 'Kitchen Items', sellerName: 'Mert Yıldırım', sellerImageUrl: 'https://via.placeholder.com/150'),
+    Product(id: '3', name: 'Desk Lamp', price: 15.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 25), category: 'Electronics', sellerName: 'Karpat', sellerImageUrl: 'https://via.placeholder.com/150'),
+    Product(id: '4', name: 'Classic Jeans', price: 75.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 30), category: 'Clothes', sellerName: 'Barış', sellerImageUrl: 'https://via.placeholder.com/150'),
+    Product(id: '5', name: 'Amazing T-shirt', price: 12.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 27), category: 'Clothes', sellerName: 'Buğra', sellerImageUrl: 'https://via.placeholder.com/150'),
+    Product(id: '6', name: 'Faboulous Pants', price: 15.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 26), category: 'Clothes', sellerName: 'İrem', sellerImageUrl: 'https://via.placeholder.com/150'),
+    Product(id: '7', name: 'White Shirt', price: 120.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 24), category: 'Clothes', sellerName: 'Eser', sellerImageUrl: 'https://via.placeholder.com/150'),
+    Product(id: '8', name: 'Heater', price: 500.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 23), category: 'Electronics', sellerName: 'Eren Başata', sellerImageUrl: 'https://via.placeholder.com/150'),
   ];
 
   Map<String, List<Product>> _groupedProducts = {};
   SortOption _currentSortOption = SortOption.newest;
   Set<String> _activeFilters = {};
-  String _searchQuery = ''; // Add search query state
+  String _searchQuery = ''; // For search functionality
 
   MarketplaceViewModel() {
     _updateProducts();

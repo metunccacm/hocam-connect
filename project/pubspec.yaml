@@ -28,8 +28,6 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
   path_provider: ^2.0.11
   flutter:
     sdk: flutter
@@ -37,15 +35,14 @@ dependencies:
   supabase_flutter: ^2.9.1
   cached_network_image: ^3.0.0
   email_validator: ^2.1.17  
-  circular_menu: ^4.0.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   intl: ^0.20.2
+  collection: ^1.19.1
 
 dev_dependencies:
-  hive_generator: ^2.0.1
   flutter_test:
     sdk: flutter
 

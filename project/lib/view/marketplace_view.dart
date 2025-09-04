@@ -49,13 +49,12 @@ class _MarketplaceViewState extends State<MarketplaceView> {
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 1,
-        // Conditionally build the leading icon and title
-        leading: _isSearching
-            ? null // Hide leading icon when searching
-            : IconButton(
-                icon: const Icon(Icons.search, color: Colors.black),
-                onPressed: _toggleSearch,
-              ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
         title: _isSearching
             ? TextField(
                 controller: _searchController,
@@ -77,7 +76,11 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               icon: const Icon(Icons.close, color: Colors.black),
               onPressed: _toggleSearch,
             )
-          else
+          else ...[
+            IconButton(
+              icon: const Icon(Icons.search, color: Colors.black),
+              onPressed: _toggleSearch,
+            ),
             IconButton(
               icon: const Icon(Icons.add, color: Colors.black),
               onPressed: () {
@@ -87,7 +90,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                       builder: (context) => const AddItemView()),
                 );
               },
-            )
+            ),
+          ]
         ],
       ),
       body: Column(
@@ -118,7 +122,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
     );
   }
 
-  // Builds a single category section (e.g., "Giysiler")
+  // Builds a single category section (e.g., "Clothes")
   Widget _buildCategorySection(String category, List<Product> products) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
