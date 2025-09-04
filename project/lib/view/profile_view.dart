@@ -23,7 +23,7 @@ class _ProfileViewState extends State<ProfileView> {
   DateTime? _dob; // DB için gerçek tarih
   String? profileImageUrl; // public/signed url
 
-  static const _bucket = 'profile'; // Supabase’te oluşturduğun bucket
+  static const _bucket = 'profile'; // Supabase bucket to store avatars
 
   @override
   void initState() {
@@ -266,7 +266,7 @@ class _ProfileViewState extends State<ProfileView> {
       ),
     );
   }
-
+ //Builder
   @override
   Widget build(BuildContext context) {
     final avatar = CircleAvatar(

@@ -10,7 +10,7 @@ import 'view/welcome_view.dart';
 import 'viewmodel/login_viewmodel.dart';
 import 'viewmodel/register_viewmodel.dart';
 
-// ↓ Tema yöneticisini ekle (dosya yolunu projene göre ayarla)
+// Theme Controller
 import 'theme_controller.dart';
 
 // SUPA CONNECTION //

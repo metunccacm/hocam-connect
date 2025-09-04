@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../theme_controller.dart'; // theme_controller.dart'ı lib/ altına koyduysan ../ ile eriş
+import '../theme_controller.dart'; //Theme Controller
 
 class SettingsView extends StatefulWidget {
-  const SettingsView({super.key}); // super parameter uyarısı düzeltildi
+  const SettingsView({super.key});
 
   @override
   State<SettingsView> createState() => _SettingsViewState();
@@ -39,7 +38,7 @@ class _SettingsViewState extends State<SettingsView> {
   // NOTIFICATIONS (placeholder)
   void _toggleNotifications(bool value) {
     setState(() => notificationsEnabled = value);
-    // Bildirim entegrasyonunu burada yapacaksın (örn. firebase_messaging).
+    // Bildirim entegrasyonunu burada yapacağız.
   }
 
   // ACCOUNT DELETE WILL BE IMPLEMENTED LATER!!!!
