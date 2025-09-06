@@ -6,7 +6,7 @@ import 'view/home_view.dart';
 import 'view/login_view.dart';
 import 'view/register_view.dart';
 import 'view/welcome_view.dart';
-
+import 'view/gpa_calculator_view.dart';
 import 'viewmodel/login_viewmodel.dart';
 import 'viewmodel/register_viewmodel.dart';
 
@@ -177,6 +177,7 @@ class MyApp extends StatelessWidget {
         '/welcome': (_) => const WelcomeView(),
         '/home': (_) => const HomeView(),
         '/register': (_) => const RegistrationView(),
+        '/gpa_calculator': (_) =>  const GpaCalculatorView(),
       },
     );
   }

@@ -6,6 +6,7 @@ import '../services/chat_service.dart';
 import 'chat_view.dart';
 import 'chat_list_view.dart';
 import 'profile_view.dart';
+import 'gpa_calculator_view.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -43,6 +44,13 @@ class _HomeViewState extends State<HomeView> {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ProfileView()),
+    );
+  }
+
+  Future<void> _openGpaCalculator() async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const GpaCalculatorView()),
     );
   }
 
@@ -203,10 +211,21 @@ class _HomeViewState extends State<HomeView> {
         ],
       ),
       floatingActionButton: fab,
-      body: const Center(
-        child: Text(
-          'Welcome!',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Welcome!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _openGpaCalculator,
+              icon: const Icon(Icons.calculate),
+              label: const Text('GPA Calculator'),
+            ),
+          ],
         ),
       ),
     );
