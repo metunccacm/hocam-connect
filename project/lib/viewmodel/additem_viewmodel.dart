@@ -1,53 +1,95 @@
-import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_form_builder/flutter_form_builder.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class AddItemViewModel extends ChangeNotifier {
-  final SupabaseClient _supabaseClient = Supabase.instance.client;
+  // State variables
+  String? _selectedCategory;
+  String? _selectedSizeOption;
+  final List<File> _selectedImages = [];
+  bool _isPickingImage = false; // New state variable
 
-  bool _isUploading = false;
-  String? _uploadError;
+  // Getters to expose state to the view
+  String? get selectedCategory => _selectedCategory;
+  String? get selectedSizeOption => _selectedSizeOption;
+  List<File> get selectedImages => _selectedImages;
+  bool get isPickingImage => _isPickingImage; // New getter
 
-  bool get isUploading => _isUploading;
-  String? get uploadError => _uploadError;
+  // Static data
+  final List<String> categories = ['Electronics', 'Clothes', 'Books'];
 
-  // This function will be called from the AddItemView to save the new item.
-  Future<void> addItem({
-    required String title,
-    required String description,
-    required String price, // You can also use double, just parse it here
-    required String size,
-    required String color,
-    required List<String> imageUrls,
-  }) async {
-    _isUploading = true;
-    _uploadError = null;
+  // Logic to handle category change
+  void onCategoryChanged(String? category) {
+    _selectedCategory = category;
+    notifyListeners();
+  }
+
+  // Logic to handle size option change
+  void onSizeOptionChanged(String label) {
+    _selectedSizeOption = label;
+    notifyListeners();
+  }
+
+  // Logic to handle image picking
+  Future<void> pickImage(BuildContext context) async {
+    // Prevent multiple calls
+    if (_isPickingImage) {
+      return;
+    }
+
+    _isPickingImage = true;
     notifyListeners();
 
     try {
-      final response = await _supabaseClient.from('products').insert({
-        'title': title,
-        'description': description,
-        'price': price,
-        'size': size,
-        'color': color,
-        'image_urls': imageUrls,
-      });
+      final picker = ImagePicker();
+      final List<XFile>? pickedFiles = await picker.pickMultiImage();
 
-      if (response.error != null) {
-        throw response.error!;
+      if (pickedFiles == null) {
+        return;
       }
-    } on PostgrestException catch (e) {
-      _uploadError = 'Failed to add item: ${e.message}';
-    } catch (e) {
-      _uploadError = 'An unknown error occurred: $e';
+
+      if (_selectedImages.length + pickedFiles.length <= 4) {
+        _selectedImages.addAll(pickedFiles.map((xfile) => File(xfile.path)));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You can only add up to 4 images.')),
+        );
+      }
     } finally {
-      _isUploading = false;
+      // Ensure this is always reset
+      _isPickingImage = false;
       notifyListeners();
     }
   }
 
-  // TODO: Add methods for handling image uploads
-  // You can use a library like `image_picker` to get the image from the user's device,
-  // then use the Supabase Storage client to upload the image and get the public URL.
-  // The imageUrls list in the addItem function would contain these public URLs.
+  // Logic to remove an image
+  void removeImage(int index) {
+    _selectedImages.removeAt(index);
+    notifyListeners();
+  }
+
+  // Logic to validate form and list product
+  void listProduct(BuildContext context, GlobalKey<FormBuilderState> formKey) {
+    final formState = formKey.currentState;
+
+    if (formState != null && formState.saveAndValidate()) {
+      if (_selectedImages.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('At least one image is required!')),
+        );
+      } else {
+        final formData = formState.value;
+        // TODO: Send data to backend with formData and _selectedImages
+        // For now, just show a message.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product will be listed!')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all required fields.')),
+      );
+    }
+  }
 }
