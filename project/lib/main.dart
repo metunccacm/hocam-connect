@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:project/view/marketplace_view.dart';
+import 'package:project/view/bottombar_view.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Your existing imports
-import 'view/home_view.dart';
 import 'view/login_view.dart';
 import 'view/register_view.dart';
 import 'view/welcome_view.dart';
+
 import 'viewmodel/login_viewmodel.dart';
+import 'viewmodel/marketplace_viewmodel.dart';
 import 'viewmodel/register_viewmodel.dart';
+
 
 // New import for the scaling utility
 import 'config/size_config.dart';
@@ -25,36 +26,40 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = Supabase.instance.client.auth;
 
+   // 1) Immediate check: if already logged in, jump to MainTabView
     if (auth.currentSession != null) {
-      return const HomeView();
+      return const MainTabView();
     }
 
+    
+    // 2) Otherwise, listen for future auth changes
     return StreamBuilder<AuthState>(
       stream: auth.onAuthStateChange,
       builder: (context, snap) {
+        // Tiny splash while waiting the first tick
         if (snap.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
-          );
+          ); //Scaffold
         }
 
         final signedIn = auth.currentSession != null ||
             snap.data?.event == AuthChangeEvent.signedIn;
 
-        return signedIn ? const HomeView() : const WelcomeView();
+        // If you want to show a Welcome screen before Login, keep WelcomeView
+        return signedIn ? const MainTabView() : const WelcomeView();
       },
     );
   }
 }
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
-    debug: true,
   );
+
 
   Supabase.instance.client.auth.onAuthStateChange
       .listen((s) => debugPrint('Auth event: ${s.event}, session: ${s.session != null}'));
@@ -63,10 +68,13 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider<LoginViewModel>(
-          create: (_) => LoginViewModel(),
+          create: (context) => LoginViewModel(),
         ),
         ChangeNotifierProvider<RegistrationViewModel>(
-          create: (_) => RegistrationViewModel(),
+          create: (context) => RegistrationViewModel(),
+        ),
+        ChangeNotifierProvider<MarketplaceViewModel>(
+          create: (context) => MarketplaceViewModel(),
         ),
       ],
       child: const MyApp(),
@@ -116,13 +124,14 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
+
+      // IMPORTANT: AuthGate is the root
       home: const AuthGate(),
       routes: {
         '/login': (_) => const LoginView(),
         '/welcome': (_) => const WelcomeView(),
-        '/home': (_) => const HomeView(),
         '/register': (_) => const RegistrationView(),
-        '/marketplace': (_) => const MarketplaceView(),
+        // '/home' and '/marketplace' are now handled by bottombar_view.dart
       },
     );
   }
