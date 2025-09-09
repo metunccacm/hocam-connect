@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:project/view/marketplace_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../screens/view/canteen_menu.dart';
 
@@ -26,10 +27,14 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Future<void> _logout() async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     await Supabase.instance.client.auth.signOut();
-    if (!mounted) return;
-    Navigator.pushNamed(context, '/login');
-    ScaffoldMessenger.of(context).showSnackBar(
+
+    // Navigate to login and remove all previous routes
+    navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+    messenger.showSnackBar(
       const SnackBar(content: Text('Logged out')),
     );
   }
@@ -52,6 +57,13 @@ class _HomeViewState extends State<HomeView> {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const GpaCalculatorView()),
+    );
+  }
+
+  Future<void> _openMarketplace() async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const MarketplaceView()),
     );
   }
 
@@ -225,6 +237,12 @@ class _HomeViewState extends State<HomeView> {
               onPressed: _openGpaCalculator,
               icon: const Icon(Icons.calculate),
               label: const Text('GPA Calculator'),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _openMarketplace,
+              icon: const Icon(Icons.calculate),
+              label: const Text('Marketplace'),
             ),
             // Yemekhane Menüsü Butonu
             SizedBox(
