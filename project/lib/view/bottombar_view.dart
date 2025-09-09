@@ -1,45 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:project/view/chat_list_view.dart';
 
 import 'package:project/view/home_view.dart';
 import 'package:project/view/marketplace_view.dart';
+import 'package:project/view/profile_view.dart';
+import 'package:project/view/this_week_view.dart';
 
 import 'dart:math' as math;
 
-// This Week On Campus
-class TWOC extends StatelessWidget {
-  const TWOC({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('This Week On Campus')),
-      body: const Center(child: Text('TWOC')),
-    );
-  }
-}
 
-// DM
-class ChatView extends StatelessWidget {
-  const ChatView({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Chat')),
-      body: const Center(child: Text('Chat Page')),
-    );
-  }
-}
 
-// Profile
-class ProfileView extends StatelessWidget {
-  const ProfileView({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: const Center(child: Text('Profile Page')),
-    );
-  }
-}
+
+
 
 class MainTabView extends StatefulWidget {
   const MainTabView({super.key});
@@ -70,8 +42,8 @@ class _MainTabViewState extends State<MainTabView>
 
   static const List<Widget> _pages = <Widget>[
     HomeView(),
-    TWOC(),
-    ChatView(),
+    ThisWeekView(),
+    ChatListView(),
     ProfileView(),
   ];
 
