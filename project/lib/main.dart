@@ -24,6 +24,8 @@ import 'config/size_config.dart';
 const supabaseUrl = 'https://supa-api.avarion.com.tr';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
 
+
+// sas sa a sas sa
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
