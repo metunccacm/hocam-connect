@@ -216,6 +216,7 @@ class MyApp extends StatelessWidget {
         '/register': (_) => const RegistrationView(),
         '/canteen-menu': (_) => const CanteenMenuScreen(),
         '/gpa_calculator': (_) =>  const GpaCalculatorView(),
+        '/home': (_) => const MainTabView(), 
       },
     );
   }
