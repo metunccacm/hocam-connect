@@ -1,14 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:project/view/marketplace_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../screens/view/canteen_menu.dart';
 
 import '../services/chat_service.dart';
 import 'chat_view.dart';
 import 'chat_list_view.dart';
 import 'profile_view.dart';
-import 'gpa_calculator_view.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -50,20 +47,6 @@ class _HomeViewState extends State<HomeView> {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ProfileView()),
-    );
-  }
-
-  Future<void> _openGpaCalculator() async {
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const GpaCalculatorView()),
-    );
-  }
-
-  Future<void> _openMarketplace() async {
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const MarketplaceView()),
     );
   }
 
@@ -228,22 +211,6 @@ class _HomeViewState extends State<HomeView> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Welcome!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _openGpaCalculator,
-              icon: const Icon(Icons.calculate),
-              label: const Text('GPA Calculator'),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _openMarketplace,
-              icon: const Icon(Icons.calculate),
-              label: const Text('Marketplace'),
-            ),
             // Yemekhane Menüsü Butonu
             SizedBox(
               width: double.infinity,
