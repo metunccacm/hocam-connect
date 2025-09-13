@@ -168,55 +168,28 @@ class MyApp extends StatelessWidget {
     );
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
-    // Initialize SizeConfig here at the root of the app
     SizeConfig().init(context);
 
-    return MaterialApp(
-      title: 'Hocam Connect',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: Colors.white,
-        colorScheme: const ColorScheme.light(
-          primary: Color(0xFF007BFF),
-          onPrimary: Colors.white,
-          secondary: Color(0xFFF0F0F0),
-        ),
-        useMaterial3: true,
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10.0),
-            borderSide: const BorderSide(color: Color(0xFFF0F0F0)),
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          labelStyle: const TextStyle(color: Colors.black54),
-          hintStyle: const TextStyle(color: Colors.black38),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF007BFF),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10.0),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-            textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
-      ),
-
-      // IMPORTANT: AuthGate is the root
-      home: const AuthGate(),
-      routes: {
-        '/login': (_) => const LoginView(),
-        '/welcome': (_) => const WelcomeView(),
-        '/register': (_) => const RegistrationView(),
-        '/canteen-menu': (_) => const CanteenMenuScreen(),
-        '/gpa_calculator': (_) =>  const GpaCalculatorView(),
-        '/home': (_) => const MainTabView(), 
+    return Consumer<ThemeController>(
+      builder: (_, c, __) {
+        return MaterialApp(
+          title: 'Hocam Connect',
+          debugShowCheckedModeBanner: false,
+          theme: _lightTheme(),
+          darkTheme: _darkTheme(),
+          themeMode: c.mode, // <— KRİTİK
+          home: const AuthGate(),
+          routes: {
+            '/login': (_) => const LoginView(),
+            '/welcome': (_) => const WelcomeView(),
+            '/register': (_) => const RegistrationView(),
+            '/canteen-menu': (_) => const CanteenMenuScreen(),
+            '/gpa_calculator': (_) => const GpaCalculatorView(),
+            '/home': (_) => const MainTabView(),
+          },
+        );
       },
     );
   }
