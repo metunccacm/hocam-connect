@@ -53,7 +53,6 @@ class _RegistrationViewState extends State<RegistrationView> {
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
-      
     );
 
     if (picked != null) {
@@ -268,26 +267,26 @@ class _RegistrationViewState extends State<RegistrationView> {
                       height: 50,
                       child: ElevatedButton(
                         onPressed: viewModel.isLoading
-                        ? null
-                        : () async {
-                            if (_formKey.currentState!.validate()) {
-                              await viewModel.register(
-                                context,
-                                name: _nameController.text,
-                                surname: _surnameController.text,
-                                email: _emailController.text,
-                                password: _passwordController.text,
-                                dobText: _dobController.text,
-                              );
-                            }
-                          },
+                            ? null
+                            : () async {
+                                if (_formKey.currentState!.validate()) {
+                                  await viewModel.register(
+                                    context,
+                                    name: _nameController.text,
+                                    surname: _surnameController.text,
+                                    email: _emailController.text,
+                                    password: _passwordController.text,
+                                    dobText: _dobController.text,
+                                  );
+                                }
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                         ),
                         child: viewModel.isLoading
                             ? const CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               )
                             : const Text(
                                 "Register",

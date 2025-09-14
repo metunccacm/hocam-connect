@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:project/view/marketplace_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../screens/view/canteen_menu.dart';
+import '../screens/view/canteen_menu.dart'; // route ile gidiyorsun; dursun
+import 'package:project/utils/safe_mutate.dart';
 
 import '../services/chat_service.dart';
 import 'chat_view.dart';
@@ -23,6 +24,7 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
+    // async beklemiyoruz; sadece tetikliyor
     _svc.ensureMyLongTermKey();
   }
 
@@ -32,7 +34,8 @@ class _HomeViewState extends State<HomeView> {
 
     await Supabase.instance.client.auth.signOut();
 
-    // Navigate to login and remove all previous routes
+    if (!mounted) return;
+    // Tüm geçmişi temizleyerek login'e dön
     navigator.pushNamedAndRemoveUntil('/login', (route) => false);
     messenger.showSnackBar(
       const SnackBar(content: Text('Logged out')),
@@ -74,17 +77,17 @@ class _HomeViewState extends State<HomeView> {
       final supa = Supabase.instance.client;
       final me = supa.auth.currentUser!.id;
 
-  final rows = await supa.rpc('list_messaging_users');
-  final all = (rows as List).cast<Map<String,dynamic>>();
-  final items = all
-      .map((r) => (
-        uid:  r['user_id'] as String,
-        name: (r['display_name'] as String?) ?? '',
-        avatar: r['avatar_url'] as String?,
-        updatedAt: r['updated_at'] as String?
-      ))
-      .where((it) => it.uid != me)
-      .toList();
+      final rows = await supa.rpc('list_messaging_users');
+      final all = (rows as List).cast<Map<String, dynamic>>();
+      final items = all
+          .map((r) => (
+                uid: r['user_id'] as String,
+                name: (r['display_name'] as String?) ?? '',
+                avatar: r['avatar_url'] as String?,
+                updatedAt: r['updated_at'] as String?
+              ))
+          .where((it) => it.uid != me)
+          .toList();
 
       if (!mounted) return;
 
@@ -107,9 +110,11 @@ class _HomeViewState extends State<HomeView> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('New message',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'New message',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
                       const SizedBox(height: 8),
                       TextField(
                         decoration: InputDecoration(
@@ -127,21 +132,26 @@ class _HomeViewState extends State<HomeView> {
                         child: ListView.separated(
                           shrinkWrap: true,
                           itemCount: filtered.length,
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 1),
+                          separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (_, i) {
                             final it = filtered[i];
                             return ListTile(
-                              leading: it.avatar != null && it.avatar!.isNotEmpty
-                                  ? CircleAvatar(backgroundImage: NetworkImage(it.avatar!))
+                              leading: it.avatar != null &&
+                                      it.avatar!.isNotEmpty
+                                  ? CircleAvatar(
+                                      backgroundImage: NetworkImage(it.avatar!))
                                   : CircleAvatar(
                                       child: Text(
-                                        it.name.isNotEmpty ? it.name[0].toUpperCase() : '?',
+                                        it.name.isNotEmpty
+                                            ? it.name[0].toUpperCase()
+                                            : '?',
                                       ),
                                     ),
                               title: Text(it.name),
-                              subtitle: Text(it.uid,
-                                  style: const TextStyle(color: Colors.black54)),
+                              subtitle: Text(
+                                it.uid,
+                                style: const TextStyle(color: Colors.black54),
+                              ),
                               onTap: () async {
                                 Navigator.of(ctx).pop();
                                 try {
@@ -153,7 +163,7 @@ class _HomeViewState extends State<HomeView> {
                                     MaterialPageRoute(
                                       builder: (_) => ChatView(
                                         conversationId: convId,
-                                        title: it.name, // use display name
+                                        title: it.name,
                                       ),
                                     ),
                                   );
@@ -225,50 +235,70 @@ class _HomeViewState extends State<HomeView> {
       ),
       floatingActionButton: fab,
       body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Welcome!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _openGpaCalculator,
-              icon: const Icon(Icons.calculate),
-              label: const Text('GPA Calculator'),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _openMarketplace,
-              icon: const Icon(Icons.calculate),
-              label: const Text('Marketplace'),
-            ),
-            // Yemekhane Menüsü Butonu
-            SizedBox(
-              width: double.infinity,
-              height: 60,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/canteen-menu');
-                },
-                icon: const Icon(Icons.restaurant_menu, size: 24),
-                label: const Text(
-                  'Yemekhane Menüsü',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007BFF),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Welcome!',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _openGpaCalculator,
+                icon: const Icon(Icons.calculate),
+                label: const Text('GPA Calculator'),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _openMarketplace,
+                icon: const Icon(Icons.storefront),
+                label: const Text('Marketplace'),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 60,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/canteen-menu');
+                  },
+                  icon: const Icon(Icons.restaurant_menu, size: 24),
+                  label: const Text(
+                    'Yemekhane Menüsü',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007BFF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
+/* 
+// HOVER davranışı gerekiyorsa, Scaffold'u MouseRegion ile güvenli sar. 
+// (Gerekli değilse ekleme.)
+@override
+Widget build(BuildContext context) {
+  return MouseRegion(
+    onEnter: (_) => safeMutate(this, () {
+      // hover state değişimi/overlay vb.
+    }),
+    onExit: (_) => safeMutate(this, () {
+      // tersine çevir
+    }),
+    child: Scaffold( ... ),
+  );
+}
+*/
