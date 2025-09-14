@@ -20,7 +20,6 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     super.initState();
     vm = GpaViewModel(tableName: 'courses'); // using your chosen table
 
-    // Fetch data from Supabase when the widget is created
     vm.loadLatestForCurrentUser().then((_) {
       if (!mounted) return;
       setState(() {
@@ -47,7 +46,6 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
   @override
   void dispose() {
-    // Dispose controllers you own in this view
     for (final s in semesters) {
       for (final c in s.courses) {
         c.dispose();
@@ -58,16 +56,8 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
   // Editable grade scale
   static const Map<String, double> gradeToPoint = {
-    'AA': 4.0,
-    'BA': 3.5,
-    'BB': 3.0,
-    'CB': 2.5,
-    'CC': 2.0,
-    'DC': 1.5,
-    'DD': 1.0,
-    'FD': 0.5,
-    'FF': 0.0,
-    'EX': 0.0,
+    'AA': 4.0, 'BA': 3.5, 'BB': 3.0, 'CB': 2.5,
+    'CC': 2.0, 'DC': 1.5, 'DD': 1.0, 'FD': 0.5, 'FF': 0.0, 'EX': 0.0,
   };
 
   final List<SemesterModel> semesters = [
@@ -91,7 +81,6 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     return cr == 0 ? 0 : qp / cr;
   }
 
-  /// CGPA cumulative until and including semester sIdx.
   double _cgpaUntil(int sIdx) {
     double qp = 0, cr = 0;
     for (int i = 0; i <= sIdx; i++) {
@@ -121,6 +110,46 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     });
   }
 
+  // NEW: edit semester name ----------------------------------------------------
+  Future<void> _editSemesterName(int sIdx) async {
+    final current = semesters[sIdx].name.isNotEmpty
+        ? semesters[sIdx].name
+        : 'Semester #${sIdx + 1}';
+    final controller = TextEditingController(text: current);
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit semester name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(
+            hintText: 'e.g., Fall 2025',
+          ),
+          onSubmitted: (_) => Navigator.of(ctx).pop(controller.text.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        semesters[sIdx].name = result;
+      });
+    }
+  }
+
   // ---- explicit Save ---------------------------------------------------------
 
   Future<void> _save() async {
@@ -129,14 +158,13 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
     try {
       vm.setSemestersFromUi(semesters);
-      await vm.saveNewSnapshot();
+      await vm.saveSnapshot(); // upsert by user_id
 
       if (vm.error != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Save failed: ${vm.error}')),
-          );
-        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Save failed: ${vm.error}')),
+        );
         return;
       }
 
@@ -170,7 +198,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
       children: [
         Scaffold(
           appBar: AppBar(
-            leading: const BackButton(), // just go back, no save here
+            leading: const BackButton(),
             title: const Text('GPA Calculator'),
             actions: [
               IconButton(
@@ -182,7 +210,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
           ),
           body: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: semesters.length + 1, // +1 for "Yeni Dönem Ekle"
+            itemCount: semesters.length + 1,
             itemBuilder: (context, index) {
               if (index == semesters.length) {
                 return Padding(
@@ -196,14 +224,16 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
               }
 
               final sIdx = index;
+              final s = semesters[sIdx];
               final gpa = _semesterGpa(sIdx);
               final cgpa = _cgpaUntil(sIdx);
 
               return Padding(
                 padding: EdgeInsets.only(
-                    bottom: sIdx == semesters.length - 1 ? 16 : 24),
+                  bottom: sIdx == semesters.length - 1 ? 16 : 24,
+                ),
                 child: Card(
-                  key: ObjectKey(semesters[sIdx]),
+                  key: ObjectKey(s),
                   margin: EdgeInsets.zero,
                   elevation: 0,
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -212,15 +242,29 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Semester #${sIdx + 1}',
-                            style: Theme.of(context).textTheme.titleMedium),
+                        // CHANGED: Title row with Edit button
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                (s.name.isNotEmpty) ? s.name : 'Semester #${sIdx + 1}',
+                                style: Theme.of(context).textTheme.titleMedium,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined),
+                              tooltip: 'Edit semester name',
+                              onPressed: () => _editSemesterName(sIdx),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 12),
-                        for (int cIdx = 0;
-                            cIdx < semesters[sIdx].courses.length;
-                            cIdx++) ...[
+
+                        for (int cIdx = 0; cIdx < s.courses.length; cIdx++) ...[
                           _CourseRow(
-                            key: ObjectKey(semesters[sIdx].courses[cIdx]),
-                            course: semesters[sIdx].courses[cIdx],
+                            key: ObjectKey(s.courses[cIdx]),
+                            course: s.courses[cIdx],
                             grades: gradeToPoint.keys.toList(),
                             onChanged: () => setState(() {}),
                             onDelete: () => _removeCourse(sIdx, cIdx),
@@ -228,21 +272,21 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                           const SizedBox(height: 8),
                         ],
                         const SizedBox(height: 4),
+
                         OutlinedButton.icon(
                           onPressed: () => _addCourse(sIdx),
                           icon: const Icon(Icons.add_circle_outline),
                           label: const Text('Add Course'),
                         ),
+
                         const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('GPA: ${gpa.toStringAsFixed(2)}',
-                                style:
-                                    Theme.of(context).textTheme.titleMedium),
+                                style: Theme.of(context).textTheme.titleMedium),
                             Text('CGPA: ${cgpa.toStringAsFixed(2)}',
-                                style:
-                                    Theme.of(context).textTheme.titleMedium),
+                                style: Theme.of(context).textTheme.titleMedium),
                           ],
                         ),
                       ],
@@ -254,7 +298,6 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
           ),
         ),
 
-        // Saving overlay to block taps while saving
         if (_isSaving)
           Positioned.fill(
             child: AbsorbPointer(
@@ -273,14 +316,21 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
 class SemesterModel {
   final List<Course> courses;
-  SemesterModel({required this.courses});
+
+  // NEW: simple name string (no controllers to manage)
+  String name;
+
+  SemesterModel({
+    required this.courses,
+    this.name = '',
+  });
 }
 
 class Course {
   final TextEditingController nameCtrl;
   final TextEditingController creditCtrl;
-  String? grade; // null until picked
-  int credits; // numeric shadow for calc
+  String? grade;
+  int credits;
 
   Course({
     required this.nameCtrl,
@@ -316,7 +366,6 @@ class _CourseRow extends StatelessWidget {
   final VoidCallback onChanged;
   final VoidCallback onDelete;
 
-  // ---- constants
   static const double kFieldHeight = 48;
   static const double kRadius = 14;
   static const double kGap = 8;
@@ -324,8 +373,7 @@ class _CourseRow extends StatelessWidget {
   InputDecoration boxDeco([String? hint]) => InputDecoration(
         hintText: hint,
         isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(kRadius)),
       );
 
@@ -333,8 +381,7 @@ class _CourseRow extends StatelessWidget {
       OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(kFieldHeight),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         ),
       );
 
@@ -352,7 +399,7 @@ class _CourseRow extends StatelessWidget {
               controller: course.nameCtrl,
               textCapitalization: TextCapitalization.characters,
               autocorrect: false,
-              decoration: boxDeco('MAT 119'), // Placeholder
+              decoration: boxDeco('MAT 119'),
               onChanged: (_) => onChanged(),
             ),
           ),
@@ -369,13 +416,8 @@ class _CourseRow extends StatelessWidget {
               decoration: boxDeco(),
               hint: const Text('XX'),
               isExpanded: true,
-              items: grades
-                  .map((g) => DropdownMenuItem(value: g, child: Text(g)))
-                  .toList(),
-              onChanged: (v) {
-                course.grade = v;
-                onChanged();
-              },
+              items: grades.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+              onChanged: (v) { course.grade = v; onChanged(); },
             ),
           ),
         ),
@@ -388,29 +430,21 @@ class _CourseRow extends StatelessWidget {
             height: kFieldHeight,
             child: TextFormField(
               controller: course.creditCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: false),
+              keyboardType: const TextInputType.numberWithOptions(decimal: false),
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: boxDeco('4'),
-              onChanged: (v) {
-                course.credits = int.tryParse(v) ?? 0;
-                onChanged();
-              },
+              onChanged: (v) { course.credits = int.tryParse(v) ?? 0; onChanged(); },
             ),
           ),
         ),
         const SizedBox(width: kGap),
 
-        // Delete (fixed square, circular)
+        // Delete
         ConstrainedBox(
-          constraints: const BoxConstraints.tightFor(
-              width: kFieldHeight, height: kFieldHeight),
+          constraints: const BoxConstraints.tightFor(width: kFieldHeight, height: kFieldHeight),
           child: OutlinedButton(
             onPressed: onDelete,
-            style: OutlinedButton.styleFrom(
-              shape: const CircleBorder(),
-              padding: EdgeInsets.zero,
-            ),
+            style: OutlinedButton.styleFrom(shape: const CircleBorder(), padding: EdgeInsets.zero),
             child: const Icon(Icons.close),
           ),
         ),
