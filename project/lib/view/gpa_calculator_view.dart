@@ -15,6 +15,10 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
   bool _isLoading = true;
   bool _isSaving = false;
 
+  // --- inline semester-name editing (no dialog)
+  final Map<int, TextEditingController> _semNameCtrls = {};
+  final Set<int> _editingSemesters = {};
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +50,11 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
   @override
   void dispose() {
+    // dispose semester-name controllers used for inline editing
+    for (final ctrl in _semNameCtrls.values) {
+      ctrl.dispose();
+    }
+    // dispose course controllers
     for (final s in semesters) {
       for (final c in s.courses) {
         c.dispose();
@@ -56,8 +65,16 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
   // Editable grade scale
   static const Map<String, double> gradeToPoint = {
-    'AA': 4.0, 'BA': 3.5, 'BB': 3.0, 'CB': 2.5,
-    'CC': 2.0, 'DC': 1.5, 'DD': 1.0, 'FD': 0.5, 'FF': 0.0, 'EX': 0.0,
+    'AA': 4.0,
+    'BA': 3.5,
+    'BB': 3.0,
+    'CB': 2.5,
+    'CC': 2.0,
+    'DC': 1.5,
+    'DD': 1.0,
+    'FD': 0.5,
+    'FF': 0.0,
+    'EX': 0.0,
   };
 
   final List<SemesterModel> semesters = [
@@ -70,7 +87,79 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
   bool _isActive(Course c) =>
       c.nameCtrl.text.trim().isNotEmpty && c.grade != null && c.credits > 0;
 
+  // Normalize a course name for duplicate detection
+  String _norm(String s) =>
+      s.trim().toUpperCase().replaceAll(RegExp(r'\s+'), ' ');
+
+  // Build occurrences map for active courses: name -> list of (sIdx,cIdx)
+  Map<String, List<(int sIdx, int cIdx)>> _activeOccurrences() {
+    final map = <String, List<(int, int)>>{};
+    for (int si = 0; si < semesters.length; si++) {
+      for (int ci = 0; ci < semesters[si].courses.length; ci++) {
+        final c = semesters[si].courses[ci];
+        if (!_isActive(c)) continue;
+        final key = _norm(c.nameCtrl.text);
+        map.putIfAbsent(key, () => []).add((si, ci));
+      }
+    }
+    return map;
+  }
+
+  // For CGPA until sIdx: return a set of (si,ci) to EXCLUDE
+  Set<(int, int)> _excludedForCgpaPrefix(int sIdx) {
+    final ex = <(int, int)>{};
+    final occ = _activeOccurrences();
+    for (final entries in occ.values) {
+      final prefix = entries.where((t) => t.$1 <= sIdx).toList();
+      if (prefix.length <= 1) continue;
+      for (int i = 0; i < prefix.length - 1; i++) {
+        ex.add(prefix[i]);
+      }
+    }
+    return ex;
+  }
+
+  bool _isLatestOverall(int sIdx, int cIdx) {
+    final c = semesters[sIdx].courses[cIdx];
+    if (!_isActive(c)) return false;
+    final key = _norm(c.nameCtrl.text);
+    final occ = _activeOccurrences()[key] ?? const [];
+    if (occ.isEmpty) return false;
+    final last = occ.last;
+    return last.$1 == sIdx && last.$2 == cIdx;
+  }
+
+  // Which prior semester *names* does this latest attempt replace?
+  List<String> _replacesSemestersOverall(int sIdx, int cIdx) {
+    final c = semesters[sIdx].courses[cIdx];
+    if (!_isActive(c)) return const [];
+    final key = _norm(c.nameCtrl.text);
+    final occ = _activeOccurrences()[key] ?? const [];
+    if (occ.isEmpty) return const [];
+    final last = occ.last;
+    if (last.$1 != sIdx || last.$2 != cIdx) return const [];
+    final priorNames = occ.take(occ.length - 1).map((t) {
+      final sem = semesters[t.$1];
+      return sem.name.isNotEmpty ? sem.name : 'Semester #${t.$1 + 1}';
+    }).toList();
+    return priorNames;
+  }
+
+  // NEW: if a course row is not the latest, return the later semester's name
+  String? _laterSemesterNameFor(int sIdx, int cIdx) {
+    final c = semesters[sIdx].courses[cIdx];
+    if (!_isActive(c)) return null;
+    final key = _norm(c.nameCtrl.text);
+    final occ = _activeOccurrences()[key] ?? const [];
+    if (occ.isEmpty) return null;
+    final last = occ.last;
+    if (last.$1 == sIdx && last.$2 == cIdx) return null; // this row is latest
+    final sem = semesters[last.$1];
+    return sem.name.isNotEmpty ? sem.name : 'Semester #${last.$1 + 1}';
+  }
+
   double _semesterGpa(int sIdx) {
+    // semester GPA keeps all active courses that term
     final active = semesters[sIdx].courses.where(_isActive);
     double qp = 0, cr = 0;
     for (final c in active) {
@@ -81,10 +170,15 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     return cr == 0 ? 0 : qp / cr;
   }
 
+  /// CGPA cumulative until and including semester sIdx (replacement rule)
   double _cgpaUntil(int sIdx) {
+    final excluded = _excludedForCgpaPrefix(sIdx);
     double qp = 0, cr = 0;
-    for (int i = 0; i <= sIdx; i++) {
-      for (final c in semesters[i].courses.where(_isActive)) {
+    for (int si = 0; si <= sIdx; si++) {
+      for (int ci = 0; ci < semesters[si].courses.length; ci++) {
+        final c = semesters[si].courses[ci];
+        if (!_isActive(c)) continue;
+        if (excluded.contains((si, ci))) continue;
         final pts = gradeToPoint[c.grade] ?? 0.0;
         qp += pts * c.credits;
         cr += c.credits;
@@ -99,6 +193,37 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     });
   }
 
+  // NEW: delete an entire semester (with confirmation)
+  Future<void> _deleteSemester(int sIdx) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete semester?'),
+        content: const Text('This will remove the semester and its courses.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() {
+      // dispose course controllers
+      for (final c in semesters[sIdx].courses) {
+        c.dispose();
+      }
+      semesters.removeAt(sIdx);
+
+      // clear any inline-edit state (simplest + safest after index shift)
+      for (final ctrl in _semNameCtrls.values) {
+        ctrl.dispose();
+      }
+      _semNameCtrls.clear();
+      _editingSemesters.clear();
+    });
+  }
+
   void _addCourse(int sIdx) {
     setState(() => semesters[sIdx].courses.add(Course.empty()));
   }
@@ -107,47 +232,46 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     setState(() {
       semesters[sIdx].courses[cIdx].dispose();
       semesters[sIdx].courses.removeAt(cIdx);
+
+      // NEW: auto-delete semester if no courses remain
+      if (semesters[sIdx].courses.isEmpty) {
+        // Dispose sem-name editor state for this index
+        _semNameCtrls.remove(sIdx)?.dispose();
+        _editingSemesters.remove(sIdx);
+        semesters.removeAt(sIdx);
+
+        // After index shift, safest is to reset editor maps
+        for (final ctrl in _semNameCtrls.values) {
+          ctrl.dispose();
+        }
+        _semNameCtrls.clear();
+        _editingSemesters.clear();
+      }
     });
   }
 
-  // NEW: edit semester name ----------------------------------------------------
-  Future<void> _editSemesterName(int sIdx) async {
+  // --- inline edit controls for semester name --------------------------------
+  void _beginEditSemName(int sIdx) {
     final current = semesters[sIdx].name.isNotEmpty
         ? semesters[sIdx].name
         : 'Semester #${sIdx + 1}';
-    final controller = TextEditingController(text: current);
+    _semNameCtrls[sIdx]?.dispose();
+    _semNameCtrls[sIdx] = TextEditingController(text: current);
+    setState(() => _editingSemesters.add(sIdx));
+  }
 
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit semester name'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-            hintText: 'e.g., Fall 2025',
-          ),
-          onSubmitted: (_) => Navigator.of(ctx).pop(controller.text.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
+  void _commitEditSemName(int sIdx) {
+    final text = _semNameCtrls[sIdx]?.text.trim() ?? '';
+    setState(() {
+      semesters[sIdx].name = text;
+      _editingSemesters.remove(sIdx);
+    });
+    _semNameCtrls.remove(sIdx)?.dispose();
+  }
 
-    if (result != null) {
-      setState(() {
-        semesters[sIdx].name = result;
-      });
-    }
+  void _cancelEditSemName(int sIdx) {
+    setState(() => _editingSemesters.remove(sIdx));
+    _semNameCtrls.remove(sIdx)?.dispose();
   }
 
   // ---- explicit Save ---------------------------------------------------------
@@ -158,7 +282,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
     try {
       vm.setSemestersFromUi(semesters);
-      await vm.saveSnapshot(); // upsert by user_id
+      await vm.saveSnapshot(); // <— upsert by user_id
 
       if (vm.error != null) {
         if (!mounted) return;
@@ -198,7 +322,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
       children: [
         Scaffold(
           appBar: AppBar(
-            leading: const BackButton(),
+            leading: const BackButton(), // just go back, no save here
             title: const Text('GPA Calculator'),
             actions: [
               IconButton(
@@ -210,7 +334,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
           ),
           body: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: semesters.length + 1,
+            itemCount: semesters.length + 1, // +1 for "Add New Semester"
             itemBuilder: (context, index) {
               if (index == semesters.length) {
                 return Padding(
@@ -227,13 +351,13 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
               final s = semesters[sIdx];
               final gpa = _semesterGpa(sIdx);
               final cgpa = _cgpaUntil(sIdx);
+              final isEditing = _editingSemesters.contains(sIdx);
 
               return Padding(
                 padding: EdgeInsets.only(
-                  bottom: sIdx == semesters.length - 1 ? 16 : 24,
-                ),
+                    bottom: sIdx == semesters.length - 1 ? 16 : 24),
                 child: Card(
-                  key: ObjectKey(s),
+                  key: ObjectKey(semesters[sIdx]),
                   margin: EdgeInsets.zero,
                   elevation: 0,
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -242,51 +366,103 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // CHANGED: Title row with Edit button
+                        // --- Inline title editor + actions
                         Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                (s.name.isNotEmpty) ? s.name : 'Semester #${sIdx + 1}',
-                                style: Theme.of(context).textTheme.titleMedium,
-                                overflow: TextOverflow.ellipsis,
+                              child: isEditing
+                                  ? TextField(
+                                      controller: _semNameCtrls[sIdx],
+                                      autofocus: true,
+                                      textInputAction: TextInputAction.done,
+                                      onSubmitted: (_) =>
+                                          _commitEditSemName(sIdx),
+                                      decoration: const InputDecoration(
+                                        hintText: 'e.g., Fall 2025',
+                                        isDense: true,
+                                      ),
+                                    )
+                                  : GestureDetector(
+                                      onTap: () => _beginEditSemName(sIdx),
+                                      child: Text(
+                                        (s.name.isNotEmpty)
+                                            ? s.name
+                                            : 'Semester #${sIdx + 1}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(width: 4),
+                            if (isEditing) ...[
+                              IconButton(
+                                icon: const Icon(Icons.check),
+                                tooltip: 'Save name',
+                                onPressed: () => _commitEditSemName(sIdx),
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined),
-                              tooltip: 'Edit semester name',
-                              onPressed: () => _editSemesterName(sIdx),
-                            ),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                tooltip: 'Cancel',
+                                onPressed: () => _cancelEditSemName(sIdx),
+                              ),
+                            ] else ...[
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined),
+                                tooltip: 'Edit semester name',
+                                onPressed: () => _beginEditSemName(sIdx),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                tooltip: 'Delete semester',
+                                onPressed: () => _deleteSemester(sIdx),
+                              ),
+                            ],
                           ],
                         ),
+
                         const SizedBox(height: 12),
 
-                        for (int cIdx = 0; cIdx < s.courses.length; cIdx++) ...[
+                        for (int cIdx = 0;
+                            cIdx < semesters[sIdx].courses.length;
+                            cIdx++) ...[
                           _CourseRow(
-                            key: ObjectKey(s.courses[cIdx]),
-                            course: s.courses[cIdx],
+                            key: ObjectKey(semesters[sIdx].courses[cIdx]),
+                            course: semesters[sIdx].courses[cIdx],
                             grades: gradeToPoint.keys.toList(),
                             onChanged: () => setState(() {}),
                             onDelete: () => _removeCourse(sIdx, cIdx),
                           ),
+
+                          // Replacement notes
+                          _ReplacementNote(
+                            isLatestOverall: _isLatestOverall(sIdx, cIdx),
+                            replacesSemesters:
+                                _replacesSemestersOverall(sIdx, cIdx),
+                            laterSemesterName:
+                                _laterSemesterNameFor(sIdx, cIdx),
+                          ),
+
                           const SizedBox(height: 8),
                         ],
-                        const SizedBox(height: 4),
 
+                        const SizedBox(height: 4),
                         OutlinedButton.icon(
                           onPressed: () => _addCourse(sIdx),
                           icon: const Icon(Icons.add_circle_outline),
                           label: const Text('Add Course'),
                         ),
-
                         const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('GPA: ${gpa.toStringAsFixed(2)}',
-                                style: Theme.of(context).textTheme.titleMedium),
+                                style:
+                                    Theme.of(context).textTheme.titleMedium),
                             Text('CGPA: ${cgpa.toStringAsFixed(2)}',
-                                style: Theme.of(context).textTheme.titleMedium),
+                                style:
+                                    Theme.of(context).textTheme.titleMedium),
                           ],
                         ),
                       ],
@@ -298,6 +474,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
           ),
         ),
 
+        // Saving overlay to block taps while saving
         if (_isSaving)
           Positioned.fill(
             child: AbsorbPointer(
@@ -316,21 +493,15 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
 class SemesterModel {
   final List<Course> courses;
-
-  // NEW: simple name string (no controllers to manage)
   String name;
-
-  SemesterModel({
-    required this.courses,
-    this.name = '',
-  });
+  SemesterModel({required this.courses, this.name = ''});
 }
 
 class Course {
   final TextEditingController nameCtrl;
   final TextEditingController creditCtrl;
-  String? grade;
-  int credits;
+  String? grade; // null until picked
+  int credits; // numeric shadow for calc
 
   Course({
     required this.nameCtrl,
@@ -347,6 +518,66 @@ class Course {
   void dispose() {
     nameCtrl.dispose();
     creditCtrl.dispose();
+  }
+}
+
+// ====== replacement note (tiny widget) ========================================
+
+class _ReplacementNote extends StatelessWidget {
+  const _ReplacementNote({
+    required this.isLatestOverall,
+    required this.replacesSemesters,
+    required this.laterSemesterName,
+  });
+
+  final bool isLatestOverall;
+  final List<String> replacesSemesters; // names (or "Semester #N")
+  final String? laterSemesterName;      // name of later semester, if any
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    if (isLatestOverall && replacesSemesters.isNotEmpty) {
+      final list = replacesSemesters.join(', ');
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Row(
+          children: [
+            const Icon(Icons.swap_horiz, size: 16),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'This attempt replaces previous attempts in $list.',
+                style: textTheme.bodySmall,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!isLatestOverall && laterSemesterName != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, size: 16),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Replaced by $laterSemesterName — excluded from final CGPA.',
+                style: textTheme.bodySmall?.copyWith(
+                  color: textTheme.bodySmall?.color?.withOpacity(0.75),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 }
 
@@ -416,8 +647,13 @@ class _CourseRow extends StatelessWidget {
               decoration: boxDeco(),
               hint: const Text('XX'),
               isExpanded: true,
-              items: grades.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-              onChanged: (v) { course.grade = v; onChanged(); },
+              items: grades
+                  .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                  .toList(),
+              onChanged: (v) {
+                course.grade = v;
+                onChanged();
+              },
             ),
           ),
         ),
@@ -430,10 +666,14 @@ class _CourseRow extends StatelessWidget {
             height: kFieldHeight,
             child: TextFormField(
               controller: course.creditCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: false),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: false),
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: boxDeco('4'),
-              onChanged: (v) { course.credits = int.tryParse(v) ?? 0; onChanged(); },
+              onChanged: (v) {
+                course.credits = int.tryParse(v) ?? 0;
+                onChanged();
+              },
             ),
           ),
         ),
@@ -441,10 +681,14 @@ class _CourseRow extends StatelessWidget {
 
         // Delete
         ConstrainedBox(
-          constraints: const BoxConstraints.tightFor(width: kFieldHeight, height: kFieldHeight),
+          constraints: const BoxConstraints.tightFor(
+              width: kFieldHeight, height: kFieldHeight),
           child: OutlinedButton(
             onPressed: onDelete,
-            style: OutlinedButton.styleFrom(shape: const CircleBorder(), padding: EdgeInsets.zero),
+            style: OutlinedButton.styleFrom(
+              shape: const CircleBorder(),
+              padding: EdgeInsets.zero,
+            ),
             child: const Icon(Icons.close),
           ),
         ),
