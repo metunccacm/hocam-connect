@@ -31,7 +31,8 @@ class RegistrationViewModel extends ChangeNotifier {
       } catch (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid date format. Use dd/MM/yyyy')),
+            const SnackBar(
+                content: Text('Invalid date format. Use dd/MM/yyyy')),
           );
         }
         isLoading = false;
@@ -41,15 +42,15 @@ class RegistrationViewModel extends ChangeNotifier {
     }
 
     final first = name.trim();
-    final last  = surname.trim();
-    final full  = [first, last].where((s) => s.isNotEmpty).join(' ');
+    final last = surname.trim();
+    final full = [first, last].where((s) => s.isNotEmpty).join(' ');
 
     // 1) Kayıtta AUTH metadata gönder (Supabase "Display name" için)
     final meta = <String, dynamic>{
-      if (full.isNotEmpty)  'full_name': full,
+      if (full.isNotEmpty) 'full_name': full,
       if (first.isNotEmpty) 'name': first,
-      if (last.isNotEmpty)  'surname': last,
-      if (dobIso != null)   'dob': dobIso,
+      if (last.isNotEmpty) 'surname': last,
+      if (dobIso != null) 'dob': dobIso,
     };
 
     try {
@@ -63,14 +64,15 @@ class RegistrationViewModel extends ChangeNotifier {
               .from('profiles')
               .update({
                 if (first.isNotEmpty) 'name': first,
-                if (last.isNotEmpty)  'surname': last,
-                if (dobIso != null)   'dob': dobIso,
+                if (last.isNotEmpty) 'surname': last,
+                if (dobIso != null) 'dob': dobIso,
               })
               .eq('id', user.id)
               .select()
               .single();
         } on PostgrestException catch (e) {
-          debugPrint('PG ERROR code=${e.code} message=${e.message} details=${e.details}');
+          debugPrint(
+              'PG ERROR code=${e.code} message=${e.message} details=${e.details}');
           // Database exception user debug:
           // if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
         }
@@ -85,13 +87,16 @@ class RegistrationViewModel extends ChangeNotifier {
       } else {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Check your email to confirm your account.')),
+            const SnackBar(
+                content: Text('Check your email to confirm your account.')),
           );
+          Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
         }
       }
     } on AuthException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
       if (context.mounted) {
