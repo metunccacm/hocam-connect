@@ -1,3 +1,4 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -9,12 +10,41 @@ class CanteenMenuScreen extends StatefulWidget {
 }
 
 class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
-  int _selectedWeekIndex = 0;
-  final List<String> _weekNames = [
-    'Bu Hafta',
-    'Gelecek Hafta',
-    'Sonraki Hafta',
+  int _selectedDayIndex = 0;
+  final List<String> _dayNames = const [
+    'Pazartesi',
+    'Salı',
+    'Çarşamba',
+    'Perşembe',
+    'Cuma',
+    'Cumartesi',
+    'Pazar',
   ];
+  final ScrollController _chipScrollController = ScrollController();
+  late final List<GlobalKey> _chipKeys;
+
+  @override
+  void initState() {
+    super.initState();
+    final int todayIndex = DateTime.now().weekday - 1; // 1=Mon -> 0 index
+    _selectedDayIndex = todayIndex < 0
+        ? 0
+        : (todayIndex >= _dayNames.length ? _dayNames.length - 1 : todayIndex);
+    _chipKeys = List<GlobalKey>.generate(_dayNames.length, (_) => GlobalKey());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelectedChip());
+  }
+
+  void _scrollToSelectedChip() {
+    if (_selectedDayIndex < 0 || _selectedDayIndex >= _chipKeys.length) return;
+    final BuildContext? ctx = _chipKeys[_selectedDayIndex].currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
 
   // Örnek menü verisi - ileride backend'den gelecek
   final Map<String, Map<String, Map<String, List<String>>>> _weeklyMenus = {
@@ -88,120 +118,134 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        iconTheme: IconThemeData(color: colors.onSurface),
+        title: Text(
           'Yemekhane Menüsü',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontSize: 20,
+          style: textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: colors.onSurface,
           ),
         ),
         centerTitle: true,
-        backgroundColor: const Color(0xFF007BFF),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(20),
-            bottomRight: Radius.circular(20),
-          ),
-        ),
       ),
       body: Column(
         children: [
-          // Hafta seçici
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Color(0xFF007BFF),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-            ),
-            child: Column(
-              children: [
-                // Hafta seçici butonlar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: _weekNames.asMap().entries.map((entry) {
-                    int index = entry.key;
-                    String weekName = entry.value;
-                    bool isSelected = _selectedWeekIndex == index;
-                    
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedWeekIndex = index;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.white : Colors.transparent,
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 2,
-                          ),
-                          boxShadow: isSelected ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ] : null,
-                        ),
-                        child: Text(
-                          weekName,
-                          style: TextStyle(
-                            color: isSelected ? const Color(0xFF007BFF) : Colors.white,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            fontSize: 16,
-                          ),
-                        ),
+          // Gün seçici header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Stack(
+                children: [
+                  // hafif degrade arka plan
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          colors.primary.withAlpha((0.14 * 255).round()),
+                          colors.primaryContainer.withAlpha((0.10 * 255).round()),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                // Tarih bilgisi
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Text(
-                    _getWeekDateRange(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      border: Border.all(
+                        color: colors.outline.withAlpha((0.35 * 255).round()),
+                      ),
+                      borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                ),
-              ],
+                  // frosted blur
+                  BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // gün segmentleri
+                          SizedBox(
+                            height: 56,
+                            child: SingleChildScrollView(
+                              controller: _chipScrollController,
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: Row(
+                                children: _dayNames.asMap().entries.map((entry) {
+                                  final int index = entry.key;
+                                  final String dayName = entry.value;
+                                  final bool isSelected = _selectedDayIndex == index;
+                                  final bool isToday = index == (DateTime.now().weekday - 1);
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: _DayPill(
+                                      key: _chipKeys[index],
+                                      label: dayName,
+                                      isSelected: isSelected,
+                                      isToday: isToday,
+                                      onTap: () {
+                                        setState(() => _selectedDayIndex = index);
+                                        WidgetsBinding.instance.addPostFrameCallback(
+                                          (_) => _scrollToSelectedChip(),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          // tarih yongası
+                          Align(
+                            alignment: Alignment.center,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: colors.surface.withAlpha((0.6 * 255).round()),
+                                border: Border.all(color: colors.outline.withAlpha((0.5 * 255).round())),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                _getSelectedDateString(),
+                                style: textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          
-          // Menü listesi
+
+          // Menü listesi (seçili gün)
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _weeklyMenus[_weekNames[_selectedWeekIndex]]!.length,
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+              itemCount: 1,
               itemBuilder: (context, index) {
-                String dayName = _weeklyMenus[_weekNames[_selectedWeekIndex]]!.keys.elementAt(index);
-                Map<String, List<String>> dayMenu = _weeklyMenus[_weekNames[_selectedWeekIndex]]![dayName]!;
-                
-                return _buildDayMenuCard(dayName, dayMenu);
+                String selectedDayName = _dayNames[_selectedDayIndex];
+                final Map<String, List<String>>? maybeDayMenu =
+                    _weeklyMenus['Bu Hafta']?[selectedDayName];
+                final Map<String, List<String>> dayMenu =
+                    maybeDayMenu ?? <String, List<String>>{};
+                return _buildDayMenuCard(selectedDayName, dayMenu);
               },
             ),
           ),
@@ -211,10 +255,15 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
   }
 
   Widget _buildDayMenuCard(String dayName, Map<String, List<String>> dayMenu) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final List<String> lunch = dayMenu['Öğle'] ?? const [];
+    final List<String> dinner = dayMenu['Akşam'] ?? const [];
+
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
       elevation: 6,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withAlpha((0.1 * 255).round()),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
@@ -229,11 +278,11 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF007BFF),
+                    color: colors.primary,
                     borderRadius: BorderRadius.circular(25),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF007BFF).withOpacity(0.3),
+                        color: colors.primary.withAlpha((0.3 * 255).round()),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -241,10 +290,9 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                   ),
                   child: Text(
                     dayName,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: textTheme.titleSmall?.copyWith(
+                      color: colors.onPrimary,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
                     ),
                   ),
                 ),
@@ -252,25 +300,46 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0F0F0),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     Icons.calendar_today,
-                    color: const Color(0xFF007BFF),
+                    color: colors.primary,
                     size: 20,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 20),
-            
-            // Öğle yemeği
-            _buildMealSection('Öğle Yemeği', dayMenu['Öğle']!),
-            const SizedBox(height: 20),
-            
-            // Akşam yemeği
-            _buildMealSection('Akşam Yemeği', dayMenu['Akşam']!),
+
+            if (lunch.isEmpty && dinner.isEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outline,
+                    width: 1,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    'Bu gün için menü bulunamadı',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ] else ...[
+              _buildMealSection('Öğle Yemeği', lunch),
+              const SizedBox(height: 20),
+              _buildMealSection('Akşam Yemeği', dinner),
+            ],
           ],
         ),
       ),
@@ -278,6 +347,9 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
   }
 
   Widget _buildMealSection(String mealTitle, List<String> menuItems) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -285,16 +357,15 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
           children: [
             Icon(
               mealTitle.contains('Öğle') ? Icons.wb_sunny : Icons.nightlight,
-              color: const Color(0xFF007BFF),
+              color: colors.primary,
               size: 20,
             ),
             const SizedBox(width: 8),
             Text(
               mealTitle,
-              style: const TextStyle(
-                fontSize: 18,
+              style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF007BFF),
+                color: colors.primary,
               ),
             ),
           ],
@@ -303,79 +374,156 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0F0F0),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFFE9ECEF),
+              color: Theme.of(context).colorScheme.outline,
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha((0.05 * 255).round()),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
-                      child: Column(
-              children: menuItems.asMap().entries.map((entry) {
-                int index = entry.key;
-                String item = entry.value;
-                
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF007BFF),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF007BFF).withOpacity(0.3),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          item,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w500,
+          child: Column(
+            children: menuItems.map((item) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: colors.primary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.primary.withAlpha((0.3 * 255).round()),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        item,
+                        style: textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
   }
 
-  String _getWeekDateRange() {
-    // Basit tarih hesaplama - gerçek uygulamada daha gelişmiş olabilir
-    DateTime now = DateTime.now();
-    DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    
-    if (_selectedWeekIndex == 1) {
-      startOfWeek = startOfWeek.add(const Duration(days: 7));
-    } else if (_selectedWeekIndex == 2) {
-      startOfWeek = startOfWeek.add(const Duration(days: 14));
-    }
-    
-    DateTime endOfWeek = startOfWeek.add(const Duration(days: 4)); // Cuma'ya kadar
-    
-    DateFormat formatter = DateFormat('dd MMM yyyy');
-    return '${formatter.format(startOfWeek)} - ${formatter.format(endOfWeek)}';
+  String _getSelectedDateString() {
+    // Seçili günün tarihi (mevcut haftadan)
+    final DateTime now = DateTime.now();
+    final DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final DateTime selectedDate = startOfWeek.add(Duration(days: _selectedDayIndex));
+    final DateFormat formatter = DateFormat('dd MMM yyyy');
+    return formatter.format(selectedDate);
   }
-} 
+}
+
+/// Modern/minimal gün butonu
+class _DayPill extends StatelessWidget {
+  const _DayPill({
+    super.key,
+    required this.label,
+    required this.isSelected,
+    required this.isToday,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final bool isToday;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected
+                ? colors.primary
+                : colors.outline.withAlpha((0.6 * 255).round()),
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: colors.primary.withAlpha((0.28 * 255).round()),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: isSelected ? colors.onPrimary : colors.onSurface,
+                letterSpacing: 0.1,
+              ),
+            ),
+            if (isToday) ...[
+              const SizedBox(width: 8),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? colors.onPrimary.withAlpha((0.15 * 255).round())
+                      : colors.primary.withAlpha((0.10 * 255).round()),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected ? colors.onPrimary : colors.primary,
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  'Bugün',
+                  style: textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: isSelected ? colors.onPrimary : colors.primary,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
