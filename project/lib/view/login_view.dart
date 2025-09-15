@@ -22,7 +22,8 @@ class _LoginViewState extends State<LoginView> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, // Align content to the left
+                crossAxisAlignment:
+                    CrossAxisAlignment.start, // Align content to the left
                 children: <Widget>[
                   const SizedBox(height: 80),
                   // App logo - using a placeholder for now
@@ -32,7 +33,8 @@ class _LoginViewState extends State<LoginView> {
                       height: 120,
                       decoration: const BoxDecoration(
                         image: DecorationImage(
-                          image: AssetImage('assets/logo/hc_logo.png'), // Placeholder image
+                          image: AssetImage(
+                              'assets/logo/hc_logo.png'), // Placeholder image
                           fit: BoxFit.contain,
                         ),
                       ),
@@ -82,7 +84,9 @@ class _LoginViewState extends State<LoginView> {
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                          _isPasswordVisible
+                              ? Icons.visibility
+                              : Icons.visibility_off,
                           color: Colors.grey,
                         ),
                         onPressed: () {
@@ -104,11 +108,14 @@ class _LoginViewState extends State<LoginView> {
                     alignment: Alignment.centerLeft,
                     child: TextButton(
                       onPressed: () {
-                        // TODO: Navigate to forgot password page
+                        Navigator.pushNamed(context, '/forgot-password',
+                            arguments: viewModel.emailController.text);
                       },
                       child: const Text(
                         'Forgot password?',
-                        style: TextStyle(color: Color(0xFF007BFF), fontWeight: FontWeight.normal),
+                        style: TextStyle(
+                            color: Color(0xFF007BFF),
+                            fontWeight: FontWeight.normal),
                       ),
                     ),
                   ),
@@ -123,7 +130,8 @@ class _LoginViewState extends State<LoginView> {
                         await viewModel.loginUser(context);
                       },
                       style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50), // Full width button
+                        minimumSize: const Size(
+                            double.infinity, 50), // Full width button
                       ),
                       child: const Text('Login'),
                     ),
@@ -144,7 +152,9 @@ class _LoginViewState extends State<LoginView> {
                         },
                         child: const Text(
                           'Sign up now',
-                          style: TextStyle(color: Color(0xFF007BFF), fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              color: Color(0xFF007BFF),
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
