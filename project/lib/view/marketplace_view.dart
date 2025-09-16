@@ -172,7 +172,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ProductDetailView(product: product),
+                        builder: (_) => ProductDetailView(product: products[index]),
                       ),
                     );
                   },
@@ -188,13 +188,15 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                           child: Container(
                             color: const Color(0xFFEAF2FF),
                             child: Image.network(
-                              product.imageUrl,
+                              product.imageUrls[0], // <-- Show the first image from the images list
                               fit: BoxFit.cover,
                               width: double.infinity,
-                              errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 40)),
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 40),
+                              ),
+                            ),
                             ),
                           ),
-                        ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
                           child: Text(product.name, style: const TextStyle(fontWeight: FontWeight.normal), maxLines: 1, overflow: TextOverflow.ellipsis),

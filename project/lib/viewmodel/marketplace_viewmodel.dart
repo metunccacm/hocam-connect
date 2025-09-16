@@ -6,21 +6,29 @@ class Product {
   final String id;
   final String name;
   final double price;
-  final String imageUrl;
+  final List<String> imageUrls;
   final DateTime dateAdded;
   final String category;
   final String sellerName;
   final String sellerImageUrl;
+  final String sellerId;
+  final String description;
+  final List<String>? sizes;
+  final String? selectedSize;
 
   Product({
     required this.id,
     required this.name,
     required this.price,
-    required this.imageUrl,
+    required this.imageUrls,
     required this.dateAdded,
     required this.category,
     required this.sellerName,
     required this.sellerImageUrl,
+    required this.sellerId,
+    required this.description,
+    this.sizes,
+    this.selectedSize,
   });
 }
 
@@ -30,15 +38,78 @@ enum SortOption { priceAsc, priceDesc, newest }
 class MarketplaceViewModel extends ChangeNotifier {
   // Dummy data for demonstration.
   final List<Product> _allProducts = [
-    Product(id: '1', name: 'Vintage T-Shirt', price: 25.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 28), category: 'Clothes', sellerName: 'Fethi Başata', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '2', name: 'Used Textbook', price: 50.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 29), category: 'Kitchen Items', sellerName: 'Mert Yıldırım', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '3', name: 'Desk Lamp', price: 15.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 25), category: 'Electronics', sellerName: 'Karpat', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '4', name: 'Classic Jeans', price: 75.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 30), category: 'Clothes', sellerName: 'Barış', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '5', name: 'Amazing T-shirt', price: 12.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 27), category: 'Clothes', sellerName: 'Buğra', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '6', name: 'Faboulous Pants', price: 15.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 26), category: 'Clothes', sellerName: 'İrem', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '7', name: 'White Shirt', price: 120.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 24), category: 'Clothes', sellerName: 'Eser', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '8', name: 'Heater', price: 500.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 23), category: 'Electronics', sellerName: 'Eren Başata', sellerImageUrl: 'https://via.placeholder.com/150'),
-  ];
+  Product(
+    id: '1',
+    name: 'Cool Shirt',
+    price: 29.99,
+    imageUrls: [
+      'https://images.unsplash.com/photo-1512436991641-6745cdb1723f',
+      'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?fit=crop&w=400&q=80',
+      'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?fit=crop&w=600&q=80',
+      'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?fit=crop&w=800&q=80',
+    ],
+    dateAdded: DateTime.now().subtract(const Duration(days: 1)),
+    category: 'Clothes',
+    sellerName: 'Alice',
+    sellerImageUrl: 'https://randomuser.me/api/portraits/women/1.jpg',
+    sellerId: 'user_alice', // Added sellerId
+    description: 'A very cool shirt for summer.',
+    sizes: ['S', 'M', 'L', 'XL'],
+    selectedSize: 'M',
+  ),
+  Product(
+    id: '2',
+    name: 'Modern Toaster',
+    price: 49.99,
+    imageUrls: [
+      'https://images.unsplash.com/photo-1504674900247-0877df9cc836',
+      'https://images.unsplash.com/photo-1504674900247-0877df9cc836?fit=crop&w=400&q=80',
+    ],
+    dateAdded: DateTime.now().subtract(const Duration(days: 2)),
+    category: 'Kitchen Items',
+    sellerName: 'Bob',
+    sellerImageUrl: 'https://randomuser.me/api/portraits/men/2.jpg',
+    sellerId: 'user_bob', // Added sellerId
+    description: 'A modern toaster for your kitchen.',
+    sizes: null,
+    selectedSize: null,
+  ),
+  Product(
+    id: '3',
+    name: 'Wireless Headphones',
+    price: 99.99,
+    imageUrls: [
+      'https://images.unsplash.com/photo-1511367461989-f85a21fda167',
+      'https://images.unsplash.com/photo-1511367461989-f85a21fda167?fit=crop&w=400&q=80',
+      'https://images.unsplash.com/photo-1511367461989-f85a21fda167?fit=crop&w=600&q=80',
+    ],
+    dateAdded: DateTime.now().subtract(const Duration(hours: 10)),
+    category: 'Electronics',
+    sellerName: 'Charlie',
+    sellerImageUrl: 'https://randomuser.me/api/portraits/men/3.jpg',
+    sellerId: 'user_charlie', // Added sellerId
+    description: 'Noise-cancelling wireless headphones.',
+    sizes: null,
+    selectedSize: null,
+  ),
+  Product(
+    id: '4',
+    name: 'Elegant Dress',
+    price: 59.99,
+    imageUrls: [
+      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e',
+      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?fit=crop&w=400&q=80',
+    ],
+    dateAdded: DateTime.now().subtract(const Duration(days: 3)),
+    category: 'Clothes',
+    sellerName: 'Diana',
+    sellerImageUrl: 'https://randomuser.me/api/portraits/women/4.jpg',
+    sellerId: 'user_diana', // Added sellerId
+    description: 'An elegant dress for special occasions.',
+    sizes: ['S', 'M', 'L'],
+    selectedSize: 'S',
+  ),
+];
 
   Map<String, List<Product>> _groupedProducts = {};
   SortOption _currentSortOption = SortOption.newest;

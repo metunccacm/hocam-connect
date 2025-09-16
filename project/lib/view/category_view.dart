@@ -53,7 +53,7 @@ class CategoryView extends StatelessWidget {
                     child: Container(
                       color: const Color(0xFFEAF2FF),
                       child: Image.network(
-                        product.imageUrl,
+                        product.imageUrls[0], // Display the first image
                         fit: BoxFit.cover,
                         width: double.infinity,
                         errorBuilder: (context, error, stackTrace) => const Center(
