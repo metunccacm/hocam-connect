@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
 
 import 'settings_view.dart';
 
@@ -183,28 +184,42 @@ class _ProfileViewState extends State<ProfileView> {
       if (user == null) return;
 
       final bytes = await picked.readAsBytes();
+
+      // Derive extension + content type
+      final ext = p.extension(picked.path).toLowerCase().replaceFirst('.', '');
       final contentType = _mimeFromPath(picked.path);
 
-      final objectPath = 'avatars/${user.id}';
-      await supa.storage
-          .from(_bucket)
-          .uploadBinary(objectPath, bytes,
-              fileOptions: FileOptions(
-                upsert: true,
-                contentType: contentType,
-              ));
+      // Always include a filename
+      final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final objectPath = 'avatars/${user.id}/$fileName';
 
-      final publicUrl =
-          supa.storage.from(_bucket).getPublicUrl(objectPath);
+      await supa.storage
+          .from(_bucket) // 'profile'
+          .uploadBinary(
+            objectPath,
+            bytes,
+            fileOptions: const FileOptions(
+              upsert: true, // requires UPDATE policy if key already exists
+              contentType: 'image/jpeg', // or contentType,
+            ),
+          );
+
+      // If bucket is PUBLIC:
+      final publicUrl = supa.storage.from(_bucket).getPublicUrl(objectPath);
       final urlWithTs =
           '$publicUrl?ts=${DateTime.now().millisecondsSinceEpoch}';
+
+      // If bucket is PRIVATE, use signed URL instead:
+      // final signed = await supa.storage.from(_bucket).createSignedUrl(objectPath, 60 * 60 * 24 * 7); // 7 days
+      // final urlWithTs = '${signed}?ts=${DateTime.now().millisecondsSinceEpoch}';
 
       setState(() {
         profileImageUrl = urlWithTs;
       });
 
       await supa.from('profiles').update({
-        'avatar_url': urlWithTs,
+        'avatar_url':
+            urlWithTs, // (Better: store just objectPath; generate URL on read)
       }).eq('id', user.id);
     } catch (e) {
       if (!mounted) return;
@@ -256,8 +271,7 @@ class _ProfileViewState extends State<ProfileView> {
                 Navigator.pop(ctx);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => const SettingsView()),
+                  MaterialPageRoute(builder: (context) => const SettingsView()),
                 );
               },
             ),
@@ -266,7 +280,8 @@ class _ProfileViewState extends State<ProfileView> {
       ),
     );
   }
- //Builder
+
+  //Builder
   @override
   Widget build(BuildContext context) {
     final avatar = CircleAvatar(
@@ -368,8 +383,8 @@ class _ProfileViewState extends State<ProfileView> {
                     isEditing
                         ? TextField(
                             controller: departmentController,
-                            decoration: const InputDecoration(
-                                labelText: 'Department'),
+                            decoration:
+                                const InputDecoration(labelText: 'Department'),
                           )
                         : ProfileInfoRow(
                             icon: Icons.school,
