@@ -16,13 +16,13 @@ import 'viewmodel/register_viewmodel.dart';
 // Theme Controller
 import 'theme_controller.dart';
 
-
 // New import for the scaling utility
 import 'config/size_config.dart';
 
 //SUPA CONNECTION
 const supabaseUrl = 'https://supa-api.hocamconnect.com.tr';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
+const supabaseAnonKey =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImV4cCI6MjA3MzM4MjY5Mn0.yTB6yZTYMUS2CxK0_GSinsYSZFEA9wFi8qAGaWy5F1Y';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -31,12 +31,11 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = Supabase.instance.client.auth;
 
-   // 1) Immediate check: if already logged in, jump to MainTabView
+    // 1) Immediate check: if already logged in, jump to MainTabView
     if (auth.currentSession != null) {
       return const MainTabView();
     }
 
-    
     // 2) Otherwise, listen future auth changes
     return StreamBuilder<AuthState>(
       stream: auth.onAuthStateChange,
@@ -64,13 +63,12 @@ void main() async {
     anonKey: supabaseAnonKey,
   );
 
-
   // Theme tercihlerini yükle (kalıcı)
   await ThemeController.instance.load();
 
   // Debug: auth transitions
-  Supabase.instance.client.auth.onAuthStateChange
-      .listen((s) => debugPrint('Auth event: ${s.event}, session: ${s.session != null}'));
+  Supabase.instance.client.auth.onAuthStateChange.listen((s) =>
+      debugPrint('Auth event: ${s.event}, session: ${s.session != null}'));
 
   runApp(
     MultiProvider(
@@ -168,7 +166,7 @@ class MyApp extends StatelessWidget {
     );
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     SizeConfig().init(context);
 
