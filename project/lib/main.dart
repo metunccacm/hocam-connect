@@ -23,7 +23,7 @@ import 'config/size_config.dart';
 //SUPA CONNECTION
 const supabaseUrl = 'https://supa-api.hocamconnect.com.tr';
 const supabaseAnonKey =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzM1Njg5NjAwLCJleHAiOjIwMTUyMjI0MDB9.PPxdhq14kCFj1YBSat9ZLlfcwH5_kdOD09pmXnWNr4Q';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});

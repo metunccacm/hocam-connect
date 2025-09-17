@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:postgrest/postgrest.dart'; // hata ayıklama için
+import 'package:postgrest/postgrest.dart';
 import 'package:project/services/auth_service.dart';
 
 class RegistrationViewModel extends ChangeNotifier {
@@ -22,7 +22,7 @@ class RegistrationViewModel extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
 
-    // DOB -> ISO (Bu verileri ayrı tabloda tutmamız için)
+    // DOB -> ISO
     String? dobIso;
     if (dobText != null && dobText.trim().isNotEmpty) {
       try {
@@ -31,8 +31,7 @@ class RegistrationViewModel extends ChangeNotifier {
       } catch (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Invalid date format. Use dd/MM/yyyy')),
+            const SnackBar(content: Text('Invalid date format. Use dd/MM/yyyy')),
           );
         }
         isLoading = false;
@@ -45,7 +44,7 @@ class RegistrationViewModel extends ChangeNotifier {
     final last = surname.trim();
     final full = [first, last].where((s) => s.isNotEmpty).join(' ');
 
-    // 1) Kayıtta AUTH metadata gönder (Supabase "Display name" için)
+    // 1) AUTH metadata (opsiyonel ama güzel)
     final meta = <String, dynamic>{
       if (full.isNotEmpty) 'full_name': full,
       if (first.isNotEmpty) 'name': first,
@@ -54,28 +53,42 @@ class RegistrationViewModel extends ChangeNotifier {
     };
 
     try {
-      await _auth.signUp(email.trim(), password, data: meta);
+      // Kayıt: signUp sonucu user döndürür ama çoğu projede session dönmez (email confirm açıkken)
+      final signUpRes =
+          await _auth.signUp(email.trim(), password, data: meta);
 
-      // 2) Session varsa profiles'ı GÜNCELLE
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        try {
-          await Supabase.instance.client
-              .from('profiles')
-              .update({
-                if (first.isNotEmpty) 'name': first,
-                if (last.isNotEmpty) 'surname': last,
-                if (dobIso != null) 'dob': dobIso,
-              })
-              .eq('id', user.id)
-              .select()
-              .single();
-        } on PostgrestException catch (e) {
-          debugPrint(
-              'PG ERROR code=${e.code} message=${e.message} details=${e.details}');
-          // Database exception user debug:
-          // if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-        }
+      final uid = signUpRes.user?.id;
+      if (uid == null) {
+        // Çok nadir: user null dönerse
+        throw AuthException('User id missing after signUp.');
+      }
+
+      // 2) profiles'a kesin yaz: upsert (id konfliktta update)
+      try {
+        final payload = <String, dynamic>{
+          'id': uid, // kritik: insert için id şart
+          if (first.isNotEmpty) 'name': first,
+          if (last.isNotEmpty) 'surname': last,
+          if (dobIso != null) 'dob': dobIso, // kolonu DATE ise doğrudan yaz
+        };
+
+        await Supabase.instance.client
+            .from('profiles')
+            .upsert(payload, onConflict: 'id') // <— ana fark
+            .select()
+            .single();
+      } on PostgrestException catch (e) {
+        debugPrint(
+            'PG ERROR code=${e.code} message=${e.message} details=${e.details}');
+        // İstersen kullanıcıya da göster:
+        // if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+
+      // (İsteğe bağlı) Auth metadata’yı güncelle: email confirm'den sonra da eşit kalsın
+      try {
+        await Supabase.instance.client.auth.updateUser(UserAttributes(data: meta));
+      } catch (_) {
+        // Sessiz geç; önemli olan profiles upsert'ı
       }
 
       // 3) Yönlendirme / bilgilendirme
@@ -88,7 +101,8 @@ class RegistrationViewModel extends ChangeNotifier {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('Check your email to confirm your account.')),
+              content: Text('Check your email to confirm your account.'),
+            ),
           );
           Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
         }

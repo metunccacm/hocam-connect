@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
 
 import 'settings_view.dart';
 
@@ -18,10 +19,31 @@ class _ProfileViewState extends State<ProfileView> {
   late TextEditingController nameController;
   late TextEditingController emailController;
   late TextEditingController dobController; // UI (DD/MM/YYYY)
-  late TextEditingController departmentController;
 
   DateTime? _dob; // DB için gerçek tarih
   String? profileImageUrl; // public/signed url
+
+  // Department dropdown için:
+  static const List<String> _departments = <String>[
+    // Burayı kendi bölümlerinizle doldurun
+    'ASE',
+    'BUS',
+    'EEE',
+    'ECO',
+    'CNG',
+    'CVE',
+    'CYG',
+    'CHME',
+    'MECH',
+    'PSIR',
+    'PSY',
+    'PGE',
+    'SNG',
+    'GPC',
+    'TEFL',
+    'Other'
+  ];
+  String? _selectedDepartment; // null ise hiç seçilmemiş demektir (hint görünsün)
 
   static const _bucket = 'profile'; // Supabase bucket to store avatars
 
@@ -31,7 +53,6 @@ class _ProfileViewState extends State<ProfileView> {
     nameController = TextEditingController();
     emailController = TextEditingController();
     dobController = TextEditingController();
-    departmentController = TextEditingController();
     fetchProfile();
   }
 
@@ -40,7 +61,6 @@ class _ProfileViewState extends State<ProfileView> {
     nameController.dispose();
     emailController.dispose();
     dobController.dispose();
-    departmentController.dispose();
     super.dispose();
   }
 
@@ -102,6 +122,10 @@ class _ProfileViewState extends State<ProfileView> {
 
     final parsedDob = _parseDob(data['dob']);
 
+    final dep = (data['department'] ?? '').toString().trim();
+    // Veritabanından gelen değer listedeyse onu seç, değilse null bırak (hint gözüksün)
+    final normalized = dep.isEmpty ? null : dep;
+    final inList = _departments.contains(normalized);
     setState(() {
       nameController.text = fullName;
       emailController.text = user.email ?? '';
@@ -117,9 +141,7 @@ class _ProfileViewState extends State<ProfileView> {
         dobController.text = '';
       }
 
-      final dep = (data['department'] ?? '').toString().trim();
-      departmentController.text = dep.isEmpty ? 'Please add department' : dep;
-
+      _selectedDepartment = inList ? normalized : normalized; // listedeyse de değilse de gösterelim; dropdown'da yoksa "Other" seçebilirsin
       profileImageUrl = (data['avatar_url'] ?? '').toString();
     });
   }
@@ -139,7 +161,7 @@ class _ProfileViewState extends State<ProfileView> {
 
     final payload = <String, dynamic>{
       'avatar_url': profileImageUrl,
-      'department': departmentController.text.trim(),
+      'department': (_selectedDepartment ?? '').trim(),
     };
 
     // _dob yoksa DB’deki dob’u ezme
@@ -183,28 +205,41 @@ class _ProfileViewState extends State<ProfileView> {
       if (user == null) return;
 
       final bytes = await picked.readAsBytes();
+
+      // Derive extension + content type
+      final ext = p.extension(picked.path).toLowerCase().replaceFirst('.', '');
       final contentType = _mimeFromPath(picked.path);
 
-      final objectPath = 'avatars/${user.id}';
-      await supa.storage
-          .from(_bucket)
-          .uploadBinary(objectPath, bytes,
-              fileOptions: FileOptions(
-                upsert: true,
-                contentType: contentType,
-              ));
+      // Always include a filename
+      final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final objectPath = 'avatars/${user.id}/$fileName';
 
-      final publicUrl =
-          supa.storage.from(_bucket).getPublicUrl(objectPath);
+      await supa.storage
+          .from(_bucket) // 'profile'
+          .uploadBinary(
+            objectPath,
+            bytes,
+            fileOptions: const FileOptions(
+              upsert: true, // requires UPDATE policy if key already exists
+              contentType: 'image/jpeg', // isterseniz contentType değişkenini kullanın
+            ),
+          );
+
+      // If bucket is PUBLIC:
+      final publicUrl = supa.storage.from(_bucket).getPublicUrl(objectPath);
       final urlWithTs =
           '$publicUrl?ts=${DateTime.now().millisecondsSinceEpoch}';
+
+      // If bucket is PRIVATE, use signed URL instead:
+      // final signed = await supa.storage.from(_bucket).createSignedUrl(objectPath, 60 * 60 * 24 * 7); // 7 days
+      // final urlWithTs = '${signed}?ts=${DateTime.now().millisecondsSinceEpoch}';
 
       setState(() {
         profileImageUrl = urlWithTs;
       });
 
       await supa.from('profiles').update({
-        'avatar_url': urlWithTs,
+        'avatar_url': urlWithTs, // (Tercihen DB'ye sadece objectPath yaz, okurken URL üret)
       }).eq('id', user.id);
     } catch (e) {
       if (!mounted) return;
@@ -256,8 +291,7 @@ class _ProfileViewState extends State<ProfileView> {
                 Navigator.pop(ctx);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => const SettingsView()),
+                  MaterialPageRoute(builder: (context) => const SettingsView()),
                 );
               },
             ),
@@ -266,7 +300,13 @@ class _ProfileViewState extends State<ProfileView> {
       ),
     );
   }
- //Builder
+
+  String get _departmentDisplay =>
+      (_selectedDepartment == null || _selectedDepartment!.trim().isEmpty)
+          ? 'Please add department'
+          : _selectedDepartment!;
+
+  //Builder
   @override
   Widget build(BuildContext context) {
     final avatar = CircleAvatar(
@@ -365,16 +405,37 @@ class _ProfileViewState extends State<ProfileView> {
                             value: dobController.text,
                           ),
                     const Divider(),
+                    // Department: Edit modunda dropdown, görüntü modunda satır
                     isEditing
-                        ? TextField(
-                            controller: departmentController,
+                        ? DropdownButtonFormField<String>(
+                            value: _departments.contains(_selectedDepartment)
+                                ? _selectedDepartment
+                                : (_selectedDepartment == null ||
+                                        _selectedDepartment!.isEmpty)
+                                    ? null
+                                    : _selectedDepartment, // listedeyse value, değilse serbest göster; yoksa null
+                            items: _departments
+                                .map((d) => DropdownMenuItem<String>(
+                                      value: d,
+                                      child: Text(d),
+                                    ))
+                                .toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedDepartment = val;
+                              });
+                            },
                             decoration: const InputDecoration(
-                                labelText: 'Department'),
+                              labelText: 'Department',
+                              hintText:
+                                  'Please add department', // kullanıcıya hint, silmesi gerekmiyor
+                            ),
+                            isExpanded: true,
                           )
                         : ProfileInfoRow(
                             icon: Icons.school,
                             label: 'Department',
-                            value: departmentController.text,
+                            value: _departmentDisplay,
                           ),
                   ],
                 ),
