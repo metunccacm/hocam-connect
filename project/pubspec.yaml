@@ -27,6 +27,7 @@ dependencies:
   cached_network_image: ^3.3.1
   intl: ^0.20.2
   flutter_slidable: ^4.0.1
+  equatable: ^2.0.5
   image_picker: ^1.1.0
   flutter_form_builder: ^10.2.0
   collection: ^1.19.1
