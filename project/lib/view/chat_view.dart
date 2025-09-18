@@ -1,6 +1,8 @@
+// lib/view/chat_view.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../services/chat_service.dart';
 
 class ChatView extends StatefulWidget {
@@ -29,12 +31,12 @@ class _ChatViewState extends State<ChatView> {
   Timer? _typingDebounce;
   bool _loadingOlder = false;
 
-  // NEW: block flags
+  // DM blok bayrakları
   bool _isDm = false;
   bool _iBlocked = false;
   bool _blockedMe = false;
 
-  // NEW: other display name for banner
+  // karşı taraf başlığı
   String? _otherDisplayName;
 
   @override
@@ -43,84 +45,33 @@ class _ChatViewState extends State<ChatView> {
     _bootstrap();
   }
 
-  Future<void> _bootstrap() async {
-    await _svc.bootstrapCekIfMissing(widget.conversationId);
-
-    // header info
-    unawaited(_loadHeaderMeta());
-    unawaited(_loadBlockStatus());
-
-    final initial = await _svc.fetchInitial(widget.conversationId, limit: 30);
-    setState(() => _messages = initial);
-    for (final m in initial) _enqueueDecrypt(m);
-
-    unawaited(_svc.markRead(widget.conversationId));
-
-    _msgChannel = _svc.subscribeMessages(widget.conversationId, (m) async {
-      setState(() => _messages = [..._messages, m]);
-      _enqueueDecrypt(m);
-      _scrollToBottom();
-      _svc.markRead(widget.conversationId);
-    });
-
-    _presence = _svc.joinPresence(widget.conversationId, (set) {
-      final myId = Supabase.instance.client.auth.currentUser!.id;
-      set.remove(myId);
-      setState(() => _typing = set);
-    });
-
-    _blockCh = await _svc.subscribeDmBlockStatus(widget.conversationId, () async {
-      // refresh flags immediately when block/unblock happens
-      await _loadBlockStatus();
-      if (mounted) setState(() {});
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-  }
-
-  Future<void> _loadHeaderMeta() async {
-    try {
-      final supa = Supabase.instance.client;
-      final me = supa.auth.currentUser!.id;
-      final rows = await supa
-          .from('participants')
-          .select('user_id')
-          .eq('conversation_id', widget.conversationId);
-      final ids = (rows as List).map((e) => (e as Map<String, dynamic>)['user_id'] as String).toList();
-      final others = ids.where((u) => u != me).toList();
-      if (others.length == 1) {
-        final m = await _svc.getDisplayMap([others.first]);
-        _otherDisplayName = m[others.first]?.displayName;
-      } else if (others.isEmpty) {
-        _otherDisplayName = 'Saved messages';
-      } else {
-        _otherDisplayName = 'Group chat';
-      }
-      if (mounted) setState(() {});
-    } catch (_) {}
-  }
-
-  // NEW
-  Future<void> _loadBlockStatus() async {
-    try {
-      final st = await _svc.getBlockStatus(widget.conversationId);
-      setState(() {
-        _isDm = st.isDm;
-        _iBlocked = st.iBlocked;
-        _blockedMe = st.blockedMe;
-      });
-    } catch (_) {}
-  }
-
   @override
   void dispose() {
     _msgChannel?.unsubscribe();
     _presence?.unsubscribe();
+    _blockCh?.unsubscribe();
     _controller.dispose();
     _scroll.dispose();
     _typingDebounce?.cancel();
-    _blockCh?.unsubscribe();
     super.dispose();
+  }
+
+  // --- küçük yardımcılar ---
+  void _show(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  bool _isMine(ChatMessage m) =>
+      Supabase.instance.client.auth.currentUser?.id == m.senderId;
+
+  void _scrollToBottom() {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(
+      _scroll.position.maxScrollExtent + 80,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
   }
 
   void _enqueueDecrypt(ChatMessage m) {
@@ -136,7 +87,8 @@ class _ChatViewState extends State<ChatView> {
       final id = _queue.removeAt(0);
       final m = _messages.firstWhere(
         (x) => x.id == id,
-        orElse: () => _messages.isNotEmpty ? _messages.last : (throw StateError('message gone')),
+        orElse: () =>
+            _messages.isNotEmpty ? _messages.last : (throw StateError('message gone')),
       );
       try {
         final t = await _svc.decryptMessageForUi(m);
@@ -150,52 +102,202 @@ class _ChatViewState extends State<ChatView> {
     _decryptRunning = false;
   }
 
-  void _scrollToBottom() {
-    if (!_scroll.hasClients) return;
-    _scroll.animateTo(
-      _scroll.position.maxScrollExtent + 80,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
-    );
+  Future<void> _bootstrap() async {
+    // 1) Cihaz anahtarını yükle + publish (kritik)
+    await _svc.ensureMyLongTermKey();
+
+    // 2) Header/DM bilgileri
+    unawaited(_loadHeaderMeta());
+    unawaited(_loadBlockStatus());
+
+    // 3) CEK yoksa bootstrap (yeni CEK dağıtır)
+    await _svc.bootstrapCekIfMissing(widget.conversationId);
+
+    // 4) İlk mesajları çek ve decrypt kuyruğuna at
+    final initial = await _svc.fetchInitial(widget.conversationId, limit: 30);
+    setState(() => _messages = initial);
+    for (final m in initial) {
+      _enqueueDecrypt(m);
+    }
+
+    // 5) okunma işaretle
+    unawaited(_svc.markRead(widget.conversationId));
+
+    // 6) realtime: mesaj insertleri
+    _msgChannel = _svc.subscribeMessages(widget.conversationId, (m) async {
+      setState(() => _messages = [..._messages, m]);
+      _enqueueDecrypt(m);
+      _scrollToBottom();
+      _svc.markRead(widget.conversationId);
+    });
+
+    // 7) presence (typing)
+    _presence = _svc.joinPresence(widget.conversationId, (set) {
+      final myId = Supabase.instance.client.auth.currentUser!.id;
+      set.remove(myId);
+      setState(() => _typing = set);
+    });
+
+    // 8) DM blok durumunu dinle
+    _blockCh =
+        await _svc.subscribeDmBlockStatus(widget.conversationId, () async {
+      await _loadBlockStatus();
+      if (mounted) setState(() {});
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
-  Future<void> _loadOlder() async { /* unchanged */ }
+  Future<void> _loadHeaderMeta() async {
+    try {
+      final supa = Supabase.instance.client;
+      final me = supa.auth.currentUser!.id;
+      final rows = await supa
+          .from('participants')
+          .select('user_id')
+          .eq('conversation_id', widget.conversationId);
+      final ids = (rows as List)
+          .map((e) => (e as Map<String, dynamic>)['user_id'] as String)
+          .toList();
+      final others = ids.where((u) => u != me).toList();
+      if (others.length == 1) {
+        final m = await _svc.getDisplayMap([others.first]);
+        _otherDisplayName = m[others.first]?.displayName;
+      } else if (others.isEmpty) {
+        _otherDisplayName = 'Saved messages';
+      } else {
+        _otherDisplayName = 'Group chat';
+      }
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
 
+  Future<void> _loadBlockStatus() async {
+    try {
+      final st = await _svc.getBlockStatus(widget.conversationId);
+      setState(() {
+        _isDm = st.isDm;
+        _iBlocked = st.iBlocked;
+        _blockedMe = st.blockedMe;
+      });
+    } catch (_) {}
+  }
+
+  // --- gönderme ---
   Future<void> _send() async {
-  final text = _controller.text.trim();
-  if (text.isEmpty) return;
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
 
-  // client-side guard (instant UX)
-  if (_isDm && (_iBlocked || _blockedMe)) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('You cannot send messages in this conversation.')),
-    );
-    return;
+    // client-side guard (hemen UX)
+    if (_isDm && (_iBlocked || _blockedMe)) {
+      _show('You cannot send messages in this conversation.');
+      return;
+    }
+
+    _controller.clear();
+
+    try {
+      await _svc.sendTextEncrypted(
+        conversationId: widget.conversationId,
+        text: text,
+      );
+    } catch (e) {
+      if (e is PostgrestException) {
+        final code = e.code ?? '';
+        final message = (e.message ?? '').trim();
+        final details = (e.details ?? '').toString().trim();
+        final hint = (e.hint ?? '').toString().trim();
+
+        final msgLower = message.toLowerCase();
+        final isPerm = code == '42501' ||
+            msgLower.contains('permission denied') ||
+            msgLower.contains('row-level security');
+
+        final sb = StringBuffer()
+          ..writeln('Message not sent:')
+          ..writeln(code.isNotEmpty ? 'code=$code' : 'code=<none>')
+          ..writeln('message=${message.isEmpty ? "<empty>" : message}');
+        if (details.isNotEmpty) sb.writeln('details=$details');
+        if (hint.isNotEmpty) sb.writeln('hint=$hint');
+
+        if (isPerm) {
+          _show('${sb.toString()}\n⇒ Looks like a policy / permission issue.');
+        } else {
+          _show(sb.toString());
+        }
+        return;
+      }
+      _show('Message not sent: $e');
+      return;
+    }
+
+    if (_presence != null) {
+      unawaited(_svc.trackTyping(_presence!, false));
+    }
+    _scrollToBottom();
   }
 
-  _controller.clear();
-
-  try {
-    await _svc.sendTextEncrypted(
-      conversationId: widget.conversationId,
-      text: text,
-    );
-  } catch (e) {
-    // server-side RLS still blocks even if UI is stale for a moment
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Message not sent: blocked. ($e)')),
-    );
-    return;
+  void _onTypingChanged(String _) {
+    _typingDebounce?.cancel();
+    _typingDebounce = Timer(const Duration(milliseconds: 400), () async {
+      if (_presence == null) return;
+      try {
+        await _svc.trackTyping(_presence!, _controller.text.isNotEmpty);
+      } catch (_) {}
+    });
   }
 
-  if (_presence != null) {
-    unawaited(_svc.trackTyping(_presence!, false));
+  // --- daha eski mesajları yükleme
+  Future<void> _loadOlder() async {
+    if (_loadingOlder || _messages.isEmpty) return;
+    _loadingOlder = true;
+    try {
+      final before = _messages.first.createdAt;
+      final older =
+          await _svc.fetchBefore(widget.conversationId, before, limit: 30);
+      if (older.isNotEmpty) {
+        setState(() => _messages = [...older, ..._messages]);
+        for (final m in older) {
+          _enqueueDecrypt(m);
+        }
+      }
+    } catch (_) {
+    } finally {
+      _loadingOlder = false;
+    }
   }
-  _scrollToBottom();
-}
 
-  void _onTypingChanged(String _) { /* unchanged */ }
-  bool _isMine(ChatMessage m) => m.senderId == Supabase.instance.client.auth.currentUser!.id;
+  // --- OPTIONAL DEBUG ACTIONS ---
+
+  Future<void> _debugRls() async {
+    try {
+      final dbg = await Supabase.instance.client.rpc('hc_debug_can_send',
+          params: {'_conversation_id': widget.conversationId});
+      _show('can_send debug:\n${dbg.toString()}');
+    } catch (e) {
+      _show('debug rpc failed: $e');
+    }
+  }
+
+  Future<void> _repairE2ee() async {
+    try {
+      // Sunucudaki tüm wrap alanlarını temizle (RPC varsa)
+      try {
+        await Supabase.instance.client
+            .rpc('reset_conv_cek', params: {'_cid': widget.conversationId});
+      } catch (_) {
+        // RPC yoksa sessizce devam – sadece bootstrap deneyelim
+      }
+
+      // Yeni CEK dağıt
+      await _svc.bootstrapCekIfMissing(widget.conversationId);
+
+      // Ok – kullanıcıya bilgi ver
+      _show('E2EE repair attempted. Try sending again.');
+    } catch (e) {
+      _show('Repair failed: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -216,21 +318,33 @@ class _ChatViewState extends State<ChatView> {
             const SizedBox(height: 2),
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_otherDisplayName != null && _otherDisplayName!.isNotEmpty) const SizedBox(width: 8),
-                const Icon(Icons.lock, size: 14, color: Colors.black54),
-                const SizedBox(width: 4),
-                const Text('End-to-End encrypted', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              children: const [
+                Icon(Icons.lock, size: 14, color: Colors.black54),
+                SizedBox(width: 4),
+                Text('End-to-End encrypted',
+                    style: TextStyle(fontSize: 12, color: Colors.black54)),
               ],
             ),
           ],
         ),
-        actions: const [Padding(padding: EdgeInsets.only(right: 12.0), child: CircleAvatar(radius: 16))],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.rule, color: Colors.black54),
+            tooltip: 'RLS self-check',
+            onPressed: _debugRls,
+          ),
+          IconButton(
+            icon: const Icon(Icons.replay_circle_filled, color: Colors.black54),
+            tooltip: 'Repair E2EE',
+            onPressed: _repairE2ee,
+          ),
+          const SizedBox(width: 6),
+        ],
       ),
 
       body: Column(
         children: [
-          // NEW: banner
+          // DM bloğu varsa banner
           if (composerDisabled)
             Container(
               width: double.infinity,
@@ -255,7 +369,7 @@ class _ChatViewState extends State<ChatView> {
                           await _svc.unblockInDm(widget.conversationId);
                           await _loadBlockStatus();
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unblock failed: $e')));
+                          _show('Unblock failed: $e');
                         }
                       },
                       child: const Text('Unblock'),
@@ -264,13 +378,17 @@ class _ChatViewState extends State<ChatView> {
               ),
             ),
 
-          // ... your ListView of messages (unchanged except for decrypt cache)
+          // Mesaj listesi
           Expanded(
             child: NotificationListener<ScrollNotification>(
-              onNotification: (n) { if (n.metrics.pixels <= 24) _loadOlder(); return false; },
+              onNotification: (n) {
+                if (n.metrics.pixels <= 24) _loadOlder();
+                return false;
+              },
               child: ListView.builder(
                 controller: _scroll,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 itemCount: _messages.length,
                 itemBuilder: (_, i) {
                   final m = _messages[i];
@@ -278,12 +396,14 @@ class _ChatViewState extends State<ChatView> {
                   final text = _plain[m.id];
                   if (text == null) _enqueueDecrypt(m);
                   return Container(
-                    alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+                    alignment:
+                        mine ? Alignment.centerRight : Alignment.centerLeft,
                     margin: const EdgeInsets.symmetric(vertical: 6),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 280),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           color: mine ? themeBlue : const Color(0xFFF1F3F5),
                           borderRadius: BorderRadius.only(
@@ -295,7 +415,9 @@ class _ChatViewState extends State<ChatView> {
                         ),
                         child: Text(
                           text ?? '…',
-                          style: TextStyle(color: mine ? Colors.white : Colors.black87, fontSize: 16),
+                          style: TextStyle(
+                              color: mine ? Colors.white : Colors.black87,
+                              fontSize: 16),
                         ),
                       ),
                     ),
@@ -308,24 +430,35 @@ class _ChatViewState extends State<ChatView> {
           if (_typing.isNotEmpty)
             const Padding(
               padding: EdgeInsets.only(bottom: 6),
-              child: Text('typing…', style: TextStyle(color: Colors.black54, fontSize: 12)),
+              child: Text('typing…',
+                  style: TextStyle(color: Colors.black54, fontSize: 12)),
             ),
 
+          // Composer
           SafeArea(
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
               child: Row(
                 children: [
-                  IconButton(icon: const Icon(Icons.add, color: themeBlue), onPressed: composerDisabled ? null : () {}),
+                  IconButton(
+                    icon: const Icon(Icons.add, color: themeBlue),
+                    onPressed:
+                        _isDm && (_iBlocked || _blockedMe) ? null : () {},
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _controller,
-                      onChanged: composerDisabled ? null : _onTypingChanged,
-                      enabled: !composerDisabled,
+                      onChanged: _isDm && (_iBlocked || _blockedMe)
+                          ? null
+                          : _onTypingChanged,
+                      enabled: !(_isDm && (_iBlocked || _blockedMe)),
                       decoration: InputDecoration(
-                        hintText: composerDisabled ? 'Messaging disabled' : 'Type a message…',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        hintText: _isDm && (_iBlocked || _blockedMe)
+                            ? 'Messaging disabled'
+                            : 'Type a message…',
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         filled: true,
                         fillColor: const Color(0xFFF7F8FA),
                         border: OutlineInputBorder(
@@ -337,13 +470,16 @@ class _ChatViewState extends State<ChatView> {
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: composerDisabled ? null : _send,
+                    onTap: _isDm && (_iBlocked || _blockedMe) ? null : _send,
                     child: Opacity(
-                      opacity: composerDisabled ? 0.5 : 1,
+                      opacity: _isDm && (_iBlocked || _blockedMe) ? 0.5 : 1,
                       child: Container(
-                        width: 38, height: 38,
-                        decoration: const BoxDecoration(color: themeBlue, shape: BoxShape.circle),
-                        child: const Icon(Icons.send, color: Colors.white, size: 18),
+                        width: 38,
+                        height: 38,
+                        decoration: const BoxDecoration(
+                            color: themeBlue, shape: BoxShape.circle),
+                        child:
+                            const Icon(Icons.send, color: Colors.white, size: 18),
                       ),
                     ),
                   ),

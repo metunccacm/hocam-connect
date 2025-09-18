@@ -32,6 +32,29 @@ class ChatService {
   // ---- NEW: CEK cache (conversationId -> key bytes)
   final Map<String, List<int>> _cekCache = {};
 
+    // CEK cache temizleyici
+  void clearCekCache([String? conversationId]) {
+    if (conversationId == null) {
+      _cekCache.clear();
+    } else {
+      _cekCache.remove(conversationId);
+    }
+  }
+
+  // Sadece BENİM participants satırımda CEK wrap alanlarını NULL'la
+  Future<void> _resetCekForMe(String conversationId) async {
+    final me = supa.auth.currentUser!.id;
+    await supa
+        .from('participants')
+        .update({
+          'cek_wrapped_ciphertext_base64': null,
+          'cek_wrapped_nonce_base64': null,
+          'cek_wrapped_ephemeral_pub_base64': null,
+        })
+        .match({'conversation_id': conversationId, 'user_id': me});
+  }
+
+
   Future<void> ensureMyLongTermKey() async {
     await _keys.loadKeyPairFromStorage();
   }
@@ -86,27 +109,62 @@ class ChatService {
   }
 
   Future<List<int>> getMyCek(String conversationId) async {
-    // ---- NEW: cache kullan
+    // cache?
     final cached = _cekCache[conversationId];
     if (cached != null) return cached;
 
     final me = supa.auth.currentUser!.id;
+
+    Future<List<int>> _unwrapFromRow(Map<String, dynamic> r) async {
+      try {
+        final k = await _keys.unwrapCekForMe(
+          wrappedCtB64: r['cek_wrapped_ciphertext_base64'],
+          wrappedNonceB64: r['cek_wrapped_nonce_base64'],
+          ephPubB64: r['cek_wrapped_ephemeral_pub_base64'],
+        );
+        _cekCache[conversationId] = k;
+        return k;
+      } catch (e) {
+        // --- OTOMATİK KURTARMA ---
+        // 1) cihaz anahtarını publish et (loadKeyPair zaten upsert yapıyor)
+        await _keys.loadKeyPairFromStorage();
+
+        // 2) benim wrap alanlarımı temizle
+        await _resetCekForMe(conversationId);
+
+        // 3) cache'i temizle + bootstrap (yeni wrap benim güncel pub ile)
+        clearCekCache(conversationId);
+        await bootstrapCekIfMissing(conversationId);
+
+        // 4) tekrar oku ve unwrap dene
+        final row2 = await supa
+            .from('participants')
+            .select(
+                'cek_wrapped_ciphertext_base64, cek_wrapped_nonce_base64, cek_wrapped_ephemeral_pub_base64')
+            .match({'conversation_id': conversationId, 'user_id': me})
+            .maybeSingle();
+
+        if (row2 == null || row2['cek_wrapped_ciphertext_base64'] == null) {
+          throw Exception('CEK not available after recovery.');
+        }
+
+        final k2 = await _keys.unwrapCekForMe(
+          wrappedCtB64: row2['cek_wrapped_ciphertext_base64'],
+          wrappedNonceB64: row2['cek_wrapped_nonce_base64'],
+          ephPubB64: row2['cek_wrapped_ephemeral_pub_base64'],
+        );
+        _cekCache[conversationId] = k2;
+        return k2;
+      }
+    }
+
+    // İlk okuma
     final row = await supa
         .from('participants')
         .select(
             'cek_wrapped_ciphertext_base64, cek_wrapped_nonce_base64, cek_wrapped_ephemeral_pub_base64')
         .match({'conversation_id': conversationId, 'user_id': me})
         .maybeSingle();
-
-    Future<List<int>> unwrapFn(Map<String, dynamic> r) async {
-      final k = await _keys.unwrapCekForMe(
-        wrappedCtB64: r['cek_wrapped_ciphertext_base64'],
-        wrappedNonceB64: r['cek_wrapped_nonce_base64'],
-        ephPubB64: r['cek_wrapped_ephemeral_pub_base64'],
-      );
-      _cekCache[conversationId] = k; // ---- NEW: cache'e koy
-      return k;
-    }
 
     if (row == null || row['cek_wrapped_ciphertext_base64'] == null) {
       await bootstrapCekIfMissing(conversationId);
@@ -119,10 +177,12 @@ class ChatService {
       if (row2 == null || row2['cek_wrapped_ciphertext_base64'] == null) {
         throw Exception('CEK not available for this conversation.');
       }
-      return unwrapFn(row2);
+      return _unwrapFromRow(row2);
     }
-    return unwrapFn(row);
+
+    return _unwrapFromRow(row);
   }
+
 
   Future<List<Map<String, dynamic>>> getConversationsBasic() async {
     final rows = await supa.rpc('get_conversations_basic');

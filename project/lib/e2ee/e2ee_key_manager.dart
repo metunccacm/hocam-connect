@@ -145,7 +145,6 @@ class E2EEKeyManager {
     };
   }
 
-  /// Bana sarılmış CEK'i aç
   Future<List<int>> unwrapCekForMe({
     required String wrappedCtB64,
     required String wrappedNonceB64,
@@ -178,17 +177,28 @@ class E2EEKeyManager {
     final nonce = base64Decode(wrappedNonceB64);
     final data  = base64Decode(wrappedCtB64);
 
-    // ciphertext || mac(16B)
+    if (nonce.length != 12) {
+      throw StateError('Bad nonce length: ${nonce.length} (expected 12)');
+    }
+    if (data.length <= 16) {
+      throw StateError('Bad wrapped data length: ${data.length}');
+    }
+
     final mac = Mac(data.sublist(data.length - 16));
     final ct  = data.sublist(0, data.length - 16);
 
-    final plain = await _aead.decrypt(
-      SecretBox(ct, nonce: nonce, mac: mac),
-      secretKey: wrapKey,
-      aad: utf8.encode('cek-wrap'),
-    );
-    return plain; // 32B CEK
+ try {
+  final plain = await _aead.decrypt(
+    SecretBox(ct, nonce: nonce, mac: mac),
+    secretKey: wrapKey,
+    aad: utf8.encode('cek-wrap'),
+  );
+  return plain;
+} on SecretBoxAuthenticationError catch (e) {
+  throw StateError('MAC fail in UNWRAP-CEK: ${e.toString()}');
+}
   }
+
 
   // ---------- MESAJ ŞİFRELEME ----------
 
@@ -229,16 +239,18 @@ class E2EEKeyManager {
     final key = await _aead.newSecretKeyFromBytes(
       Uint8List.fromList(cekBytes32),
     );
-    final pt = await _aead.decrypt(
-      SecretBox(
-        base64Decode(ctB64),
-        nonce: base64Decode(nonceB64),
-        mac: Mac(base64Decode(macB64)),
-      ),
-      secretKey: key,
-      aad: utf8.encode('conv:$conversationId'),
-    );
-    return utf8.decode(pt);
+    try {
+  final pt = await _aead.decrypt(
+    SecretBox(base64Decode(ctB64),
+              nonce: base64Decode(nonceB64),
+              mac: Mac(base64Decode(macB64))),
+    secretKey: key,
+    aad: utf8.encode('conv:$conversationId'),
+  );
+  return utf8.decode(pt);
+} on SecretBoxAuthenticationError catch (e) {
+  throw StateError('MAC fail in MSG-DECRYPT: ${e.toString()}');
+}
   }
 
   // ---------- UTIL ----------
@@ -279,4 +291,23 @@ class E2EEKeyManager {
     }
     return Uint8List.fromList(okm.sublist(0, length));
   }
+
+  Future<void> nukeAndRecreateMyLongTermKey() async {
+  // 1) local secure storage temizle
+  await _storage.delete(key: _privKeyKey);
+  await _storage.delete(key: _pubKeyKey);
+  _myKeyPair = null;
+  _myPubB64  = null;
+
+  // 2) yeni key üret + publish (user_keys upsert)
+  await loadKeyPairFromStorage();
+
+  // 3) publish sonrası kontrol için log (opsiyonel)
+  // final row = await Supabase.instance.client
+  //   .from('user_keys').select('public_key_base64')
+  //   .eq('user_id', Supabase.instance.client.auth.currentUser!.id)
+  //   .maybeSingle();
+  // print('PUB SET: ${row?['public_key_base64'] != null}');
+}
+
 }
