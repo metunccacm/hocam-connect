@@ -2,13 +2,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../services/chat_service.dart';
 
 class ChatView extends StatefulWidget {
   final String conversationId;
   final String title;
-  const ChatView({super.key, required this.conversationId, required this.title});
+  const ChatView(
+      {super.key, required this.conversationId, required this.title});
 
   @override
   State<ChatView> createState() => _ChatViewState();
@@ -19,25 +19,30 @@ class _ChatViewState extends State<ChatView> {
   final _controller = TextEditingController();
   final _scroll = ScrollController();
 
+  // data
+  final Set<String> _seenIds = <String>{}; // <-- DEDUPE SET
   List<ChatMessage> _messages = [];
   final Map<String, String> _plain = {};
   final List<String> _queue = [];
   bool _decryptRunning = false;
 
+  // realtime/presence
   RealtimeChannel? _msgChannel;
   RealtimeChannel? _presence;
   RealtimeChannel? _blockCh;
-  RealtimeChannel? _cekCh; // <-- CEK invalidate listener
+  bool _subscribed = false; // <-- Çift subscribe guard
   Set<String> _typing = {};
   Timer? _typingDebounce;
-  bool _loadingOlder = false;
 
-  // DM blok bayrakları
+  // flags
+  bool _loadingOlder = false;
+  bool _sending = false; // <-- Çoklu gönderim guard
+
+  // DM block flags
   bool _isDm = false;
   bool _iBlocked = false;
   bool _blockedMe = false;
 
-  // karşı taraf başlığı
   String? _otherDisplayName;
 
   @override
@@ -51,14 +56,13 @@ class _ChatViewState extends State<ChatView> {
     _msgChannel?.unsubscribe();
     _presence?.unsubscribe();
     _blockCh?.unsubscribe();
-    _cekCh?.unsubscribe();
     _controller.dispose();
     _scroll.dispose();
     _typingDebounce?.cancel();
     super.dispose();
   }
 
-  // --- küçük yardımcılar ---
+  // helpers
   void _show(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -89,8 +93,9 @@ class _ChatViewState extends State<ChatView> {
       final id = _queue.removeAt(0);
       final m = _messages.firstWhere(
         (x) => x.id == id,
-        orElse: () =>
-            _messages.isNotEmpty ? _messages.last : (throw StateError('message gone')),
+        orElse: () => _messages.isNotEmpty
+            ? _messages.last
+            : (throw StateError('message gone')),
       );
       try {
         final t = await _svc.decryptMessageForUi(m);
@@ -105,33 +110,49 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Future<void> _bootstrap() async {
-    // 1) Cihaz anahtarını yükle + publish (kritik)
+    // 1) uzun vadeli anahtar (E2EE)
     await _svc.ensureMyLongTermKey();
 
-    // 2) Header/DM bilgileri
+    // 2) başlık ve blok durumları
     unawaited(_loadHeaderMeta());
     unawaited(_loadBlockStatus());
 
-    // 3) CEK yoksa bootstrap (yeni CEK dağıtır)
+    // 3) CEK yoksa dağıt
     await _svc.bootstrapCekIfMissing(widget.conversationId);
 
-    // 4) İlk mesajları çek ve decrypt kuyruğuna at
-    final initial = await _svc.fetchInitial(widget.conversationId, limit: 30);
-    setState(() => _messages = initial);
+    // 4) ilk mesajlar
+    final initial = await _svc.fetchInitial(widget.conversationId, limit: 50);
+
+    // --- DEDUPE + SORT ---
+    _seenIds.clear();
+    final deduped = <ChatMessage>[];
     for (final m in initial) {
+      if (_seenIds.add(m.id)) deduped.add(m);
+    }
+    deduped.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    setState(() => _messages = deduped);
+    for (final m in deduped) {
       _enqueueDecrypt(m);
     }
 
-    // 5) okunma işaretle
+    // 5) okundu
     unawaited(_svc.markRead(widget.conversationId));
 
-    // 6) realtime: mesaj insertleri
-    _msgChannel = _svc.subscribeMessages(widget.conversationId, (m) async {
-      setState(() => _messages = [..._messages, m]);
-      _enqueueDecrypt(m);
-      _scrollToBottom();
-      _svc.markRead(widget.conversationId);
-    });
+    // 6) realtime (çift subscribe koruması)
+    if (!_subscribed) {
+      _msgChannel = _svc.subscribeMessages(widget.conversationId, (m) async {
+        // --- UI DEDUPE + SORT ---
+        if (_seenIds.add(m.id)) {
+          _messages = [..._messages, m];
+          _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          if (mounted) setState(() {});
+          _enqueueDecrypt(m);
+          _scrollToBottom();
+        }
+        unawaited(_svc.markRead(widget.conversationId));
+      });
+      _subscribed = true;
+    }
 
     // 7) presence (typing)
     _presence = _svc.joinPresence(widget.conversationId, (set) {
@@ -140,20 +161,10 @@ class _ChatViewState extends State<ChatView> {
       setState(() => _typing = set);
     });
 
-    // 8) DM blok durumunu dinle
+    // 8) DM block değişimi
     _blockCh =
         await _svc.subscribeDmBlockStatus(widget.conversationId, () async {
       await _loadBlockStatus();
-      if (mounted) setState(() {});
-    });
-
-    // 9) CEK invalidate dinleyicisi → cache düşür + yeniden çöz
-    _cekCh = _svc.subscribeCekUpdates(widget.conversationId, () {
-      _svc.evictCek(widget.conversationId);
-      for (final m in _messages) {
-        _plain.remove(m.id);
-        _enqueueDecrypt(m);
-      }
       if (mounted) setState(() {});
     });
 
@@ -195,18 +206,19 @@ class _ChatViewState extends State<ChatView> {
     } catch (_) {}
   }
 
-  // --- gönderme ---
+  // send
   Future<void> _send() async {
+    if (_sending) return; // <-- çoklu tık guard
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    // client-side guard (hemen UX)
     if (_isDm && (_iBlocked || _blockedMe)) {
       _show('You cannot send messages in this conversation.');
       return;
     }
 
     _controller.clear();
+    setState(() => _sending = true);
 
     try {
       await _svc.sendTextEncrypted(
@@ -217,30 +229,18 @@ class _ChatViewState extends State<ChatView> {
       if (e is PostgrestException) {
         final code = e.code ?? '';
         final message = (e.message ?? '').trim();
-        final details = (e.details ?? '').toString().trim();
-        final hint = (e.hint ?? '').toString().trim();
-
-        final msgLower = message.toLowerCase();
+        final lower = message.toLowerCase();
         final isPerm = code == '42501' ||
-            msgLower.contains('permission denied') ||
-            msgLower.contains('row-level security');
-
-        final sb = StringBuffer()
-          ..writeln('Message not sent:')
-          ..writeln(code.isNotEmpty ? 'code=$code' : 'code=<none>')
-          ..writeln('message=${message.isEmpty ? "<empty>" : message}');
-        if (details.isNotEmpty) sb.writeln('details=$details');
-        if (hint.isNotEmpty) sb.writeln('hint=$hint');
-
-        if (isPerm) {
-          _show('${sb.toString()}\n⇒ Looks like a policy / permission issue.');
-        } else {
-          _show(sb.toString());
-        }
-        return;
+            lower.contains('permission denied') ||
+            lower.contains('row-level security');
+        _show(isPerm
+            ? 'Message not sent: permission denied.'
+            : 'Message not sent: $message');
+      } else {
+        _show('Message not sent: $e');
       }
-      _show('Message not sent: $e');
-      return;
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
 
     if (_presence != null) {
@@ -259,7 +259,7 @@ class _ChatViewState extends State<ChatView> {
     });
   }
 
-  // --- daha eski mesajları yükleme
+  // load older
   Future<void> _loadOlder() async {
     if (_loadingOlder || _messages.isEmpty) return;
     _loadingOlder = true;
@@ -267,51 +267,33 @@ class _ChatViewState extends State<ChatView> {
       final before = _messages.first.createdAt;
       final older =
           await _svc.fetchBefore(widget.conversationId, before, limit: 30);
-      if (older.isNotEmpty) {
-        setState(() => _messages = [...older, ..._messages]);
-        for (final m in older) {
+
+      // DEDUPE + MERGE + SORT
+      var added = false;
+      for (final m in older) {
+        if (_seenIds.add(m.id)) {
+          _messages.add(m);
           _enqueueDecrypt(m);
+          added = true;
         }
       }
-    } catch (_) {
+      if (added) {
+        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        if (mounted) setState(() {});
+      }
     } finally {
       _loadingOlder = false;
     }
   }
 
-  // --- OPTIONAL DEBUG / REPAIR ---
-
-  Future<void> _debugRls() async {
-    try {
-      final dbg = await Supabase.instance.client.rpc('hc_debug_can_send',
-          params: {'_conversation_id': widget.conversationId});
-      _show('can_send debug:\n${dbg.toString()}');
-    } catch (e) {
-      _show('debug rpc failed: $e');
-    }
-  }
-
+  // debug helpers (opsiyonel)
   Future<void> _repairE2ee() async {
     try {
-      // (Varsa) CEK reset RPC
       try {
         await Supabase.instance.client
             .rpc('reset_conv_cek', params: {'_cid': widget.conversationId});
-      } catch (_) {
-        // RPC yoksa sorun değil, sadece bootstrap deneyeceğiz.
-      }
-
-      // Yeni CEK dağıt
+      } catch (_) {}
       await _svc.bootstrapCekIfMissing(widget.conversationId);
-
-      // Cache’i elle de düşürelim ve ekranda yeniden çözmeyi tetikleyelim
-      _svc.evictCek(widget.conversationId);
-      for (final m in _messages) {
-        _plain.remove(m.id);
-        _enqueueDecrypt(m);
-      }
-      if (mounted) setState(() {});
-
       _show('E2EE repair attempted. Try sending again.');
     } catch (e) {
       _show('Repair failed: $e');
@@ -332,38 +314,36 @@ class _ChatViewState extends State<ChatView> {
         centerTitle: true,
         title: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.lock, size: 14, color: Colors.black54),
-                SizedBox(width: 4),
-                Text('End-to-End encrypted',
-                    style: TextStyle(fontSize: 12, color: Colors.black54)),
-              ],
-            ),
+          children: const [
+            // başlık üstten geliyor
+            // (AppBar title parametresine Text(widget.title) vermek için küçük bir hack)
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.rule, color: Colors.black54),
-            tooltip: 'RLS self-check',
-            onPressed: _debugRls,
-          ),
-          IconButton(
             icon: const Icon(Icons.replay_circle_filled, color: Colors.black54),
             tooltip: 'Repair E2EE',
-            onPressed: _repairE2ee, // <-- BURADA!
+            onPressed: _repairE2ee,
           ),
           const SizedBox(width: 6),
         ],
       ),
-
       body: Column(
         children: [
-          // DM bloğu varsa banner
+          const SizedBox(height: 8),
+          Text(widget.title,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.lock, size: 14, color: Colors.black54),
+              SizedBox(width: 4),
+              Text('End-to-End encrypted',
+                  style: TextStyle(fontSize: 12, color: Colors.black54)),
+            ],
+          ),
+          const SizedBox(height: 8),
           if (composerDisabled)
             Container(
               width: double.infinity,
@@ -396,8 +376,6 @@ class _ChatViewState extends State<ChatView> {
                 ],
               ),
             ),
-
-          // Mesaj listesi
           Expanded(
             child: NotificationListener<ScrollNotification>(
               onNotification: (n) {
@@ -445,15 +423,12 @@ class _ChatViewState extends State<ChatView> {
               ),
             ),
           ),
-
           if (_typing.isNotEmpty)
             const Padding(
               padding: EdgeInsets.only(bottom: 6),
               child: Text('typing…',
                   style: TextStyle(color: Colors.black54, fontSize: 12)),
             ),
-
-          // Composer
           SafeArea(
             top: false,
             child: Padding(
@@ -497,8 +472,8 @@ class _ChatViewState extends State<ChatView> {
                         height: 38,
                         decoration: const BoxDecoration(
                             color: themeBlue, shape: BoxShape.circle),
-                        child:
-                            const Icon(Icons.send, color: Colors.white, size: 18),
+                        child: const Icon(Icons.send,
+                            color: Colors.white, size: 18),
                       ),
                     ),
                   ),
