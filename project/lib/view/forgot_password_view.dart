@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
+import 'package:project/view/recovery_code_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ForgotPasswordView extends StatefulWidget {
@@ -31,10 +32,17 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
       );
 
       if (!mounted) return;
+      
+      final email = _emailCtrl.text.trim();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reset link sent. Check inbox & spam.')),
+        const SnackBar(content: Text('Reset link sent. Enter the code to continue.')),
       );
-      Navigator.of(context).pop(); // login sayfasına geri dön
+      Navigator.of(context).push(
+        MaterialPageRoute(
+        builder: (_) => RecoveryCodeView(prefillEmail: email),
+        ),
+      );
+
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,6 +92,17 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
                           child: const Text('Send reset link'),
                         ),
                 ),
+                TextButton(
+                  onPressed: () {
+                    final email = _emailCtrl.text.trim(); // from your forgot view
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => RecoveryCodeView(prefillEmail: email),
+                      ),
+                    );
+                  },
+                  child: const Text('Have a code? Enter it here'),
+                )
               ],
             ),
           ),

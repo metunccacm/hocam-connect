@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:project/view/bottombar_view.dart';
 import 'package:project/view/forgot_password_view.dart';
+import 'package:project/view/recovery_code_view.dart';
+import 'package:project/view/reset_password_view.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -63,6 +65,15 @@ void main() async {
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
+
+
+  // Listen for password recovery events (for deep link handling)
+  final navigatorKey = GlobalKey<NavigatorState>();
+  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    if (data.event == AuthChangeEvent.passwordRecovery) {
+      navigatorKey.currentState?.pushNamed('/reset-password');
+    }
+  });
 
   // Theme tercihlerini yükle (kalıcı)
   await ThemeController.instance.load();
@@ -188,6 +199,8 @@ class MyApp extends StatelessWidget {
             '/gpa_calculator': (_) => const GpaCalculatorView(),
             '/forgot-password': (_) => const ForgotPasswordView(),
             '/home': (_) => const MainTabView(),
+            '/recovery-code': (_) => const RecoveryCodeView(),
+            '/reset-password': (_) => const ResetPasswordView(),
           },
         );
       },
