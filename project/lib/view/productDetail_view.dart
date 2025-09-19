@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project/viewmodel/marketplace_viewmodel.dart';
+import 'package:project/widgets/custom_appbar.dart';
 
 class ProductDetailView extends StatelessWidget {
   final Product product;
@@ -9,11 +10,11 @@ class ProductDetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(product.name),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 1,
+      appBar: HCAppBar(
+        title: product.name,
+        // backgroundColor: Colors.white, // Adjust if HCAppBar has different properties
+        // foregroundColor: Colors.black,
+        // elevation: 1,
       ),
       body: Center(
         child: Column(

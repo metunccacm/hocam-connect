@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:project/widgets/custom_appbar.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class ThisWeekView extends StatefulWidget {
@@ -24,8 +25,8 @@ class _ThisWeekViewState extends State<ThisWeekView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('This Week on Campus')),
+    return AppScaffold(
+      title: 'This Week on Campus',
       body: WebViewWidget(controller: _controller),
     );
   }

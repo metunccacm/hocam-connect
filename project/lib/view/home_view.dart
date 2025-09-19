@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:project/widgets/custom_appbar.dart';
 
 import '../services/chat_service.dart';
 import 'chat_view.dart';
@@ -180,9 +181,8 @@ class _HomeViewState extends State<HomeView> {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home Screen'),
-        centerTitle: true,
+      appBar: HCAppBar(
+        title: 'Home Screen',
         actions: [
           IconButton(
             icon: const Icon(Icons.chat_outlined),

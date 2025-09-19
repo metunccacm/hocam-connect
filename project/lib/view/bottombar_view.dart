@@ -6,6 +6,7 @@ import 'package:project/view/home_view.dart';
 import 'package:project/view/marketplace_view.dart';
 import 'package:project/view/profile_view.dart';
 import 'package:project/view/this_week_view.dart';
+import 'package:project/view/hitchhike_view.dart';
 
 import 'dart:math' as math;
 
@@ -181,7 +182,14 @@ class _MainTabViewState extends State<MainTabView>
                 icon: Icons.directions_car_outlined,
                 angle: -45, // Top-right
                 animationValue: animationValue,
-                onPressed: () => _toggleMenu(),
+                onPressed: () {
+                  _toggleMenu();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const HitchhikeView()),
+                  );
+                },
               ),
             ],
           ),

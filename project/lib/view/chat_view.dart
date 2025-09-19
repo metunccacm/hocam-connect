@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:project/widgets/custom_appbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
 
@@ -203,13 +204,13 @@ class _ChatViewState extends State<ChatView> {
     final composerDisabled = _isDm && (_iBlocked || _blockedMe);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: HCAppBar(
         leading: IconButton(
           icon: const Icon(Icons.chevron_left, size: 28, color: themeBlue),
           onPressed: () => Navigator.of(context).pop(),
         ),
         centerTitle: true,
-        title: Column(
+        titleWidget: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w600)),

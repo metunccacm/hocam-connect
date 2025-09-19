@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:project/widgets/custom_appbar.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
@@ -448,12 +449,9 @@ class _ChatListViewState extends State<ChatListView> {
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: HCAppBar(
         centerTitle: true,
-        title: const Text(
-          'Chats',
-          style: TextStyle(fontSize: 18),
-        ),
+        title: 'Chats',
         actions: [
           // ------------- FOR DEBUG -------------
           // IconButton(
