@@ -23,6 +23,8 @@ class MarketplaceViewModel extends ChangeNotifier {
     refresh();
   }
 
+  Future<void> refreshProducts() => refresh();
+
   Map<String, List<Product>> get groupedProducts => _groupedProducts;
   SortOption get currentSortOption => _currentSortOption;
   Set<String> get activeFilters => _activeFilters;

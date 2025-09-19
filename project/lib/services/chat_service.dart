@@ -59,6 +59,8 @@ class ChatService {
     await _keys.loadKeyPairFromStorage();
   }
 
+  
+
   // ---------- CEK BOOTSTRAP / GET ----------
 
   Future<void> bootstrapCekIfMissing(String conversationId) async {
@@ -380,6 +382,8 @@ class ChatService {
     }
   }
 
+  
+
   Future<BlockStatus> getBlockStatus(String conversationId) async {
     final rows = await supa
         .rpc('get_dm_block_status', params: {'_conversation_id': conversationId});
@@ -390,6 +394,10 @@ class ChatService {
       iBlocked: (data['i_blocked'] as bool?) ?? false,
       blockedMe: (data['blocked_me'] as bool?) ?? false,
     );
+  }
+
+  Future<void> blockInDm(String conversationId) async {
+    await supa.rpc('block_user_in_dm', params: {'_conversation_id': conversationId});
   }
 
   Future<void> unblockInDm(String conversationId) async {
@@ -474,3 +482,5 @@ class ChatService {
     return ch;
   }
 }
+
+

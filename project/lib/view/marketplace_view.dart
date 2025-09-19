@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:project/view/additem_view.dart';
 import 'package:project/view/category_view.dart';
-import 'package:project/view/productDetail_view.dart';
+import 'package:project/view/product_detail_view.dart';
 import 'package:provider/provider.dart';
 import 'package:project/viewmodel/marketplace_viewmodel.dart';
 import '../models/product.dart';
+
+// 🧩 Cache & Shimmer paketleri
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:shimmer/shimmer.dart';
 
 class MarketplaceView extends StatefulWidget {
   const MarketplaceView({super.key});
@@ -13,9 +18,27 @@ class MarketplaceView extends StatefulWidget {
   State<MarketplaceView> createState() => _MarketplaceViewState();
 }
 
+// 🔒 Özel Cache Manager (disk önbellek, TTL, limit)
+class _MarketplaceImageCacheManager extends CacheManager {
+  static const key = 'marketplace_images_cache';
+  _MarketplaceImageCacheManager()
+      : super(
+          Config(
+            key,
+            stalePeriod: const Duration(days: 7), // 7 gün sakla
+            maxNrOfCacheObjects: 300, // en fazla 300 görsel
+            repo: JsonCacheInfoRepository(databaseName: key),
+            fileService: HttpFileService(),
+          ),
+        );
+}
+
 class _MarketplaceViewState extends State<MarketplaceView> {
   bool _isSearching = false;
   final _searchController = TextEditingController();
+
+  // 🔁 Tekil cache manager
+  static final _cacheManager = _MarketplaceImageCacheManager();
 
   @override
   void initState() {
@@ -39,6 +62,44 @@ class _MarketplaceViewState extends State<MarketplaceView> {
         _searchController.clear();
       }
     });
+  }
+
+  // 🟦 Ortak shimmer dikdörtgen
+  Widget _shimmerRect({double borderRadius = 0, double? width, double? height}) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE6E6E6),
+      highlightColor: const Color(0xFFF5F5F5),
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE0E0E0),
+          borderRadius: BorderRadius.circular(borderRadius),
+        ),
+      ),
+    );
+  }
+
+  // 🟦 Ortak shimmer daire (avatar için)
+  Widget _shimmerCircle({double size = 24}) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE6E6E6),
+      highlightColor: const Color(0xFFF5F5F5),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: const BoxDecoration(
+          color: Color(0xFFE0E0E0),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _doRefresh(BuildContext context) async {
+    // ViewModel’de refreshProducts() yoksa: loadProducts(force: true) veya eşdeğeri yap.
+    await Provider.of<MarketplaceViewModel>(context, listen: false)
+        .refreshProducts();
   }
 
   @override
@@ -78,6 +139,11 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               onPressed: _toggleSearch,
             ),
             IconButton(
+              tooltip: 'Refresh',
+              icon: const Icon(Icons.refresh, color: Colors.black),
+              onPressed: () => _doRefresh(context),
+            ),
+            IconButton(
               icon: const Icon(Icons.add, color: Colors.black),
               onPressed: () {
                 Navigator.push(
@@ -95,21 +161,48 @@ class _MarketplaceViewState extends State<MarketplaceView> {
           Expanded(
             child: Consumer<MarketplaceViewModel>(
               builder: (context, viewModel, child) {
+                // 📌 Pull-to-refresh her durumda çalışsın diye AlwaysScrollable
                 if (viewModel.isLoading) {
-                  return const Center(child: CircularProgressIndicator());
+                  return RefreshIndicator(
+                    onRefresh: () => _doRefresh(context),
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(12),
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemCount: 3,
+                      itemBuilder: (_, __) =>
+                          _shimmerRect(height: 220, borderRadius: 12),
+                    ),
+                  );
                 }
+
                 if (viewModel.groupedProducts.isEmpty) {
-                  return const Center(child: Text('No products found.'));
+                  return RefreshIndicator(
+                    onRefresh: () => _doRefresh(context),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 120),
+                        Center(child: Text('No products found.')),
+                      ],
+                    ),
+                  );
                 }
-                return ListView.builder(
-                  itemCount: viewModel.groupedProducts.keys.length,
-                  itemBuilder: (context, index) {
-                    String category =
-                        viewModel.groupedProducts.keys.elementAt(index);
-                    List<Product> products =
-                        viewModel.groupedProducts[category]!;
-                    return _buildCategorySection(category, products);
-                  },
+
+                // ✅ Asıl liste: RefreshIndicator ile sarmaladık
+                return RefreshIndicator(
+                  onRefresh: () => _doRefresh(context),
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: viewModel.groupedProducts.keys.length,
+                    itemBuilder: (context, index) {
+                      final category =
+                          viewModel.groupedProducts.keys.elementAt(index);
+                      final products =
+                          viewModel.groupedProducts[category]!;
+                      return _buildCategorySection(category, products);
+                    },
+                  ),
                 );
               },
             ),
@@ -144,8 +237,13 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                     ),
                   );
                 },
-                child: Text('See more',
-                    style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.w600)),
+                child: Text(
+                  'See more',
+                  style: TextStyle(
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),
@@ -176,15 +274,25 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // 🔄 Resim: Cached + Shimmer
                         Expanded(
                           child: Container(
                             color: const Color(0xFFEAF2FF),
-                            child: Image.network(
-                              cover,
+                            child: CachedNetworkImage(
+                              imageUrl: cover,
+                              cacheManager: _cacheManager,
                               fit: BoxFit.cover,
                               width: double.infinity,
-                              errorBuilder: (_, __, ___) =>
-                                  const Center(child: Icon(Icons.image_not_supported_outlined, color: Colors.grey, size: 40)),
+                              placeholder: (context, url) =>
+                                  _shimmerRect(borderRadius: 0),
+                              errorWidget: (_, __, ___) =>
+                                  const Center(
+                                    child: Icon(
+                                      Icons.image_not_supported_outlined,
+                                      color: Colors.grey,
+                                      size: 40,
+                                    ),
+                                  ),
                             ),
                           ),
                         ),
@@ -203,12 +311,29 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                           padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                           child: Row(
                             children: [
-                              CircleAvatar(
-                                radius: 12,
-                                backgroundImage: p.sellerImageUrl.isNotEmpty ? NetworkImage(p.sellerImageUrl) : null,
-                                backgroundColor: Colors.grey.shade200,
-                                child: p.sellerImageUrl.isEmpty ? const Icon(Icons.person, size: 14, color: Colors.grey) : null,
-                              ),
+                              // 👤 Satıcı avatarı: Cached + Shimmer
+                              if (p.sellerImageUrl.isNotEmpty)
+                                ClipOval(
+                                  child: CachedNetworkImage(
+                                    imageUrl: p.sellerImageUrl,
+                                    cacheManager: _cacheManager,
+                                    width: 24,
+                                    height: 24,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, __) => _shimmerCircle(size: 24),
+                                    errorWidget: (_, __, ___) => const Icon(
+                                      Icons.person,
+                                      size: 18,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                )
+                              else
+                                const CircleAvatar(
+                                  radius: 12,
+                                  backgroundColor: Color(0xFFE0E0E0),
+                                  child: Icon(Icons.person, size: 14, color: Colors.grey),
+                                ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(

@@ -617,15 +617,15 @@ class _ChatListViewState extends State<ChatListView> {
             key: ValueKey('conv-$id'),
             endActionPane: ActionPane(
               motion: const DrawerMotion(),
-              extentRatio: isDm ? 0.45 : 0.25,
+              extentRatio: isDm ? 0.45 : 0.25, // DM ise daha geniş alan
               children: [
                 if (isDm)
                   SlidableAction(
                     onPressed: (_) =>
                         iBlocked ? _unblockInDm(id) : _blockInDm(id),
                     backgroundColor: iBlocked
-                        ? const Color(0xFFE8F5E9)
-                        : const Color(0xFFFFEEF0),
+                        ? const Color(0xFFE8F5E9) // unblock rengi
+                        : const Color(0xFFFFEEF0), // block rengi
                     foregroundColor:
                         iBlocked ? const Color(0xFF2E7D32) : Colors.red,
                     icon: iBlocked ? Icons.lock_open : Icons.block,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:project/view/productDetail_view.dart';
+import 'package:project/view/product_detail_view.dart';
 import '../models/product.dart';
 
 class CategoryView extends StatelessWidget {

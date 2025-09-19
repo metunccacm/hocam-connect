@@ -19,6 +19,9 @@ class _ChatViewState extends State<ChatView> {
   final _controller = TextEditingController();
   final _scroll = ScrollController();
 
+  String? _otherAvatarUrl;
+
+
   // data
   final Set<String> _seenIds = <String>{}; // <-- DEDUPE SET
   List<ChatMessage> _messages = [];
@@ -171,29 +174,59 @@ class _ChatViewState extends State<ChatView> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
-  Future<void> _loadHeaderMeta() async {
-    try {
-      final supa = Supabase.instance.client;
-      final me = supa.auth.currentUser!.id;
-      final rows = await supa
-          .from('participants')
-          .select('user_id')
-          .eq('conversation_id', widget.conversationId);
-      final ids = (rows as List)
-          .map((e) => (e as Map<String, dynamic>)['user_id'] as String)
-          .toList();
-      final others = ids.where((u) => u != me).toList();
-      if (others.length == 1) {
-        final m = await _svc.getDisplayMap([others.first]);
-        _otherDisplayName = m[others.first]?.displayName;
-      } else if (others.isEmpty) {
-        _otherDisplayName = 'Saved messages';
-      } else {
-        _otherDisplayName = 'Group chat';
+  void _onAvatarMenuSelected(String value) async {
+    if (value == 'block') {
+      try {
+        await _svc.blockInDm(widget.conversationId);
+        await _loadBlockStatus();
+        _show('User blocked');
+      } catch (e) {
+        _show('Block failed: $e');
       }
-      if (mounted) setState(() {});
-    } catch (_) {}
+    } else if (value == 'unblock') {
+      try {
+        await _svc.unblockInDm(widget.conversationId);
+        await _loadBlockStatus();
+        _show('User unblocked');
+      } catch (e) {
+        _show('Unblock failed: $e');
+      }
+    } else if (value == 'view') {
+      // buraya profil ekranına gitme vs. ekleyebilirsin
+    }
   }
+
+
+Future<void> _loadHeaderMeta() async {
+  try {
+    final supa = Supabase.instance.client;
+    final me = supa.auth.currentUser!.id;
+    final rows = await supa
+        .from('participants')
+        .select('user_id')
+        .eq('conversation_id', widget.conversationId);
+
+    final ids = (rows as List)
+        .map((e) => (e as Map<String, dynamic>)['user_id'] as String)
+        .toList();
+    final others = ids.where((u) => u != me).toList();
+
+    if (others.length == 1) {
+      final map = await _svc.getDisplayMap([others.first]);
+      final d = map[others.first];
+      _otherDisplayName = d?.displayName ?? 'User ${others.first.substring(0, 6)}';
+      _otherAvatarUrl   = d?.avatarUrl;
+    } else if (others.isEmpty) {
+      _otherDisplayName = 'Saved messages';
+      _otherAvatarUrl   = null;
+    } else {
+      _otherDisplayName = 'Group chat';
+      _otherAvatarUrl   = null;
+    }
+    if (mounted) setState(() {});
+  } catch (_) {}
+}
+
 
   Future<void> _loadBlockStatus() async {
     try {
@@ -300,189 +333,229 @@ class _ChatViewState extends State<ChatView> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    const themeBlue = Color(0xFF007AFF);
-    final composerDisabled = _isDm && (_iBlocked || _blockedMe);
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left, size: 28, color: themeBlue),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        centerTitle: true,
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            // başlık üstten geliyor
-            // (AppBar title parametresine Text(widget.title) vermek için küçük bir hack)
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.replay_circle_filled, color: Colors.black54),
-            tooltip: 'Repair E2EE',
-            onPressed: _repairE2ee,
-          ),
-          const SizedBox(width: 6),
-        ],
-      ),
-      body: Column(
+
+  @override
+Widget build(BuildContext context) {
+  const themeBlue = Color(0xFF007AFF);
+  final composerDisabled = _isDm && (_iBlocked || _blockedMe);
+
+  return Scaffold(
+    appBar: AppBar(
+      automaticallyImplyLeading: false,
+      titleSpacing: 0,
+      toolbarHeight: 64,
+      title: Row(
         children: [
-          const SizedBox(height: 8),
-          Text(widget.title,
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 2),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.lock, size: 14, color: Colors.black54),
-              SizedBox(width: 4),
-              Text('End-to-End encrypted',
-                  style: TextStyle(fontSize: 12, color: Colors.black54)),
-            ],
+          IconButton(
+            icon: const Icon(Icons.chevron_left, size: 28, color: themeBlue),
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          const SizedBox(height: 8),
-          if (composerDisabled)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              color: const Color(0xFFFFF4E5),
-              child: Row(
-                children: [
-                  const Icon(Icons.block, size: 16, color: Color(0xFFD35400)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _iBlocked
-                          ? 'You blocked ${_otherDisplayName ?? "this user"}. Unblock to send messages.'
-                          : 'You can’t message this user.',
-                      style: const TextStyle(color: Color(0xFF8C4A00)),
-                    ),
-                  ),
-                  if (_iBlocked)
-                    TextButton(
-                      onPressed: () async {
-                        try {
-                          await _svc.unblockInDm(widget.conversationId);
-                          await _loadBlockStatus();
-                        } catch (e) {
-                          _show('Unblock failed: $e');
-                        }
-                      },
-                      child: const Text('Unblock'),
-                    ),
-                ],
-              ),
-            ),
+          const SizedBox(width: 4),
+          // İsim + alt satırda "End-to-End encrypted"
           Expanded(
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (n) {
-                if (n.metrics.pixels <= 24) _loadOlder();
-                return false;
-              },
-              child: ListView.builder(
-                controller: _scroll,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                itemCount: _messages.length,
-                itemBuilder: (_, i) {
-                  final m = _messages[i];
-                  final mine = _isMine(m);
-                  final text = _plain[m.id];
-                  if (text == null) _enqueueDecrypt(m);
-                  return Container(
-                    alignment:
-                        mine ? Alignment.centerRight : Alignment.centerLeft,
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 280),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: mine ? themeBlue : const Color(0xFFF1F3F5),
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(18),
-                            topRight: const Radius.circular(18),
-                            bottomLeft: Radius.circular(mine ? 18 : 6),
-                            bottomRight: Radius.circular(mine ? 6 : 18),
-                          ),
-                        ),
-                        child: Text(
-                          text ?? '…',
-                          style: TextStyle(
-                              color: mine ? Colors.white : Colors.black87,
-                              fontSize: 16),
-                        ),
-                      ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _otherDisplayName?.isNotEmpty == true ? _otherDisplayName! : widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.lock, size: 14, color: Colors.black54),
+                    SizedBox(width: 4),
+                    Text(
+                      'End-to-End encrypted',
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
                     ),
-                  );
-                },
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
-          if (_typing.isNotEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 6),
-              child: Text('typing…',
-                  style: TextStyle(color: Colors.black54, fontSize: 12)),
-            ),
-          SafeArea(
-            top: false,
+          const SizedBox(width: 8),
+          // Sağda: avatar + popup menu
+          PopupMenuButton<String>(
+            tooltip: 'More',
+            onSelected: _onAvatarMenuSelected,
+            itemBuilder: (ctx) {
+              final items = <PopupMenuEntry<String>>[
+              ];
+              if (_isDm) {
+                items.add(
+                  PopupMenuItem<String>(
+                    value: _iBlocked ? 'unblock' : 'block',
+                    child: Text(_iBlocked ? 'Unblock user' : 'Block user'),
+                  ),
+                );
+              }
+              return items;
+            },
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.add, color: themeBlue),
-                    onPressed:
-                        _isDm && (_iBlocked || _blockedMe) ? null : () {},
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      onChanged: _isDm && (_iBlocked || _blockedMe)
-                          ? null
-                          : _onTypingChanged,
-                      enabled: !(_isDm && (_iBlocked || _blockedMe)),
-                      decoration: InputDecoration(
-                        hintText: _isDm && (_iBlocked || _blockedMe)
-                            ? 'Messaging disabled'
-                            : 'Type a message…',
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        filled: true,
-                        fillColor: const Color(0xFFF7F8FA),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _isDm && (_iBlocked || _blockedMe) ? null : _send,
-                    child: Opacity(
-                      opacity: _isDm && (_iBlocked || _blockedMe) ? 0.5 : 1,
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: const BoxDecoration(
-                            color: themeBlue, shape: BoxShape.circle),
-                        child: const Icon(Icons.send,
-                            color: Colors.white, size: 18),
-                      ),
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.only(right: 8),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundImage: (_otherAvatarUrl != null && _otherAvatarUrl!.isNotEmpty)
+                    ? NetworkImage(_otherAvatarUrl!)
+                    : null,
+                child: (_otherAvatarUrl == null || _otherAvatarUrl!.isEmpty)
+                    ? Text(
+                        (_otherDisplayName?.isNotEmpty == true ? _otherDisplayName![0] : widget.title[0]).toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      )
+                    : null,
               ),
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+
+    // ====== BODY ======
+    body: Column(
+      children: [
+        // DM blok banner
+        if (composerDisabled)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            color: const Color(0xFFFFF4E5),
+            child: Row(
+              children: [
+                const Icon(Icons.block, size: 16, color: Color(0xFFD35400)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _iBlocked
+                        ? 'You blocked ${_otherDisplayName ?? "this user"}. Unblock to send messages.'
+                        : 'You can’t message this user.',
+                    style: const TextStyle(color: Color(0xFF8C4A00)),
+                  ),
+                ),
+                if (_iBlocked)
+                  TextButton(
+                    onPressed: () async {
+                      try {
+                        await _svc.unblockInDm(widget.conversationId);
+                        await _loadBlockStatus();
+                      } catch (e) {
+                        _show('Unblock failed: $e');
+                      }
+                    },
+                    child: const Text('Unblock'),
+                  ),
+              ],
+            ),
+          ),
+
+        // Mesaj listesi
+        Expanded(
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n.metrics.pixels <= 24) _loadOlder();
+              return false;
+            },
+            child: ListView.builder(
+              controller: _scroll,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              itemCount: _messages.length,
+              itemBuilder: (_, i) {
+                final m = _messages[i];
+                final mine = _isMine(m);
+                final text = _plain[m.id];
+                if (text == null) _enqueueDecrypt(m);
+                return Container(
+                  alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 280),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: mine ? themeBlue : const Color(0xFFF1F3F5),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(18),
+                          topRight: const Radius.circular(18),
+                          bottomLeft: Radius.circular(mine ? 18 : 6),
+                          bottomRight: Radius.circular(mine ? 6 : 18),
+                        ),
+                      ),
+                      child: Text(
+                        text ?? '…',
+                        style: TextStyle(
+                          color: mine ? Colors.white : Colors.black87,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+
+        if (_typing.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 6),
+            child: Text('typing…', style: TextStyle(color: Colors.black54, fontSize: 12)),
+          ),
+
+        // Composer
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.add, color: themeBlue),
+                  onPressed: _isDm && (_iBlocked || _blockedMe) ? null : () {},
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    onChanged: _isDm && (_iBlocked || _blockedMe) ? null : _onTypingChanged,
+                    enabled: !(_isDm && (_iBlocked || _blockedMe)),
+                    decoration: InputDecoration(
+                      hintText: _isDm && (_iBlocked || _blockedMe)
+                          ? 'Messaging disabled'
+                          : 'Type a message…',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      filled: true,
+                      fillColor: const Color(0xFFF7F8FA),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _isDm && (_iBlocked || _blockedMe) ? null : _send,
+                  child: Opacity(
+                    opacity: _isDm && (_iBlocked || _blockedMe) ? 0.5 : 1,
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: const BoxDecoration(color: themeBlue, shape: BoxShape.circle),
+                      child: const Icon(Icons.send, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 }
