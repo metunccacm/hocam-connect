@@ -20,7 +20,7 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    //_svc.ensureMyLongTermKey();
+    _svc.ensureMyLongTermKey();
   }
 
   Future<void> _logout() async {
@@ -128,7 +128,7 @@ class _HomeViewState extends State<HomeView> {
                               onTap: () async {
                                 Navigator.of(ctx).pop();
                                 try {
-                                  //await _svc.ensureMyLongTermKey();
+                                  await _svc.ensureMyLongTermKey();
                                   final convId =
                                       await _svc.createOrGetDm(it.uid);
                                   if (!mounted) return;

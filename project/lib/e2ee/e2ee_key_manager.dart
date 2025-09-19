@@ -1,3 +1,4 @@
+// lib/services/e2ee_key_manager.dart
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -9,13 +10,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// E2EE anahtar yöneticisi
 /// - Mesaj şifreleme: AES-GCM (256)
-/// - CEK sarma: X25519 ECDH + HKDF-SHA256(32B, pure-Dart) -> AES-GCM
+/// - CEK sarma: X25519 ECDH + HKDF-SHA256(32B) -> AES-GCM
 class E2EEKeyManager {
   static const _privKeyKey = 'lt_priv_x25519_b64';
   static const _pubKeyKey  = 'lt_pub_x25519_b64';
-
-  // Debug log aç/kapat
-  static const bool _debug = true;
 
   final _storage = const FlutterSecureStorage();
 
@@ -25,9 +23,7 @@ class E2EEKeyManager {
   final AesGcm _aead = AesGcm.with256bits();
 
   // ---------- LIFECYCLE ----------
-
-  /// Cihazdaki uzun vadeli X25519 anahtarını yükler/oluşturur ve public key'i user_keys'e yazar.
-  Future<void> loadKeyPairFromStorage() async {
+  Future<void> ensureMyKeyPair() async {
     final privB64 = await _storage.read(key: _privKeyKey);
     final pubB64  = await _storage.read(key: _pubKeyKey);
 
@@ -53,7 +49,7 @@ class E2EEKeyManager {
       _myPubB64  = pub;
     }
 
-    // public key'i yayınla (upsert)
+    // user_keys tablosuna upsert
     final uid = Supabase.instance.client.auth.currentUser!.id;
     await Supabase.instance.client.from('user_keys').upsert({
       'user_id': uid,
@@ -62,13 +58,11 @@ class E2EEKeyManager {
     });
   }
 
-  /// Başka bir kullanıcının public key'i (base64) — user_keys tablosundan.
+  /// Başkasının public key'i (base64)
   Future<String> getUserPublicKey(String userId) async {
     final me = Supabase.instance.client.auth.currentUser!.id;
     if (userId == me) {
-      if (_myPubB64 == null) {
-        await loadKeyPairFromStorage();
-      }
+      if (_myPubB64 == null) await ensureMyKeyPair();
       return _myPubB64!;
     }
     final row = await Supabase.instance.client
@@ -85,18 +79,10 @@ class E2EEKeyManager {
 
   // ---------- CEK SARMA / AÇMA ----------
 
-  /// CEK'i alıcı için sar (ephemeral X25519 -> ECDH -> HKDF-SHA256(32B) -> AES-GCM)
   Future<Map<String, String>> wrapCekForUser({
     required List<int> cekBytes32,
     required String recipientPub,
   }) async {
-    if (cekBytes32.length != 32) {
-      throw ArgumentError('CEK must be 32 bytes, got ${cekBytes32.length}');
-    }
-    if (recipientPub.isEmpty) {
-      throw ArgumentError('Recipient public key is empty');
-    }
-
     final recipPub = SimplePublicKey(
       base64Decode(recipientPub.trim()),
       type: KeyPairType.x25519,
@@ -109,22 +95,13 @@ class E2EEKeyManager {
     final shared = await X25519()
         .sharedSecretKey(keyPair: eph, remotePublicKey: recipPub);
     final sharedBytes = await shared.extractBytes();
-    if (sharedBytes.isEmpty) {
-      throw StateError('ECDH produced empty shared secret');
-    }
 
-    // HKDF-SHA256 (pure-Dart) -> 32B sarmalama anahtarı
+    // HKDF-SHA256 -> 32B sarmalama anahtarı
     final wrapBytes = _hkdfSha256(
       ikm: sharedBytes,
       info: utf8.encode('cek-wrap-v1'),
       length: 32,
     );
-    if (_debug) {
-      // ignore: avoid_print
-      print('[E2EE] wrap: shared=${sharedBytes.length} wrap=${wrapBytes.length}');
-    }
-
-    // AES-GCM secret key (algoritma-özel)
     final wrapKey = await _aead.newSecretKeyFromBytes(wrapBytes);
 
     // CEK'i şifrele
@@ -159,57 +136,36 @@ class E2EEKeyManager {
     final shared = await X25519()
         .sharedSecretKey(keyPair: kp, remotePublicKey: ephPub);
     final sharedBytes = await shared.extractBytes();
-    if (sharedBytes.isEmpty) {
-      throw StateError('ECDH produced empty shared secret');
-    }
 
     final wrapBytes = _hkdfSha256(
       ikm: sharedBytes,
       info: utf8.encode('cek-wrap-v1'),
       length: 32,
     );
-    if (_debug) {
-      // ignore: avoid_print
-      print('[E2EE] unwrap: shared=${sharedBytes.length} wrap=${wrapBytes.length}');
-    }
     final wrapKey = await _aead.newSecretKeyFromBytes(wrapBytes);
 
     final nonce = base64Decode(wrappedNonceB64);
     final data  = base64Decode(wrappedCtB64);
 
-    if (nonce.length != 12) {
-      throw StateError('Bad nonce length: ${nonce.length} (expected 12)');
-    }
-    if (data.length <= 16) {
-      throw StateError('Bad wrapped data length: ${data.length}');
-    }
-
+    // ciphertext || mac(16B)
     final mac = Mac(data.sublist(data.length - 16));
     final ct  = data.sublist(0, data.length - 16);
 
- try {
-  final plain = await _aead.decrypt(
-    SecretBox(ct, nonce: nonce, mac: mac),
-    secretKey: wrapKey,
-    aad: utf8.encode('cek-wrap'),
-  );
-  return plain;
-} on SecretBoxAuthenticationError catch (e) {
-  throw StateError('MAC fail in UNWRAP-CEK: ${e.toString()}');
-}
+    final plain = await _aead.decrypt(
+      SecretBox(ct, nonce: nonce, mac: mac),
+      secretKey: wrapKey,
+      aad: utf8.encode('cek-wrap'),
+    );
+    return plain; // 32B CEK
   }
 
-
-  // ---------- MESAJ ŞİFRELEME ----------
+  // ---------- MESAJ ŞİFRELEME / AÇMA ----------
 
   Future<Map<String, String>> encryptMessage({
     required List<int> cekBytes32,
     required String plaintext,
     required String conversationId,
   }) async {
-    if (cekBytes32.length != 32) {
-      throw ArgumentError('CEK must be 32 bytes, got ${cekBytes32.length}');
-    }
     final key   = await _aead.newSecretKeyFromBytes(
       Uint8List.fromList(cekBytes32),
     );
@@ -239,18 +195,16 @@ class E2EEKeyManager {
     final key = await _aead.newSecretKeyFromBytes(
       Uint8List.fromList(cekBytes32),
     );
-    try {
-  final pt = await _aead.decrypt(
-    SecretBox(base64Decode(ctB64),
-              nonce: base64Decode(nonceB64),
-              mac: Mac(base64Decode(macB64))),
-    secretKey: key,
-    aad: utf8.encode('conv:$conversationId'),
-  );
-  return utf8.decode(pt);
-} on SecretBoxAuthenticationError catch (e) {
-  throw StateError('MAC fail in MSG-DECRYPT: ${e.toString()}');
-}
+    final pt = await _aead.decrypt(
+      SecretBox(
+        base64Decode(ctB64),
+        nonce: base64Decode(nonceB64),
+        mac: Mac(base64Decode(macB64)),
+      ),
+      secretKey: key,
+      aad: utf8.encode('conv:$conversationId'),
+    );
+    return utf8.decode(pt);
   }
 
   // ---------- UTIL ----------
@@ -258,14 +212,13 @@ class E2EEKeyManager {
   List<int> _randomBytes(int n) =>
       List<int>.generate(n, (_) => Random.secure().nextInt(256));
 
-  /// HKDF-SHA256 (RFC 5869) – Pure Dart, dış sağlayıcı bağı yok
+  /// HKDF-SHA256 (RFC 5869) – Pure Dart
   Uint8List _hkdfSha256({
     required List<int> ikm,
     List<int>? salt,
     List<int>? info,
     int length = 32,
   }) {
-    assert(length > 0);
     final hashLen = 32;
     final _salt = (salt == null || salt.isEmpty)
         ? Uint8List(hashLen) // zeros
@@ -291,23 +244,4 @@ class E2EEKeyManager {
     }
     return Uint8List.fromList(okm.sublist(0, length));
   }
-
-  Future<void> nukeAndRecreateMyLongTermKey() async {
-  // 1) local secure storage temizle
-  await _storage.delete(key: _privKeyKey);
-  await _storage.delete(key: _pubKeyKey);
-  _myKeyPair = null;
-  _myPubB64  = null;
-
-  // 2) yeni key üret + publish (user_keys upsert)
-  await loadKeyPairFromStorage();
-
-  // 3) publish sonrası kontrol için log (opsiyonel)
-  // final row = await Supabase.instance.client
-  //   .from('user_keys').select('public_key_base64')
-  //   .eq('user_id', Supabase.instance.client.auth.currentUser!.id)
-  //   .maybeSingle();
-  // print('PUB SET: ${row?['public_key_base64'] != null}');
-}
-
 }

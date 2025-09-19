@@ -1,4 +1,3 @@
-// lib/view/chat_list_view.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -37,9 +36,13 @@ class _ChatListViewState extends State<ChatListView> {
   // realtime
   RealtimeChannel? _msgCh;
   RealtimeChannel? _partCh;
-
-  final Map<String, List<String>> _members = {}; // convId -> userIds
   RealtimeChannel? _blockCh;
+
+  // aktif açık sohbet (optimistic badge clearing)
+  String? _activeChatId;
+
+  // convId -> userIds
+  final Map<String, List<String>> _members = {};
 
   @override
   void initState() {
@@ -51,8 +54,8 @@ class _ChatListViewState extends State<ChatListView> {
   void dispose() {
     _msgCh?.unsubscribe();
     _partCh?.unsubscribe();
-    _search.dispose();
     _blockCh?.unsubscribe();
+    _search.dispose();
     super.dispose();
   }
 
@@ -133,7 +136,8 @@ class _ChatListViewState extends State<ChatListView> {
       if (others.length == 1) {
         final map = await _svc.getDisplayMap([others.first]);
         final d = map[others.first];
-        _title[conversationId] = d?.displayName ?? 'User ${others.first.substring(0, 6)}';
+        _title[conversationId] =
+            d?.displayName ?? 'User ${others.first.substring(0, 6)}';
         _avatar[conversationId] = d?.avatarUrl;
       } else if (others.length > 1) {
         _title[conversationId] = 'Group (${others.length + 1})';
@@ -150,12 +154,18 @@ class _ChatListViewState extends State<ChatListView> {
         _snippet[conversationId] = '';
         _lastTime[conversationId] = null;
       } else {
-        _snippet[conversationId] = last.body;
-        _lastTime[conversationId] = last.createdAt.toLocal();
+        try {
+          final text = await _svc.decryptMessageForUi(last);
+          _snippet[conversationId] = text;
+          _lastTime[conversationId] = last.createdAt.toLocal();
+        } catch (_) {
+          _snippet[conversationId] = '(unable to decrypt)';
+          _lastTime[conversationId] = last.createdAt.toLocal();
+        }
       }
     }
 
-    // ---- fetch block status (once)
+    // block status (once)
     if (!_isDm.containsKey(conversationId)) {
       try {
         final st = await _svc.getBlockStatus(conversationId);
@@ -181,6 +191,9 @@ class _ChatListViewState extends State<ChatListView> {
   // ----------------------- REALTIME -----------------------
 
   void _subscribeRealtime() {
+    final me = _supa.auth.currentUser!.id;
+
+    // 1) Messages — yeni mesaj + aktif sohbet optimistik okundu
     _msgCh = _supa.channel('chatlist:messages')
       ..onPostgresChanges(
         event: PostgresChangeEvent.insert,
@@ -188,45 +201,57 @@ class _ChatListViewState extends State<ChatListView> {
         table: 'messages',
         callback: (payload) async {
           final m = ChatMessage.fromJson(payload.newRecord);
+
           if (!_convIds.contains(m.conversationId)) {
             await _onNewConversationDetected(m.conversationId);
           }
-          _lastTime[m.conversationId] = m.createdAt.toLocal();
-          _snippet[m.conversationId] = m.body;
 
-          final me = _supa.auth.currentUser!.id;
-          if (m.senderId != me) {
+          // Son mesaj/snippet
+          _lastTime[m.conversationId] = m.createdAt.toLocal();
+          try {
+            final text = await _svc.decryptMessageForUi(m);
+            _snippet[m.conversationId] = text;
+          } catch (_) {
+            _snippet[m.conversationId] = '(unable to decrypt)';
+          }
+
+          // Aktif açık sohbetse → anında okundu say (optimistic)
+          if (_activeChatId == m.conversationId) {
+            _unread[m.conversationId] = 0;
+          } else if (m.senderId != me) {
             _unread[m.conversationId] = (_unread[m.conversationId] ?? 0) + 1;
           }
+
           _resort(_convIds);
           if (mounted) setState(() {});
         },
       )
       ..subscribe();
 
+    // 2) Participants — last_read_at güncellemesiyle okunmamışları sıfırla
     _partCh = _supa.channel('chatlist:participants')
-      ..onPostgresChanges(
-        event: PostgresChangeEvent.insert,
-        schema: 'public',
-        table: 'participants',
-        callback: (payload) async {
-          final r = payload.newRecord;
-          if (r['user_id'] == _supa.auth.currentUser!.id) {
-            final cid = r['conversation_id'] as String;
-            await _onNewConversationDetected(cid);
-          }
-        },
-      )
       ..onPostgresChanges(
         event: PostgresChangeEvent.update,
         schema: 'public',
         table: 'participants',
         callback: (payload) async {
           final r = payload.newRecord;
-          if (r['user_id'] == _supa.auth.currentUser!.id) {
+          if (r['user_id'] == me) {
             final cid = r['conversation_id'] as String;
             _unread[cid] = 0;
             if (mounted) setState(() {});
+          }
+        },
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'participants',
+        callback: (payload) async {
+          final r = payload.newRecord;
+          if (r['user_id'] == me) {
+            final cid = r['conversation_id'] as String;
+            await _onNewConversationDetected(cid);
           }
         },
       )
@@ -236,7 +261,7 @@ class _ChatListViewState extends State<ChatListView> {
         table: 'participants',
         callback: (payload) async {
           final r = payload.oldRecord;
-          if (r['user_id'] == _supa.auth.currentUser!.id) {
+          if (r['user_id'] == me) {
             final cid = r['conversation_id'] as String;
             _removeLocal(cid);
           }
@@ -244,8 +269,7 @@ class _ChatListViewState extends State<ChatListView> {
       )
       ..subscribe();
 
-    final me = _supa.auth.currentUser!.id;
-
+    // 3) user_blocks — blok/unblock canlı izleme (DM’lerde)
     _blockCh = _supa.channel('chatlist:user_blocks')
       ..onPostgresChanges(
         event: PostgresChangeEvent.insert,
@@ -326,11 +350,21 @@ class _ChatListViewState extends State<ChatListView> {
 
   Future<void> _openChat(String id) async {
     final title = _title[id] ?? 'Chat';
+
+    // 1) Optimistic: liste rozeti hemen sıfırlansın
+    _activeChatId = id;
+    _unread[id] = 0;
+    setState(() {});
+
+    // 2) E2EE + RLS tarafı markRead zaten ChatView içinde de çağrılıyor
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ChatView(conversationId: id, title: title),
       ),
     );
+
+    // 3) Geri dönünce sunucudan gerçek unread’i tazele
+    _activeChatId = null;
     await _loadUnread();
     await _refreshBlockStatusFor(id);
   }
@@ -416,7 +450,7 @@ class _ChatListViewState extends State<ChatListView> {
   Future<void> _unblockInDm(String id) async {
     try {
       await _supa.rpc('unblock_user_in_dm', params: {'_conversation_id': id});
-    _iBlocked[id] = false;
+      _iBlocked[id] = false;
       if (mounted) setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User unblocked')));
     } catch (e) {
@@ -441,6 +475,11 @@ class _ChatListViewState extends State<ChatListView> {
         centerTitle: true,
         title: const Text('Chats', style: TextStyle(fontSize: 18)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.mark_chat_read_outlined),
+            tooltip: 'Refresh unread',
+            onPressed: _loadUnread,
+          ),
           IconButton(
             icon: const Icon(Icons.question_mark_outlined),
             onPressed: () {
@@ -467,7 +506,10 @@ class _ChatListViewState extends State<ChatListView> {
   Widget _buildBody(List<String> ids) {
     if (ids.isEmpty) {
       return RefreshIndicator(
-        onRefresh: () async { await _load(); await _loadUnread(); },
+        onRefresh: () async {
+          await _load();
+          await _loadUnread();
+        },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
@@ -481,7 +523,10 @@ class _ChatListViewState extends State<ChatListView> {
     }
 
     return RefreshIndicator(
-      onRefresh: () async { await _load(); await _loadUnread(); },
+      onRefresh: () async {
+        await _load();
+        await _loadUnread();
+      },
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: ids.length + 1,
@@ -499,7 +544,6 @@ class _ChatListViewState extends State<ChatListView> {
           final t = _lastTime[id];
           final avatar = _avatar[id];
           final unread = _unread[id] ?? 0;
-
           final isDm = _isDm[id] ?? false;
           final iBlocked = _iBlocked[id] ?? false;
 
@@ -539,7 +583,10 @@ class _ChatListViewState extends State<ChatListView> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (t != null)
-                    Text(_fmtTime(t), style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                    Text(
+                      _fmtTime(t),
+                      style: const TextStyle(color: Colors.black54, fontSize: 12),
+                    ),
                   const SizedBox(height: 6),
                   if (unread > 0)
                     Container(
@@ -550,7 +597,8 @@ class _ChatListViewState extends State<ChatListView> {
                       ),
                       child: Text(
                         unread > 99 ? '99+' : '$unread',
-                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                     ),
                 ],
@@ -565,7 +613,10 @@ class _ChatListViewState extends State<ChatListView> {
 
   Widget _buildSearchBar() {
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFFF4F6F8), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F6F8),
+        borderRadius: BorderRadius.circular(20),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: TextField(
         controller: _search,
@@ -583,7 +634,7 @@ class _ChatListViewState extends State<ChatListView> {
     final d = t.isUtc ? t.toLocal() : t;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final that = DateTime(d.year, d.month, d.day);
+    final that  = DateTime(d.year, d.month, d.day);
 
     if (that == today) {
       final hh = d.hour.toString().padLeft(2, '0');
