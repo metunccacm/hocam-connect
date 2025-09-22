@@ -18,8 +18,16 @@ class AddItemViewModel extends ChangeNotifier {
   String? selectedCategory;
   String selectedSizeOption = 'LETTER'; // LETTER | NUMERIC | STANDARD
 
+  bool _isListing = false;
+  bool get isListing => _isListing;
+
   AddItemViewModel() {
     _loadCategories();
+  }
+
+  void setListingStatus(bool status) {
+    _isListing = status;
+    notifyListeners();
   }
 
   Future<void> _loadCategories() async {
@@ -48,11 +56,18 @@ class AddItemViewModel extends ChangeNotifier {
 
       final picker = ImagePicker();
       final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-      if (picked == null) { isPickingImage = false; notifyListeners(); return; }
+      if (picked == null) {
+        isPickingImage = false;
+        notifyListeners();
+        return;
+      }
 
       if (selectedImages.length >= 4) {
-        isPickingImage = false; notifyListeners();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You can upload up to 4 images.')));
+        isPickingImage = false;
+        notifyListeners();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You can upload up to 4 images.')));
+        }
         return;
       }
 
@@ -60,8 +75,11 @@ class AddItemViewModel extends ChangeNotifier {
       isPickingImage = false;
       notifyListeners();
     } catch (e) {
-      isPickingImage = false; notifyListeners();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Image pick failed: $e')));
+      isPickingImage = false;
+      notifyListeners();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Image pick failed: $e')));
+      }
     }
   }
 
@@ -73,8 +91,14 @@ class AddItemViewModel extends ChangeNotifier {
   }
 
   Future<void> listProduct(BuildContext context, GlobalKey<FormBuilderState> formKey) async {
+    if (isListing) return;
+    setListingStatus(true);
+
     final form = formKey.currentState!;
-    if (!form.saveAndValidate()) return;
+    if (!form.saveAndValidate()) {
+      setListingStatus(false);
+      return;
+    }
 
     final v = form.value;
     final title = (v['title'] as String).trim();
@@ -85,7 +109,10 @@ class AddItemViewModel extends ChangeNotifier {
 
     final price = double.tryParse(priceStr);
     if (price == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Price must be numeric.')));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Price must be numeric.')));
+      }
+      setListingStatus(false);
       return;
     }
 
@@ -99,15 +126,24 @@ class AddItemViewModel extends ChangeNotifier {
         sizeValue = (v['numeric_size'] as String? ?? '').trim();
       }
       if (sizeType != null && (sizeValue == null || sizeValue.isEmpty) && selectedSizeOption != 'STANDARD') {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select/enter size.')));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select/enter size.')));
+        }
+        setListingStatus(false);
         return;
       }
     }
 
     if (selectedImages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add at least one image.')));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add at least one image.')));
+      }
+      setListingStatus(false);
       return;
     }
+
+    //Simulate loading for a consistent user experience
+    await Future.delayed(const Duration(seconds: 2));
 
     try {
       final files = <({Uint8List bytes, String ext})>[];
@@ -136,6 +172,9 @@ class AddItemViewModel extends ChangeNotifier {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Listing failed: $e')));
       }
+    } finally {
+      // Ensure the state is reset regardless of success or failure
+      setListingStatus(false);
     }
   }
 }

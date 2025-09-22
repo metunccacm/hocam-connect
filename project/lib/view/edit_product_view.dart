@@ -1,10 +1,10 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mime/mime.dart';
 
 import '../config/size_config.dart';
 import '../../viewmodel/additem_viewmodel.dart';
@@ -12,13 +12,12 @@ import '../../viewmodel/additem_viewmodel.dart';
 class EditProductView extends StatefulWidget {
   final String productId;
 
-  // Mevcut ürün alanları
   final String initialTitle;
   final String initialDescription;
   final String initialCategory;
   final double initialPrice;
   final String initialCurrency; // 'TL' | 'USD' | 'EUR'
-  final String? initialSizeValue; // örn: 'M', '42', 'One Size' veya null
+  final String? initialSizeValue;
   final List<String> initialImageUrls;
 
   const EditProductView({
@@ -47,21 +46,19 @@ class _EditProductViewState extends State<EditProductView> {
   bool _didInitMediaQuery = false;
   bool _busy = false;
 
-  // ---- Görsel state ----
-  // DB'den gelen mevcut görseller
-  final List<_ExistingImg> _existing = [];
-  // Kullanıcının "sildiğim" diye işaretlediği mevcut görsellerin id/path’leri
-  final Set<String> _removedImageIds = {};
-  final List<String> _removedStoragePaths = [];
+  // Görsel state
+  final List<_ExistingImg> _existing = [];         // DB rows
+  final Set<String> _removedImageIds = {};         // rows to delete
+  final Set<String> _removedImageUrls = {};        // for storage key extraction
+  final List<File> _newFiles = [];                 // newly picked
 
-  // Yeni eklenecek dosyalar
-  final List<File> _newFiles = [];
+  // küçük bir normalizasyon helper’ı (dropdown initialValue için)
+  String _norm(String s) => s.trim().toLowerCase();
 
   @override
   void initState() {
     super.initState();
     _loadExistingImages();
-    
   }
 
   @override
@@ -73,13 +70,11 @@ class _EditProductViewState extends State<EditProductView> {
     }
   }
 
-  // -------------------- IMAGE IO --------------------
-
   Future<void> _loadExistingImages() async {
     try {
       final rows = await _supa
           .from('marketplace_images')
-          .select('id, url, storage_path, created_at')
+          .select('id, url, created_at')
           .eq('product_id', widget.productId)
           .order('created_at');
 
@@ -89,65 +84,89 @@ class _EditProductViewState extends State<EditProductView> {
         ..addAll(list.map((e) => _ExistingImg(
               id: (e['id']).toString(),
               url: (e['url'] as String?) ?? '',
-              storagePath: (e['storage_path'] as String?) ??
-                  _extractStoragePath((e['url'] as String?) ?? ''),
             )));
       if (mounted) setState(() {});
-    } catch (e) {
-      // Sessizce geçelim; ekran yine açılır ama görseller olmayabilir
+    } catch (_) {
+      // sessiz
     }
   }
 
   Future<void> _pickImage(AddItemViewModel vm) async {
     if (vm.isPickingImage) return;
     await vm.pickImage(context);
-    if (vm.selectedImages.isNotEmpty) {
-      setState(() {
-        _newFiles.addAll(vm.selectedImages);
-        if (vm.selectedImages.isNotEmpty) {
-          setState(() {
-            _newFiles.addAll(vm.selectedImages);
-            vm.selectedImages.clear(); // listeyi doğrudan temizle
-          });
-        }
+    if (!mounted) return;
+    if (vm.selectedImages.isEmpty) return;
 
-      });
-    }
+    final files = List<File>.from(vm.selectedImages);
+    vm.selectedImages.clear();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _newFiles.addAll(files));
+    });
   }
 
   void _removeExistingAt(int ix) {
     final img = _existing[ix];
     _removedImageIds.add(img.id);
-    if (img.storagePath.isNotEmpty) _removedStoragePaths.add(img.storagePath);
-    setState(() => _existing.removeAt(ix));
+    if (img.url.isNotEmpty) _removedImageUrls.add(img.url);
+
+    FocusScope.of(context).unfocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ix >= 0 && ix < _existing.length) {
+        setState(() => _existing.removeAt(ix));
+      }
+    });
   }
 
   void _removeNewFileAt(int ix) {
-    setState(() => _newFiles.removeAt(ix));
+    FocusScope.of(context).unfocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ix >= 0 && ix < _newFiles.length) {
+        setState(() => _newFiles.removeAt(ix));
+      }
+    });
   }
 
-  String _extractStoragePath(String publicUrl) {
-    const marker = '/storage/v1/object/public/';
-    final idx = publicUrl.indexOf(marker);
-    if (idx == -1) return publicUrl; // fallback
-    final after = publicUrl.substring(idx + marker.length); // "bucket/..."
-    if (after.startsWith('marketplace/')) {
-      return after.replaceFirst('marketplace/', '');
+  String? _extractStorageKeyFromUrl(String url) {
+    const pub = '/object/public/marketplace/';
+    const sig = '/object/sign/marketplace/';
+    final iPub = url.indexOf(pub);
+    if (iPub != -1) return url.substring(iPub + pub.length);
+    final iSig = url.indexOf(sig);
+    if (iSig != -1) {
+      final rest = url.substring(iSig + sig.length);
+      return rest.split('?').first;
     }
-    return after;
+    return null;
   }
 
   Future<String> _uploadOne(File file) async {
     final bucket = _supa.storage.from('marketplace');
+    final uid = _supa.auth.currentUser?.id;
+    if (uid == null) throw Exception('Not authenticated');
+
     final fileName =
         '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
-    final path = 'products/${widget.productId}/$fileName';
-    await bucket.upload(path, file);
-    final publicUrl = bucket.getPublicUrl(path);
-    return publicUrl;
-  }
+    // Path mimarisi: <uid>/products/<productId>/...
+    final path = '$uid/products/${widget.productId}/$fileName';
 
-  // -------------------- SAVE --------------------
+    final bytes = await file.readAsBytes();
+    final mime = lookupMimeType(file.path) ?? 'application/octet-stream';
+
+    await bucket.uploadBinary(
+      path,
+      bytes,
+      fileOptions: FileOptions(
+        upsert: true,
+        contentType: mime,
+        cacheControl: '3600',
+      ),
+    );
+    return bucket.getPublicUrl(path);
+  }
 
   Future<void> _save(AddItemViewModel vm) async {
     if (_busy) return;
@@ -156,36 +175,32 @@ class _EditProductViewState extends State<EditProductView> {
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
 
-    final values = _formKey.currentState!.value;
-    final title = (values['title'] as String).trim();
-    final desc = (values['description'] as String? ?? '').trim();
-    final category = values['category'] as String;
-    final priceStr = (values['price'] as String).trim();
-    final currency = values['currency'] as String;
-
-    String? sizeValue;
-    if (vm.selectedCategory == 'Clothes') {
-      if (vm.selectedSizeOption == 'LETTER') {
-        sizeValue = (values['letter_size'] as String?)?.trim();
-      } else if (vm.selectedSizeOption == 'NUMERIC') {
-        sizeValue = (values['numeric_size'] as String?)?.trim();
-      } else {
-        sizeValue = widget.initialSizeValue;
-      }
-      if (sizeValue != null && sizeValue.isEmpty) sizeValue = null;
-    } else {
-      sizeValue = null;
-    }
-
-    final price = double.tryParse(priceStr.replaceAll(',', '.'));
-    if (price == null) {
-      setState(() => _busy = false);
-      messenger.showSnackBar(
-          const SnackBar(content: Text('Enter a valid price')));
-      return;
-    }
-
     try {
+      final values = _formKey.currentState!.value;
+      final title = (values['title'] as String).trim();
+      final desc = (values['description'] as String? ?? '').trim();
+      final category = values['category'] as String;
+      final priceStr = (values['price'] as String).trim();
+      final currency = values['currency'] as String;
+
+      String? sizeValue;
+      if (vm.selectedCategory == 'Clothes') {
+        if (vm.selectedSizeOption == 'LETTER') {
+          sizeValue = (values['letter_size'] as String?)?.trim();
+        } else if (vm.selectedSizeOption == 'NUMERIC') {
+          sizeValue = (values['numeric_size'] as String?)?.trim();
+        } else {
+          sizeValue = widget.initialSizeValue;
+        }
+        if (sizeValue != null && sizeValue.isEmpty) sizeValue = null;
+      }
+
+      final price = double.tryParse(priceStr.replaceAll(',', '.'));
+      if (price == null) {
+        messenger.showSnackBar(const SnackBar(content: Text('Enter a valid price')));
+        return;
+      }
+
       // 1) Ürünü güncelle
       await _supa
           .from('marketplace_products')
@@ -200,45 +215,69 @@ class _EditProductViewState extends State<EditProductView> {
           })
           .eq('id', widget.productId);
 
-      // 2) Silinen mevcut görseller -> önce storage, sonra tablo
-      if (_removedStoragePaths.isNotEmpty) {
-        try {
-          await _supa.storage
-              .from('marketplace')
-              .remove(_removedStoragePaths.toList());
-        } catch (_) {
-          // storage silme hatası kritik değil; devam
+      // 2) Yeni görselleri yükle + row ekle
+      if (_newFiles.isNotEmpty) {
+        for (final f in _newFiles) {
+          try {
+            final publicUrl = await _uploadOne(f);
+            await _supa.from('marketplace_images').insert({
+              'product_id': widget.productId,
+              'url': publicUrl,
+            });
+          } catch (e) {
+            messenger.showSnackBar(
+              SnackBar(content: Text('Upload failed for an image: $e')),
+            );
+          }
+        }
+      }
+
+      // 3) Silinen görseller: önce storage, sonra DB
+      if (_removedImageUrls.isNotEmpty) {
+        final keys = <String>[];
+        for (final u in _removedImageUrls) {
+          final k = _extractStorageKeyFromUrl(u);
+          if (k != null && k.isNotEmpty) keys.add(k);
+        }
+        if (keys.isNotEmpty) {
+          try {
+            await _supa.storage.from('marketplace').remove(keys);
+          } catch (e) {
+            messenger.showSnackBar(
+              SnackBar(content: Text('Could not delete some files: $e')),
+            );
+          }
         }
       }
       if (_removedImageIds.isNotEmpty) {
-        await _supa
-            .from('marketplace_images')
-            .delete()
-            .inFilter('id', _removedImageIds.toList());
-      }
-
-      // 3) Yeni seçilen dosyaları upload et ve tabloya ekle
-      for (final f in _newFiles) {
-        final publicUrl = await _uploadOne(f);
-        final storagePath = _extractStoragePath(publicUrl);
-        await _supa.from('marketplace_images').insert({
-          'product_id': widget.productId,
-          'url': publicUrl,
-          'storage_path': storagePath,
-        });
+        try {
+          await _supa
+              .from('marketplace_images')
+              .delete()
+              .inFilter('id', _removedImageIds.toList());
+        } catch (e) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('Could not delete image rows: $e')),
+          );
+        }
       }
 
       if (!mounted) return;
-      messenger.showSnackBar(
-          const SnackBar(content: Text('Product updated')));
-      Navigator.of(context).pop(true);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(const SnackBar(content: Text('Product updated')));
+
+      // Pop + true → detay ekranı kesin refresh eder
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pop(true);
+      });
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Update failed: $e')));
-      setState(() => _busy = false);
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('Update failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
-
-  // -------------------- SIZE & CATEGORY HELPERS --------------------
 
   void _seedSizeOption(AddItemViewModel vm) {
     final v = (widget.initialSizeValue ?? '').trim();
@@ -259,22 +298,27 @@ class _EditProductViewState extends State<EditProductView> {
 
   @override
   Widget build(BuildContext context) {
-    final coverUrl = _existing.isNotEmpty ? _existing.first.url : null;
-
     return ChangeNotifierProvider(
       create: (_) {
         final vm = AddItemViewModel();
-        vm.onCategoryChanged(widget.initialCategory); // dinamik kategori
+        vm.onCategoryChanged(widget.initialCategory);
         _seedSizeOption(vm);
         return vm;
       },
       child: Consumer<AddItemViewModel>(
         builder: (context, vm, _) {
+          // dropdown assert'ını önlemek için güvenli initial ve key
+          final cats = vm.categories;
+          final initCat = widget.initialCategory;
+          final hasInitial =
+              initCat.isNotEmpty && cats.any((c) => _norm(c) == _norm(initCat));
+          final safeInitial =
+              hasInitial ? cats.firstWhere((c) => _norm(c) == _norm(initCat)) : null;
+
           return Scaffold(
             backgroundColor: Colors.grey[100],
             appBar: AppBar(
-              title:
-                  const Text('Edit Product', style: TextStyle(color: Colors.white)),
+              title: const Text('Edit Product', style: TextStyle(color: Colors.white)),
               centerTitle: true,
               backgroundColor: acmBlue,
               elevation: 0,
@@ -301,8 +345,7 @@ class _EditProductViewState extends State<EditProductView> {
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : const Text('Save Changes'),
                   ),
@@ -316,21 +359,7 @@ class _EditProductViewState extends State<EditProductView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    AspectRatio(
-                      aspectRatio: 4 / 3,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: coverUrl == null || coverUrl.isEmpty
-                            ? Container(
-                                color: const Color(0xFFEFF3F7),
-                                child: const Center(
-                                  child: Icon(Icons.image, size: 40),
-                                ),
-                              )
-                            : Image.network(coverUrl, fit: BoxFit.cover),
-                      ),
-                    ),
-                    SizedBox(height: getProportionateScreenHeight(16)),
+                    // Banner kaldırıldı
 
                     _buildSection('Basic Information', children: [
                       FormBuilderTextField(
@@ -338,9 +367,7 @@ class _EditProductViewState extends State<EditProductView> {
                         initialValue: widget.initialTitle,
                         decoration: _inputDecoration('Product Title'),
                         validator: (v) =>
-                            (v == null || v.trim().isEmpty)
-                                ? '*Title field must be filled!'
-                                : null,
+                            (v == null || v.trim().isEmpty) ? '*Title field must be filled!' : null,
                       ),
                       SizedBox(height: getProportionateScreenHeight(16)),
                       Row(
@@ -348,19 +375,20 @@ class _EditProductViewState extends State<EditProductView> {
                           Expanded(
                             flex: 1,
                             child: FormBuilderDropdown<String>(
+                              key: ValueKey('cat-${cats.length}-${hasInitial ? 1 : 0}'),
                               name: 'category',
-                              initialValue: widget.initialCategory,
+                              initialValue: safeInitial, // sadece listedeyse
                               decoration: _inputDecoration('Category'),
-                              items: vm.categories
-                                  .map((c) => DropdownMenuItem(
-                                        value: c,
-                                        child: Text(c),
-                                      ))
+                              items: cats
+                                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                                   .toList(),
                               onChanged: vm.onCategoryChanged,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return '*Category must be selected!';
+                                }
+                                if (!cats.contains(value)) {
+                                  return 'Invalid category';
                                 }
                                 return null;
                               },
@@ -388,18 +416,17 @@ class _EditProductViewState extends State<EditProductView> {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
-                            // Mevcut (DB) görseller
+                            // DB görseller
                             ..._existing.asMap().entries.map((e) {
                               final ix = e.key;
                               final it = e.value;
                               return Padding(
-                                padding: EdgeInsets.only(
-                                    right: getProportionateScreenWidth(12)),
+                                padding: EdgeInsets.only(right: getProportionateScreenWidth(12)),
                                 child: Stack(
                                   children: [
                                     ClipRRect(
-                                      borderRadius: BorderRadius.circular(
-                                          getProportionateScreenWidth(8)),
+                                      borderRadius:
+                                          BorderRadius.circular(getProportionateScreenWidth(8)),
                                       child: Image.network(
                                         it.url,
                                         width: getProportionateScreenWidth(100),
@@ -433,13 +460,12 @@ class _EditProductViewState extends State<EditProductView> {
                               final ix = e.key;
                               final file = e.value;
                               return Padding(
-                                padding: EdgeInsets.only(
-                                    right: getProportionateScreenWidth(12)),
+                                padding: EdgeInsets.only(right: getProportionateScreenWidth(12)),
                                 child: Stack(
                                   children: [
                                     ClipRRect(
-                                      borderRadius: BorderRadius.circular(
-                                          getProportionateScreenWidth(8)),
+                                      borderRadius:
+                                          BorderRadius.circular(getProportionateScreenWidth(8)),
                                       child: Image.file(
                                         file,
                                         width: getProportionateScreenWidth(100),
@@ -476,15 +502,14 @@ class _EditProductViewState extends State<EditProductView> {
                                 height: getProportionateScreenWidth(100),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFC5C5C5),
-                                  borderRadius: BorderRadius.circular(
-                                      getProportionateScreenWidth(8)),
+                                  borderRadius:
+                                      BorderRadius.circular(getProportionateScreenWidth(8)),
                                   border: Border.all(color: Colors.grey),
                                 ),
                                 child: Center(
                                   child: vm.isPickingImage
                                       ? const CircularProgressIndicator()
-                                      : const Icon(Icons.add,
-                                          color: Colors.black),
+                                      : const Icon(Icons.add, color: Colors.black),
                                 ),
                               ),
                             ),
@@ -513,8 +538,7 @@ class _EditProductViewState extends State<EditProductView> {
           ),
           child: Text(
             title,
-            style: const TextStyle(
-              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
           ),
         ),
         ...children,
@@ -528,8 +552,7 @@ class _EditProductViewState extends State<EditProductView> {
     return InputDecoration(
       labelText: label,
       border: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(getProportionateScreenWidth(8)),
+        borderRadius: BorderRadius.circular(getProportionateScreenWidth(8)),
         borderSide: BorderSide.none,
       ),
       filled: true,
@@ -553,10 +576,8 @@ class _EditProductViewState extends State<EditProductView> {
               labelText: 'Price',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.only(
-                  topLeft:
-                      Radius.circular(getProportionateScreenWidth(8)),
-                  bottomLeft:
-                      Radius.circular(getProportionateScreenWidth(8)),
+                  topLeft: Radius.circular(getProportionateScreenWidth(8)),
+                  bottomLeft: Radius.circular(getProportionateScreenWidth(8)),
                 ),
                 borderSide: BorderSide.none,
               ),
@@ -567,16 +588,13 @@ class _EditProductViewState extends State<EditProductView> {
                 vertical: getProportionateScreenHeight(12),
               ),
             ),
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
               LengthLimitingTextInputFormatter(10),
             ],
             validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return '*Price must be filled!';
-              }
+              if (value == null || value.trim().isEmpty) return '*Price must be filled!';
               final v = double.tryParse(value.replaceAll(',', '.'));
               if (v == null) return 'Enter a valid number';
               return null;
@@ -587,16 +605,13 @@ class _EditProductViewState extends State<EditProductView> {
           flex: 1,
           child: FormBuilderDropdown<String>(
             name: 'currency',
-            initialValue: _currencies.contains(widget.initialCurrency)
-                ? widget.initialCurrency
-                : 'TL',
+            initialValue:
+                _currencies.contains(widget.initialCurrency) ? widget.initialCurrency : 'TL',
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.only(
-                  topRight:
-                      Radius.circular(getProportionateScreenWidth(8)),
-                  bottomRight:
-                      Radius.circular(getProportionateScreenWidth(8)),
+                  topRight: Radius.circular(getProportionateScreenWidth(8)),
+                  bottomRight: Radius.circular(getProportionateScreenWidth(8)),
                 ),
                 borderSide: BorderSide.none,
               ),
@@ -607,9 +622,7 @@ class _EditProductViewState extends State<EditProductView> {
                 vertical: getProportionateScreenHeight(12),
               ),
             ),
-            items: _currencies
-                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                .toList(),
+            items: _currencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
           ),
         ),
       ],
@@ -619,8 +632,7 @@ class _EditProductViewState extends State<EditProductView> {
   Widget _buildSizeSection(AddItemViewModel vm) {
     final init = (widget.initialSizeValue ?? '').trim();
     final isDigits = RegExp(r'^\d+([.,]\d+)?$').hasMatch(init);
-    final isLetter =
-        {'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'}.contains(init.toUpperCase());
+    final isLetter = {'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'}.contains(init.toUpperCase());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -640,8 +652,7 @@ class _EditProductViewState extends State<EditProductView> {
           ),
           if (vm.selectedSizeOption == 'NUMERIC')
             Padding(
-              padding: EdgeInsets.only(
-                  top: getProportionateScreenHeight(16)),
+              padding: EdgeInsets.only(top: getProportionateScreenHeight(16)),
               child: SizedBox(
                 width: getProportionateScreenWidth(150),
                 child: FormBuilderTextField(
@@ -652,9 +663,7 @@ class _EditProductViewState extends State<EditProductView> {
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   validator: (value) {
                     if (vm.selectedSizeOption == 'NUMERIC') {
-                      if (value == null || value.isEmpty) {
-                        return '*Size must be filled!';
-                      }
+                      if (value == null || value.isEmpty) return '*Size must be filled!';
                     }
                     return null;
                   },
@@ -663,23 +672,19 @@ class _EditProductViewState extends State<EditProductView> {
             ),
           if (vm.selectedSizeOption == 'LETTER')
             Padding(
-              padding: EdgeInsets.only(
-                  top: getProportionateScreenHeight(16)),
+              padding: EdgeInsets.only(top: getProportionateScreenHeight(16)),
               child: SizedBox(
                 width: getProportionateScreenWidth(100),
                 child: FormBuilderDropdown<String>(
                   name: 'letter_size',
                   initialValue: isLetter ? init.toUpperCase() : null,
                   decoration: _inputDecoration('Select Size'),
-                  items: const ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL']
-                      .map((s) =>
-                          DropdownMenuItem(value: s, child: Text(s)))
-                      .toList(),
+                  items:
+                      const ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'].map((s) => DropdownMenuItem(
+                        value: s, child: Text(s))).toList(),
                   validator: (value) {
                     if (vm.selectedSizeOption == 'LETTER') {
-                      if (value == null || value.isEmpty) {
-                        return '*Size must be selected!';
-                      }
+                      if (value == null || value.isEmpty) return '*Size must be selected!';
                     }
                     return null;
                   },
@@ -713,11 +718,5 @@ class _EditProductViewState extends State<EditProductView> {
 class _ExistingImg {
   final String id;
   final String url;
-  final String storagePath;
-
-  _ExistingImg({
-    required this.id,
-    required this.url,
-    required this.storagePath,
-  });
+  _ExistingImg({required this.id, required this.url});
 }

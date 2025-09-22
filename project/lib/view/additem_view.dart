@@ -60,6 +60,7 @@ class _AddItemViewState extends State<AddItemView> {
                               child: FormBuilderDropdown<String>(
                                 name: 'category',
                                 decoration: _inputDecoration('Category'),
+                                isExpanded: true,
                                 items: viewModel.categories.map((String category) {
                                   return DropdownMenuItem(
                                     value: category,
@@ -77,7 +78,7 @@ class _AddItemViewState extends State<AddItemView> {
                             ),
                             SizedBox(width: getProportionateScreenWidth(16)),
                             Expanded(
-                              flex: 2,
+                              flex: 1,
                               child: _buildPriceInput(viewModel),
                             ),
                           ],
@@ -100,7 +101,9 @@ class _AddItemViewState extends State<AddItemView> {
 
                     SizedBox(height: getProportionateScreenHeight(24)),
                     ElevatedButton(
-                      onPressed: () => viewModel.listProduct(context, _formKey),
+                      onPressed: viewModel.isListing
+                          ? null
+                          : () => viewModel.listProduct(context, _formKey),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: acmBlue,
                         foregroundColor: Colors.white,
@@ -110,10 +113,19 @@ class _AddItemViewState extends State<AddItemView> {
                         ),
                         elevation: 4,
                       ),
-                      child: const Text(
-                        'List Product',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
+                      child: viewModel.isListing
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : const Text(
+                              'List Product',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
                     ),
                   ],
                 ),
@@ -183,7 +195,7 @@ class _AddItemViewState extends State<AddItemView> {
             keyboardType: TextInputType.number,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(4),
+              LengthLimitingTextInputFormatter(6),
             ],
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -265,11 +277,12 @@ class _AddItemViewState extends State<AddItemView> {
         if (viewModel.selectedSizeOption == 'LETTER')
           Padding(
             padding: EdgeInsets.only(top: getProportionateScreenHeight(16)),
-            child: SizedBox(
-              width: getProportionateScreenWidth(100),
+            child: SizedBox( // Corrected by wrapping in a SizedBox
+              width: getProportionateScreenWidth(150), // Set the desired width
               child: FormBuilderDropdown<String>(
                 name: 'letter_size',
                 decoration: _inputDecoration('Select Size'),
+                isExpanded: true, // This is fine now because it's inside a SizedBox
                 items: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'].map((String size) {
                   return DropdownMenuItem(
                     value: size,

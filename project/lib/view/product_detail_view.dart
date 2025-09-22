@@ -1,3 +1,4 @@
+// lib/view/product_detail_view.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -32,11 +33,16 @@ class ProductDetailView extends StatefulWidget {
 
 class _ProductDetailViewState extends State<ProductDetailView> {
   final _svc = ChatService();
-  final _pager = PageController();
+
+  // ⬇️ pull-to-refresh kontrolü
+  final _refreshKey = GlobalKey<RefreshIndicatorState>();
+
+  PageController? _pager;
+  VoidCallback? _pagerListener;
   int _pageIx = 0;
   bool _busy = false;
 
-  // local view state (so we can refresh after editing)
+  // yerel state (edit sonrası güncellenecek)
   late String _title;
   late String _description;
   late double _price;
@@ -52,11 +58,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   void initState() {
     super.initState();
     _bindFromProduct(widget.product);
+    _createPager(initialPage: 0);
     unawaited(_warmImages());
-    _pager.addListener(() {
-      final ix = _pager.page?.round() ?? 0;
-      if (ix != _pageIx && mounted) setState(() => _pageIx = ix);
-    });
   }
 
   void _bindFromProduct(Product p) {
@@ -72,9 +75,28 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     _imageUrls = List<String>.from(p.imageUrls);
   }
 
+  void _createPager({int initialPage = 0}) {
+    if (_pagerListener != null && _pager != null) {
+      _pager!.removeListener(_pagerListener!);
+    }
+    _pager?.dispose();
+
+    _pageIx = initialPage;
+    final ctrl = PageController(initialPage: initialPage);
+    _pagerListener = () {
+      final ix = ctrl.hasClients ? (ctrl.page?.round() ?? 0) : 0;
+      if (ix != _pageIx && mounted) setState(() => _pageIx = ix);
+    };
+    ctrl.addListener(_pagerListener!);
+    _pager = ctrl;
+  }
+
   @override
   void dispose() {
-    _pager.dispose();
+    if (_pagerListener != null && _pager != null) {
+      _pager!.removeListener(_pagerListener!);
+    }
+    _pager?.dispose();
     super.dispose();
   }
 
@@ -98,7 +120,14 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     }
   }
 
-  /// ✅ products + images üzerinden güncelle
+  // ⬇️ TEK NOKTA: elle veya çek-bırak ile kullanılan yenileme
+  Future<void> _manualRefresh() async {
+    // indikatörü ekranda göster (opsiyonel)
+    _refreshKey.currentState?.show();
+    await _reloadFromServer();
+  }
+
+  /// Sunucudan ürünü tekrar oku
   Future<void> _reloadFromServer() async {
     try {
       final supa = Supabase.instance.client;
@@ -115,11 +144,9 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       if (row is Map<String, dynamic>) {
         final imgs = <String>[];
         final imagesRaw = row['marketplace_images'] as List<dynamic>?;
-
         if (imagesRaw != null) {
           for (final it in imagesRaw) {
-            final m = it as Map<String, dynamic>;
-            final u = m['url']?.toString();
+            final u = (it as Map<String, dynamic>)['url']?.toString();
             if (u != null && u.isNotEmpty) imgs.add(u);
           }
         }
@@ -135,11 +162,19 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           _sellerName = (row['seller_name'] as String?) ?? _sellerName;
           _sellerImageUrl =
               (row['seller_image_url'] as String?) ?? _sellerImageUrl;
-          if (imgs.isNotEmpty) _imageUrls = imgs;
+          _imageUrls = imgs;
         });
+
+        // görsel adedi değiştiyse PageController’ı güvenle yenile
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _createPager(initialPage: 0);
+        });
+
+        unawaited(_warmImages());
       }
     } catch (_) {
-      // ignore – keep old values
+      // sessiz geç
     }
   }
 
@@ -179,10 +214,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => ChatView(
-            conversationId: convId,
-            title: _sellerName,
-          ),
+          builder: (_) => ChatView(conversationId: convId, title: _sellerName),
         ),
       );
     } catch (e) {
@@ -192,6 +224,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     }
   }
 
+  /// Edit’e git – kaydedilirse geri dön ve programatik refresh
   Future<void> _openEdit() async {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -207,12 +240,15 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         ),
       ),
     );
-    if (changed == true) {
-      await _reloadFromServer();
+
+    if (changed == true && mounted) {
+      await _manualRefresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Listing updated')));
     }
   }
 
-  /// ✅ Mark as sold: storage dosyalarını ve DB kayıtlarını sil
   Future<void> _markAsSold() async {
     if (_busy) return;
     final ok = await showDialog<bool>(
@@ -234,7 +270,6 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      // 1) Ürüne bağlı image URL’lerini DB’den çek (güncel olsun)
       final imagesRows = await supa
           .from('marketplace_images')
           .select('url')
@@ -247,19 +282,15 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           if (u != null && u.isNotEmpty) urls.add(u);
         }
       } else {
-        // elimizdeki local listeyi de dene
         urls.addAll(_imageUrls);
       }
 
-      // 2) Storage’dan sil
       await _tryDeleteFromUrls(urls);
-
-      // 3) DB: önce images, sonra product
       await supa.from('marketplace_images').delete().eq('product_id', widget.product.id);
       await supa.from('marketplace_products').delete().eq('id', widget.product.id);
 
       if (!mounted) return;
-      Navigator.of(context).pop(); // detail sayfasından çık
+      Navigator.of(context).pop();
       messenger.showSnackBar(const SnackBar(content: Text('Listing marked as sold.')));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Could not mark as sold: $e')));
@@ -268,7 +299,6 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     }
   }
 
-  // --- storage helpers ---
   Future<void> _tryDeleteFromUrls(List<String> urls) async {
     final keys = <String>[];
     for (final u in urls) {
@@ -278,22 +308,14 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     if (keys.isEmpty) return;
     try {
       await Supabase.instance.client.storage.from('marketplace').remove(keys);
-    } catch (_) {
-      // ignore – not critical
-    }
+    } catch (_) {}
   }
 
-  /// Extract storage object key from Supabase public/signed URL.
-  /// Supports:
-  ///  - .../object/public/marketplace/<key>
-  ///  - .../object/sign/marketplace/<key>?token=...
   String? _extractStorageKey(String url) {
     const pub = '/object/public/marketplace/';
     const sig = '/object/sign/marketplace/';
     final iPub = url.indexOf(pub);
-    if (iPub != -1) {
-      return url.substring(iPub + pub.length);
-    }
+    if (iPub != -1) return url.substring(iPub + pub.length);
     final iSig = url.indexOf(sig);
     if (iSig != -1) {
       final rest = url.substring(iSig + sig.length);
@@ -306,6 +328,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   Widget build(BuildContext context) {
     final imgs = _imageUrls;
     final hasImgs = imgs.isNotEmpty;
+    final safePageIx = (_pageIx >= imgs.length) ? 0 : _pageIx;
 
     return Scaffold(
       appBar: AppBar(
@@ -314,6 +337,11 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         foregroundColor: Colors.black,
         elevation: 1,
         actions: [
+          /*IconButton(
+            tooltip: 'Refresh',
+            onPressed: _manualRefresh,
+            icon: const Icon(Icons.refresh),
+          ),*/
           if (_isMine)
             IconButton(
               tooltip: 'Edit',
@@ -324,129 +352,135 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       ),
 
       bottomNavigationBar: SafeArea(
-  top: false,
-  child: Padding(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-    child: SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: _busy ? null : (_isMine ? _markAsSold : _contactSeller),
-        icon: Icon(
-          _isMine ? Icons.check_circle_outline : Icons.send_rounded,
-          size: 20,
-        ),
-        label: Text(
-          _isMine ? 'Mark as sold' : 'Contact Hocam',
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _isMine ? const Color(0xFFFF4D4F) : null,
-          minimumSize: const Size(double.infinity, 48), // tam genişlik + sabit yükseklik
-          padding: const EdgeInsets.symmetric(horizontal: 16), // yatay iç boşluk
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          // alignment verme; ElevatedButton.icon zaten ortalar
-        ),
-      ),
-    ),
-  ),
-),
-
-
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        children: [
-          AspectRatio(
-            aspectRatio: 4 / 3,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: hasImgs
-                  ? Stack(
-                      alignment: Alignment.bottomCenter,
-                      children: [
-                        PageView.builder(
-                          controller: _pager,
-                          itemCount: imgs.length,
-                          itemBuilder: (_, i) => CachedNetworkImage(
-                            imageUrl: imgs[i],
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => const _ShimmerBox(),
-                            errorWidget: (_, __, ___) =>
-                                const Center(child: Icon(Icons.broken_image_outlined, size: 32)),
-                          ),
-                        ),
-                        if (imgs.length > 1)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(imgs.length, (i) {
-                                final active = i == _pageIx;
-                                return AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                                  width: active ? 10 : 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: active ? Colors.white : Colors.white70,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                );
-                              }),
-                            ),
-                          ),
-                      ],
-                    )
-                  : Container(
-                      color: const Color(0xFFEFF3F7),
-                      child: const Center(child: Icon(Icons.image, size: 40)),
-                    ),
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _busy ? null : (_isMine ? _markAsSold : _contactSeller),
+              icon: Icon(
+                _isMine ? Icons.check_circle_outline : Icons.send_rounded,
+                size: 20,
+              ),
+              label: Text(
+                _isMine ? 'Mark as sold' : 'Contact Hocam',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isMine ? const Color(0xFFFF4D4F) : null,
+                minimumSize: const Size(double.infinity, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
+        ),
+      ),
 
-          const SizedBox(height: 12),
-
-          Text(
-            _title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+      // ⬇️ Pull-to-refresh
+      body: RefreshIndicator(
+        key: _refreshKey,
+        onRefresh: _reloadFromServer,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
           ),
-
-          const SizedBox(height: 6),
-
-          Text(
-            _fmtPrice(),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 12),
-
-          if (_description.isNotEmpty) Text(_description),
-
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundImage: _sellerImageUrl.isNotEmpty ? NetworkImage(_sellerImageUrl) : null,
-                child: _sellerImageUrl.isEmpty ? const Icon(Icons.person) : null,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          children: [
+            AspectRatio(
+              aspectRatio: 4 / 3,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: hasImgs
+                    ? Stack(
+                        alignment: Alignment.bottomCenter,
+                        children: [
+                          PageView.builder(
+                            controller: _pager,
+                            itemCount: imgs.length,
+                            itemBuilder: (_, i) => CachedNetworkImage(
+                              imageUrl: imgs[i],
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => const _ShimmerBox(),
+                              errorWidget: (_, __, ___) =>
+                                  const Center(child: Icon(Icons.broken_image_outlined, size: 32)),
+                            ),
+                          ),
+                          if (imgs.length > 1)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(imgs.length, (i) {
+                                  final active = i == safePageIx;
+                                  return AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                                    width: active ? 10 : 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: active ? Colors.white : Colors.white70,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  );
+                                }),
+                              ),
+                            ),
+                        ],
+                      )
+                    : Container(
+                        color: const Color(0xFFEFF3F7),
+                        child: const Center(child: Icon(Icons.image, size: 40)),
+                      ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _sellerName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
+            ),
 
-          if ((_sizeValue ?? '').isNotEmpty) ...[
+            const SizedBox(height: 12),
+
+            Text(
+              _title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+            ),
+
+            const SizedBox(height: 6),
+
+            Text(
+              _fmtPrice(),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 12),
+
+            if (_description.isNotEmpty) Text(_description),
+
             const SizedBox(height: 16),
-            Text('Size: $_sizeValue', style: const TextStyle(color: Colors.black54)),
-          ],
 
-          const SizedBox(height: 8),
-        ],
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundImage: _sellerImageUrl.isNotEmpty ? NetworkImage(_sellerImageUrl) : null,
+                  child: _sellerImageUrl.isEmpty ? const Icon(Icons.person) : null,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _sellerName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+
+            if ((_sizeValue ?? '').isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text('Size: $_sizeValue', style: const TextStyle(color: Colors.black54)),
+            ],
+
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
