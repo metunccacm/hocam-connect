@@ -12,38 +12,24 @@ class WelcomeView extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.symmetric(
             horizontal: getProportionateScreenWidth(24.0),
-            vertical: getProportionateScreenHeight(48.0),
+            vertical: getProportionateScreenHeight(24.0), // daha az üst-alt padding
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              const Spacer(flex: 2),
-
-              // Use a SizedBox to set a proportional size for the logo
-              SizedBox(
-                height: getProportionateScreenHeight(150),
-                child: Center(
+              // --- ÜST BLOK: birbirine yakın ---
+              Center(
+                child: SizedBox(
+                  height: getProportionateScreenHeight(550), // önceki 500 çok büyüktü
                   child: Image.asset(
-                    'assets/logo/hc_logo.png',
+                    'assets/images/hc_beta.png', // svg ile değişecek
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
 
-              SizedBox(height: getProportionateScreenHeight(30)),
+              SizedBox(height: getProportionateScreenHeight(6)),
 
-              // "Welcome to Hocam Connect" text
-              Text(
-                'Welcome to Hocam Connect',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: getProportionateScreenWidth(15),
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF3D003E),
-                ),
-              ),
-
-              // "by" text
               Text(
                 'by',
                 textAlign: TextAlign.center,
@@ -51,57 +37,58 @@ class WelcomeView extends StatelessWidget {
                   fontSize: getProportionateScreenWidth(15),
                   fontWeight: FontWeight.w400,
                   color: const Color(0xFF3D003E),
+                  height: 1.0, // satır aralığını da sıkı tut
                 ),
               ),
 
-              SizedBox(height: getProportionateScreenHeight(10)),
+              SizedBox(height: getProportionateScreenHeight(6)),
 
-              // ACM logo
               Center(
                 child: Image.asset(
                   'assets/logo/acm_logo.png',
-                  height: getProportionateScreenHeight(77),
+                  height: getProportionateScreenHeight(48), // 60 → 48
+                  fit: BoxFit.contain,
                 ),
               ),
 
-              const Spacer(flex: 3),
+              // --- Orta alanı boş bırakma, aşağıyı tek Spacer ile it ---
+              const Spacer(),
 
-              // "Get Started" button
+              // --- Get Started ---
               SizedBox(
-                height: getProportionateScreenHeight(70),
+                height: getProportionateScreenHeight(60),
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/register');
-                  },
+                  onPressed: () => Navigator.pushNamed(context, '/register'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0092CF),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(getProportionateScreenWidth(35)),
+                      borderRadius: BorderRadius.circular(
+                        getProportionateScreenWidth(35),
+                      ),
                     ),
                     padding: EdgeInsets.symmetric(
                       horizontal: getProportionateScreenWidth(32),
-                      vertical: getProportionateScreenHeight(16),
+                      vertical: getProportionateScreenHeight(12),
                     ),
+                    elevation: 0,
                   ),
                   child: Text(
                     'Get Started',
                     style: TextStyle(
-                      fontSize: getProportionateScreenWidth(21),
-                      color: const Color(0xFFFFFFFF),
-                      fontWeight: FontWeight.w400,
+                      fontSize: getProportionateScreenWidth(20),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ),
 
-              SizedBox(height: getProportionateScreenHeight(20)),
+              SizedBox(height: getProportionateScreenHeight(14)),
 
-              // "Already have an account? Log in" text
+              // --- Login link ---
               Center(
                 child: GestureDetector(
-                  onTap: () {
-                    Navigator.pushNamed(context, '/login');
-                  },
+                  onTap: () => Navigator.pushNamed(context, '/login'),
                   child: RichText(
                     text: TextSpan(
                       children: [
@@ -128,7 +115,7 @@ class WelcomeView extends StatelessWidget {
                 ),
               ),
 
-              const Spacer(flex: 1),
+              SizedBox(height: getProportionateScreenHeight(8)),
             ],
           ),
         ),
