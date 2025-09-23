@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:project/viewmodel/register_viewmodel.dart';
 import 'package:provider/provider.dart';
+import 'package:project/widgets/custom_appbar.dart';
 
 class RegistrationView extends StatefulWidget {
   const RegistrationView({super.key});
@@ -69,7 +70,7 @@ class _RegistrationViewState extends State<RegistrationView> {
       create: (context) => RegistrationViewModel(),
       child: Scaffold(
         backgroundColor: const Color(0xFFF2F4F7),
-        appBar: AppBar(
+        appBar: HCAppBar(
           backgroundColor: const Color(0xFFF2F4F7),
           elevation: 0,
           leading: IconButton(

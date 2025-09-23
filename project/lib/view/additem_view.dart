@@ -4,6 +4,7 @@ import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodel/additem_viewmodel.dart';
 import '../config/size_config.dart';
+import 'package:project/widgets/custom_appbar.dart';
 
 class AddItemView extends StatefulWidget {
   const AddItemView({super.key});
@@ -27,8 +28,8 @@ class _AddItemViewState extends State<AddItemView> {
         builder: (context, viewModel, child) {
           return Scaffold(
             backgroundColor: Colors.grey[100],
-            appBar: AppBar(
-              title: const Text('List Product', style: TextStyle(color: Colors.white)),
+            appBar: const HCAppBar(
+              title: 'List Product',
               centerTitle: true,
               backgroundColor: acmBlue,
               elevation: 0,

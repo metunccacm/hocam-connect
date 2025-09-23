@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 
 import 'settings_view.dart';
+import 'package:project/widgets/custom_appbar.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -111,7 +112,7 @@ class _ProfileViewState extends State<ProfileView> {
         .eq('id', user.id)
         .maybeSingle();
 
-    if (data == null || data is! Map<String, dynamic>) {
+    if (data == null) {
       return;
     }
 
@@ -208,7 +209,6 @@ class _ProfileViewState extends State<ProfileView> {
 
       // Derive extension + content type
       final ext = p.extension(picked.path).toLowerCase().replaceFirst('.', '');
-      final contentType = _mimeFromPath(picked.path);
 
       // Always include a filename
       final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
@@ -327,10 +327,8 @@ class _ProfileViewState extends State<ProfileView> {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile', style: TextStyle(fontSize: 17)),
-        centerTitle: true,
-        elevation: 0,
+      appBar: HCAppBar(
+        title: 'Profile',
         leading: IconButton(
           icon: const Icon(Icons.menu),
           onPressed: () => _showMenu(context),

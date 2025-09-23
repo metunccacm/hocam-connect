@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:project/widgets/custom_appbar.dart';
 import 'package:project/view/additem_view.dart';
 import 'package:project/view/category_view.dart';
 import 'package:project/view/product_detail_view.dart';
@@ -116,7 +117,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
-      appBar: AppBar(
+  appBar: HCAppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 1,
@@ -124,7 +125,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: _isSearching
+        titleWidget: _isSearching
             ? TextField(
                 controller: _searchController,
                 autofocus: true,

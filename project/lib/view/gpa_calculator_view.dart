@@ -1,5 +1,6 @@
 // gpa_calculator_view.dart
 import 'package:flutter/material.dart';
+import 'package:project/widgets/custom_appbar.dart';
 import 'package:flutter/services.dart';
 import 'package:project/viewmodel/gpa_calculator_viewmodel.dart';
 
@@ -321,9 +322,9 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     return Stack(
       children: [
         Scaffold(
-          appBar: AppBar(
+          appBar: HCAppBar(
             leading: const BackButton(), // just go back, no save here
-            title: const Text('GPA Calculator'),
+            title: 'GPA Calculator',
             actions: [
               IconButton(
                 onPressed: _isSaving ? null : _save,

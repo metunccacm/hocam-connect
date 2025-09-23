@@ -1,6 +1,7 @@
 // lib/view/chat_view.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:project/widgets/custom_appbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
 

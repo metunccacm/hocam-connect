@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:project/widgets/custom_appbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_controller.dart'; //Theme Controller
 
@@ -167,9 +168,8 @@ class _SettingsViewState extends State<SettingsView> {
     return Stack(
       children: [
         Scaffold(
-          appBar: AppBar(
-            centerTitle: true,
-            title: const Text('Settings', style: TextStyle(fontSize: 17)),
+          appBar: const HCAppBar(
+            title: 'Settings',
           ),
           body: ListView(
             children: [

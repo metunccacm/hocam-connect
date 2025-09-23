@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:project/widgets/custom_appbar.dart';
 import 'package:project/view/product_detail_view.dart';
 import '../models/product.dart';
 
@@ -15,10 +16,9 @@ class CategoryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(categoryName),
+  appBar: HCAppBar(
+        titleWidget: Text(categoryName, style: const TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         elevation: 1,
       ),
       body: GridView.builder(
