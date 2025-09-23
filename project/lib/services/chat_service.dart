@@ -1,13 +1,14 @@
 // lib/services/chat_service.dart
 import 'dart:async';
 import 'dart:math';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+
 import '../e2ee/e2ee_key_manager.dart';
 
 final supa = Supabase.instance.client;
 final _uuid = const Uuid();
-final _keys = E2EEKeyManager();
 
 class ChatMessage {
   final String id;
@@ -28,22 +29,39 @@ class ChatMessage {
         createdAt = DateTime.parse(m['created_at']).toLocal();
 }
 
+class UserDisplay {
+  final String userId;
+  final String displayName;
+  final String? avatarUrl;
+  UserDisplay({required this.userId, required this.displayName, this.avatarUrl});
+  factory UserDisplay.fromJson(Map<String, dynamic> m) => UserDisplay(
+        userId: m['user_id'] as String,
+        displayName: (m['display_name'] as String?) ?? '',
+        avatarUrl: m['avatar_url'] as String?,
+      );
+}
+
+class BlockStatus {
+  final bool isDm;
+  final bool iBlocked;
+  final bool blockedMe;
+  BlockStatus({required this.isDm, required this.iBlocked, required this.blockedMe});
+}
+
 class ChatService {
-  // ---- NEW: CEK cache (conversationId -> key bytes)
+  final _keys = E2EEKeyManager();
+
+  // CEK cache
   final Map<String, List<int>> _cekCache = {};
+  void evictCek(String convId) => _cekCache.remove(convId);
 
   Future<void> ensureMyLongTermKey() async {
     await _keys.loadKeyPairFromStorage();
   }
 
-  Future<String> createOrGetDm(String otherUserId) async {
-    final me = supa.auth.currentUser!.id;
-    final res = await supa
-        .rpc('create_1to1_conversation', params: {'a': me, 'b': otherUserId});
-    final convId = res as String;
-    await bootstrapCekIfMissing(convId);
-    return convId;
-  }
+  
+
+  // ---------- CEK BOOTSTRAP / GET ----------
 
   Future<void> bootstrapCekIfMissing(String conversationId) async {
     final me = supa.auth.currentUser!.id;
@@ -51,18 +69,23 @@ class ChatService {
     final parts = await supa
         .from('participants')
         .select(
-            'user_id, cek_wrapped_ciphertext_base64, cek_wrapped_nonce_base64, cek_wrapped_ephemeral_pub_base64')
+            'user_id, cek_wrapped_ciphertext_base64, cek_wrapped_nonce_base64, cek_wrapped_ephemeral_pub_base64, cek_version')
         .eq('conversation_id', conversationId);
 
     final list = (parts as List).cast<Map<String, dynamic>>();
-    final myRow =
-        list.firstWhere((p) => p['user_id'] == me, orElse: () => {});
-
+    final myRow = list.firstWhere((p) => p['user_id'] == me, orElse: () => {});
     final hasMyWrapped = (myRow['cek_wrapped_ciphertext_base64'] != null);
+
     if (hasMyWrapped) return;
 
-    final cek = List<int>.generate(32, (_) => Random.secure().nextInt(256));
+    // yeni CEK ve versiyon
+    final int currentMaxVersion = list.fold<int>(0, (maxv, p) {
+      final v = (p['cek_version'] as int?) ?? 0;
+      return v > maxv ? v : maxv;
+    });
+    final newVersion = currentMaxVersion + 1;
 
+    final cek = List<int>.generate(32, (_) => Random.secure().nextInt(256));
     for (final p in list) {
       final uid = p['user_id'] as String;
       final pub = await _keys.getUserPublicKey(uid);
@@ -74,19 +97,17 @@ class ChatService {
       await supa.rpc('set_conversation_cek', params: {
         '_conversation_id': conversationId,
         '_target_user_id': uid,
-        '_cek_version': 1,
+        '_cek_version': newVersion,
         '_wrapped_ct_base64': wrapped['wrapped_ct_b64'],
         '_wrapped_nonce_base64': wrapped['wrapped_nonce_b64'],
         '_eph_pub_base64': wrapped['eph_pub_b64'],
       });
     }
 
-    // CEK cache'i temizle (yeni CEK olmuş olabilir)
-    _cekCache.remove(conversationId);
+    _cekCache.remove(conversationId); // yeni CEK oldu
   }
 
   Future<List<int>> getMyCek(String conversationId) async {
-    // ---- NEW: cache kullan
     final cached = _cekCache[conversationId];
     if (cached != null) return cached;
 
@@ -104,7 +125,7 @@ class ChatService {
         wrappedNonceB64: r['cek_wrapped_nonce_base64'],
         ephPubB64: r['cek_wrapped_ephemeral_pub_base64'],
       );
-      _cekCache[conversationId] = k; // ---- NEW: cache'e koy
+      _cekCache[conversationId] = k;
       return k;
     }
 
@@ -124,6 +145,45 @@ class ChatService {
     return unwrapFn(row);
   }
 
+  /// CEK sarmasında değişiklik olursa cache’i düşür.
+  RealtimeChannel subscribeCekUpdates(
+    String conversationId,
+    void Function() onInvalidate,
+  ) {
+    final me = supa.auth.currentUser!.id;
+    final ch = supa.channel('cek:$conversationId')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public',
+        table: 'participants',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'conversation_id',
+          value: conversationId,
+        ),
+        callback: (payload) {
+          final r = payload.newRecord;
+          if (r['user_id'] != me) return;
+          // benim satırım güncellenmiş → CEK değişmiş olabilir
+          _cekCache.remove(conversationId);
+          onInvalidate();
+        },
+      )
+      ..subscribe();
+    return ch;
+  }
+
+  // ---------- CONVERSATIONS / MESSAGES ----------
+
+  Future<String> createOrGetDm(String otherUserId) async {
+    final me = supa.auth.currentUser!.id;
+    final res = await supa
+        .rpc('create_1to1_conversation', params: {'a': me, 'b': otherUserId});
+    final convId = res as String;
+    await bootstrapCekIfMissing(convId);
+    return convId;
+  }
+
   Future<List<Map<String, dynamic>>> getConversationsBasic() async {
     final rows = await supa.rpc('get_conversations_basic');
     return (rows as List).cast<Map<String, dynamic>>();
@@ -140,8 +200,10 @@ class ChatService {
     return ChatMessage.fromJson(rows.first);
   }
 
-  Future<List<ChatMessage>> fetchInitial(String conversationId,
-      {int limit = 30}) async {
+  Future<List<ChatMessage>> fetchInitial(
+    String conversationId, {
+    int limit = 30,
+  }) async {
     final rows = await supa
         .from('messages')
         .select()
@@ -151,8 +213,11 @@ class ChatService {
     return (rows as List).map((e) => ChatMessage.fromJson(e)).toList();
   }
 
-  Future<List<ChatMessage>> fetchBefore(String conversationId, DateTime before,
-      {int limit = 30}) async {
+  Future<List<ChatMessage>> fetchBefore(
+    String conversationId,
+    DateTime before, {
+    int limit = 30,
+  }) async {
     final rows = await supa
         .from('messages')
         .select()
@@ -160,8 +225,7 @@ class ChatService {
         .lt('created_at', before.toIso8601String())
         .order('created_at', ascending: false)
         .limit(limit);
-    final list =
-        (rows as List).map((e) => ChatMessage.fromJson(e)).toList();
+    final list = (rows as List).map((e) => ChatMessage.fromJson(e)).toList();
     list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return list;
   }
@@ -205,7 +269,9 @@ class ChatService {
   }
 
   RealtimeChannel subscribeMessages(
-      String conversationId, void Function(ChatMessage) onInsert) {
+    String conversationId,
+    void Function(ChatMessage) onInsert,
+  ) {
     final ch = supa.channel('msg-conv-$conversationId')
       ..onPostgresChanges(
         event: PostgresChangeEvent.insert,
@@ -216,78 +282,71 @@ class ChatService {
           column: 'conversation_id',
           value: conversationId,
         ),
-        callback: (payload) =>
-            onInsert(ChatMessage.fromJson(payload.newRecord)),
+        callback: (payload) => onInsert(ChatMessage.fromJson(payload.newRecord)),
       )
       ..subscribe();
     return ch;
   }
 
-  // Presence (typing) — sürümden bağımsız
-RealtimeChannel joinPresence(
-  String conversationId,
-  void Function(Set<String>) onSync,
-) {
-  final ch = supa.channel('presence:$conversationId');
+  // ---------- Presence (typing) ----------
 
-  // metas/payload yapısını dinamik olarak tüket
-  void _consumeMeta(dynamic meta, Set<String> out) {
-    String? uid;
-    bool isTyping = false;
+  RealtimeChannel joinPresence(
+    String conversationId,
+    void Function(Set<String>) onSync,
+  ) {
+    final ch = supa.channel('presence:$conversationId');
 
-    if (meta is Map) {
-      uid = meta['userId'] as String?;
-      isTyping = meta['typing'] == true;
-    } else {
-      // dinamik alanlar (bazı SDK'larda PresenceMeta gibi sınıflar)
-      try { uid = (meta as dynamic).userId as String?; } catch (_) {}
-      try { isTyping = (meta as dynamic).typing == true; } catch (_) {}
-    }
-    if (isTyping && uid != null) out.add(uid);
-  }
+    void _consumeMeta(dynamic meta, Set<String> out) {
+      String? uid;
+      bool isTyping = false;
 
-  ch
-    ..onPresenceSync((_) {
-      final state = ch.presenceState(); // Map veya List olabilir
-      final typing = <String>{};
-
-      if (state is Map) {
-        // Map<String, List<dynamic>>
-        for (final metas in (state as Map).values) {
-          if (metas is List) {
-            for (final meta in metas) {
-              _consumeMeta(meta, typing);
-            }
-          }
-        }
-      } else if (state is List) {
-        // List<SinglePresenceState> veya benzeri
-        for (final item in (state as List)) {
-          final dynamic d = item;
-          List<dynamic>? metas;
-          // bazı sürümlerde 'metas', bazılarında 'payload' oluyor
-          try { metas = (d.metas as List?); } catch (_) {}
-          try { metas ??= (d.payload as List?); } catch (_) {}
-          if (metas != null) {
-            for (final meta in metas) {
-              _consumeMeta(meta, typing);
-            }
-          }
-        }
+      if (meta is Map) {
+        uid = meta['userId'] as String?;
+        isTyping = meta['typing'] == true;
+      } else {
+        try { uid = (meta as dynamic).userId as String?; } catch (_) {}
+        try { isTyping = (meta as dynamic).typing == true; } catch (_) {}
       }
+      if (isTyping && uid != null) out.add(uid);
+    }
 
-      onSync(typing);
-    })
-    ..subscribe();
+    ch
+      ..onPresenceSync((_) {
+        final state = ch.presenceState();
+        final typing = <String>{};
 
-  ch.track({
-    'userId': supa.auth.currentUser!.id,
-    'typing': false,
-  });
+        if (state is Map) {
+          for (final metas in (state as Map).values) {
+            if (metas is List) {
+              for (final meta in metas) {
+                _consumeMeta(meta, typing);
+              }
+            }
+          }
+        } else if (state is List) {
+          for (final item in (state as List)) {
+            final dynamic d = item;
+            List<dynamic>? metas;
+            try { metas = (d.metas as List?); } catch (_) {}
+            try { metas ??= (d.payload as List?); } catch (_) {}
+            if (metas != null) {
+              for (final meta in metas) {
+                _consumeMeta(meta, typing);
+              }
+            }
+          }
+        }
+        onSync(typing);
+      })
+      ..subscribe();
 
-  return ch;
-}
+    ch.track({
+      'userId': supa.auth.currentUser!.id,
+      'typing': false,
+    });
 
+    return ch;
+  }
 
   Future<void> trackTyping(RealtimeChannel presence, bool isTyping) async {
     await presence.track({
@@ -297,148 +356,131 @@ RealtimeChannel joinPresence(
     });
   }
 
+  // ---------- Read / Unread ----------
+
   Future<void> markRead(String conversationId) async {
     await supa.rpc('mark_read', params: {'_conversation_id': conversationId});
   }
 
-Future<Map<String, UserDisplay>> getDisplayMap(List<String> userIds) async {
-  final ids = userIds.where((e) => e.isNotEmpty).toSet().toList();
-  if (ids.isEmpty) return {};
+  // ---------- Display / DM Block ----------
 
-  try {
-    final rows = await supa.rpc('get_user_display_bulk', params: {'_ids': ids});
-    final list = (rows as List)
-        .cast<Map<String, dynamic>>()
-        .map((e) => UserDisplay.fromJson(e));
-    return {for (final u in list) u.userId: u};
-  } catch (e) {
-    // Fallback: show short uuid (keeps UI working if RPC not deployed yet)
-    return {
-      for (final id in ids)
-        id: UserDisplay(userId: id, displayName: 'User ${id.substring(0, 6)}')
-    };
+  Future<Map<String, UserDisplay>> getDisplayMap(List<String> userIds) async {
+    final ids = userIds.where((e) => e.isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return {};
+    try {
+      final rows =
+          await supa.rpc('get_user_display_bulk', params: {'_ids': ids});
+      final list = (rows as List)
+          .cast<Map<String, dynamic>>()
+          .map((e) => UserDisplay.fromJson(e));
+      return {for (final u in list) u.userId: u};
+    } catch (_) {
+      return {
+        for (final id in ids)
+          id: UserDisplay(userId: id, displayName: 'User ${id.substring(0, 6)}')
+      };
+    }
+  }
+
+  
+
+  Future<BlockStatus> getBlockStatus(String conversationId) async {
+    final rows = await supa
+        .rpc('get_dm_block_status', params: {'_conversation_id': conversationId});
+    final data =
+        (rows as List).isNotEmpty ? rows.first as Map<String, dynamic> : {};
+    return BlockStatus(
+      isDm: (data['is_dm'] as bool?) ?? false,
+      iBlocked: (data['i_blocked'] as bool?) ?? false,
+      blockedMe: (data['blocked_me'] as bool?) ?? false,
+    );
+  }
+
+  Future<void> blockInDm(String conversationId) async {
+    await supa.rpc('block_user_in_dm', params: {'_conversation_id': conversationId});
+  }
+
+  Future<void> unblockInDm(String conversationId) async {
+    await supa.rpc('unblock_user_in_dm',
+        params: {'_conversation_id': conversationId});
+  }
+
+  Future<List<String>> getParticipantIds(String conversationId) async {
+    final rows = await supa
+        .from('participants')
+        .select('user_id')
+        .eq('conversation_id', conversationId);
+    return (rows as List)
+        .map((e) => (e as Map<String, dynamic>)['user_id'] as String)
+        .toList();
+  }
+
+  Future<RealtimeChannel?> subscribeDmBlockStatus(
+    String conversationId,
+    FutureOr<void> Function() onChange,
+  ) async {
+    final ids = await getParticipantIds(conversationId);
+    if (ids.length != 2) return null;
+    final me = supa.auth.currentUser!.id;
+    final other = ids.firstWhere((u) => u != me, orElse: () => me);
+
+    final ch = supa.channel('dmblocks:$conversationId')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'user_blocks',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'blocker_id',
+          value: me,
+        ),
+        callback: (payload) {
+          if (payload.newRecord['blocked_id'] == other) onChange();
+        },
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.delete,
+        schema: 'public',
+        table: 'user_blocks',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'blocker_id',
+          value: me,
+        ),
+        callback: (payload) {
+          if (payload.oldRecord['blocked_id'] == other) onChange();
+        },
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'user_blocks',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'blocker_id',
+          value: other,
+        ),
+        callback: (payload) {
+          if (payload.newRecord['blocked_id'] == me) onChange();
+        },
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.delete,
+        schema: 'public',
+        table: 'user_blocks',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'blocker_id',
+          value: other,
+        ),
+        callback: (payload) {
+          if (payload.oldRecord['blocked_id'] == me) onChange();
+        },
+      )
+      ..subscribe();
+
+    return ch;
   }
 }
-
-Future<BlockStatus> getBlockStatus(String conversationId) async {
-  final rows = await supa.rpc('get_dm_block_status', params: {'_conversation_id': conversationId});
-  final data = (rows as List).isNotEmpty ? rows.first as Map<String, dynamic> : {};
-  return BlockStatus(
-    isDm: (data['is_dm'] as bool?) ?? false,
-    iBlocked: (data['i_blocked'] as bool?) ?? false,
-    blockedMe: (data['blocked_me'] as bool?) ?? false,
-  );
-}
-
-Future<void> unblockInDm(String conversationId) async {
-  await supa.rpc('unblock_user_in_dm', params: {'_conversation_id': conversationId});
-}
-
-
-// Who is in this conversation?
-Future<List<String>> getParticipantIds(String conversationId) async {
-  final rows = await supa
-      .from('participants')
-      .select('user_id')
-      .eq('conversation_id', conversationId);
-  return (rows as List).map((e) => (e as Map<String, dynamic>)['user_id'] as String).toList();
-}
-
-/// Realtime subscription: fire onChange whenever block/unblock toggles for this DM.
-Future<RealtimeChannel?> subscribeDmBlockStatus(
-  String conversationId,
-  FutureOr<void> Function() onChange,
-) async {
-  final ids = await getParticipantIds(conversationId);
-  if (ids.length != 2) return null; // not a DM => ignore
-  final me = supa.auth.currentUser!.id;
-  final other = ids.firstWhere((u) => u != me, orElse: () => me);
-
-  final ch = supa.channel('dmblocks:$conversationId')
-    // I block/unblock them
-    ..onPostgresChanges(
-      event: PostgresChangeEvent.insert,
-      schema: 'public',
-      table: 'user_blocks',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'blocker_id',
-        value: me,
-      ),
-      callback: (payload) {
-        if (payload.newRecord['blocked_id'] == other) onChange();
-      },
-    )
-    ..onPostgresChanges(
-      event: PostgresChangeEvent.delete,
-      schema: 'public',
-      table: 'user_blocks',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'blocker_id',
-        value: me,
-      ),
-      callback: (payload) {
-        if (payload.oldRecord['blocked_id'] == other) onChange();
-      },
-    )
-    // They block/unblock me
-    ..onPostgresChanges(
-      event: PostgresChangeEvent.insert,
-      schema: 'public',
-      table: 'user_blocks',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'blocker_id',
-        value: other,
-      ),
-      callback: (payload) {
-        if (payload.newRecord['blocked_id'] == me) onChange();
-      },
-    )
-    ..onPostgresChanges(
-      event: PostgresChangeEvent.delete,
-      schema: 'public',
-      table: 'user_blocks',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'blocker_id',
-        value: other,
-      ),
-      callback: (payload) {
-        if (payload.oldRecord['blocked_id'] == me) onChange();
-      },
-    )
-    ..subscribe();
-
-  return ch;
-}
-
-}
-
-// --- Display name model + bulk fetch ---
-class UserDisplay {
-  final String userId;
-  final String displayName;
-  final String? avatarUrl;
-  UserDisplay({required this.userId, required this.displayName, this.avatarUrl});
-  factory UserDisplay.fromJson(Map<String, dynamic> m) => UserDisplay(
-    userId: m['user_id'] as String,
-    displayName: (m['display_name'] as String?) ?? '',
-    avatarUrl: m['avatar_url'] as String?,
-  );
-}
-
-class BlockStatus {
-  final bool isDm;
-  final bool iBlocked;
-  final bool blockedMe;
-  BlockStatus({required this.isDm, required this.iBlocked, required this.blockedMe});
-}
-
-
-
-
-
 
 

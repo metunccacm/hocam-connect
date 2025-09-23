@@ -74,6 +74,7 @@ class _MainTabViewState extends State<MainTabView>
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'main_menu_fab',
         shape: const CircleBorder(),
         backgroundColor: Colors.white,
         elevation: 4.0,
@@ -152,6 +153,7 @@ class _MainTabViewState extends State<MainTabView>
               // GPA Calculator
               _buildMenuItem(
                 icon: Icons.calculate_outlined,
+                heroTag: 'menu_calc',
                 angle: -135, // Top-left
                 animationValue: animationValue,
                 onPressed: () {
@@ -166,6 +168,7 @@ class _MainTabViewState extends State<MainTabView>
               // Marketplace
               _buildMenuItem(
                 icon: Icons.storefront,
+                heroTag: 'menu_market',
                 angle: -90, // Top-center
                 animationValue: animationValue,
                 onPressed: () {
@@ -180,6 +183,7 @@ class _MainTabViewState extends State<MainTabView>
               // Hitchhike
               _buildMenuItem(
                 icon: Icons.directions_car_outlined,
+                heroTag: 'menu_hitch',
                 angle: -45, // Top-right
                 animationValue: animationValue,
                 onPressed: () {
@@ -201,6 +205,7 @@ class _MainTabViewState extends State<MainTabView>
   // Helper to build and position each individual menu button
   Widget _buildMenuItem({
     required IconData icon,
+    required String heroTag,
     required double angle,
     required double animationValue,
     required VoidCallback onPressed,
@@ -215,7 +220,7 @@ class _MainTabViewState extends State<MainTabView>
       child: Transform.scale(
         scale: animationValue,
         child: FloatingActionButton(
-          heroTag: null,
+          heroTag: heroTag,
           mini: true,
           onPressed: onPressed,
           backgroundColor: Colors.white,

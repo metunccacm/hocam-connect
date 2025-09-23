@@ -1,109 +1,97 @@
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
+import '../models/product.dart';
+import '../services/marketplace_service.dart';
 
-// A simple model for a product for demonstration purposes.
-class Product {
-  final String id;
-  final String name;
-  final double price;
-  final String imageUrl;
-  final DateTime dateAdded;
-  final String category;
-  final String sellerName;
-  final String sellerImageUrl;
-
-  Product({
-    required this.id,
-    required this.name,
-    required this.price,
-    required this.imageUrl,
-    required this.dateAdded,
-    required this.category,
-    required this.sellerName,
-    required this.sellerImageUrl,
-  });
-}
-
-// Enum for sorting options.
 enum SortOption { priceAsc, priceDesc, newest }
 
 class MarketplaceViewModel extends ChangeNotifier {
-  // Dummy data for demonstration.
-  final List<Product> _allProducts = [
-    Product(id: '1', name: 'Vintage T-Shirt', price: 25.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 28), category: 'Clothes', sellerName: 'Fethi Başata', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '2', name: 'Used Textbook', price: 50.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 29), category: 'Kitchen Items', sellerName: 'Mert Yıldırım', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '3', name: 'Desk Lamp', price: 15.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 25), category: 'Electronics', sellerName: 'Karpat', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '4', name: 'Classic Jeans', price: 75.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 30), category: 'Clothes', sellerName: 'Barış', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '5', name: 'Amazing T-shirt', price: 12.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 27), category: 'Clothes', sellerName: 'Buğra', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '6', name: 'Faboulous Pants', price: 15.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 26), category: 'Clothes', sellerName: 'İrem', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '7', name: 'White Shirt', price: 120.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 24), category: 'Clothes', sellerName: 'Eser', sellerImageUrl: 'https://via.placeholder.com/150'),
-    Product(id: '8', name: 'Heater', price: 500.0, imageUrl: 'https://via.placeholder.com/150', dateAdded: DateTime(2025, 8, 23), category: 'Electronics', sellerName: 'Eren Başata', sellerImageUrl: 'https://via.placeholder.com/150'),
-  ];
+  final _svc = MarketplaceService();
 
+  final List<Product> _allProducts = [];
   Map<String, List<Product>> _groupedProducts = {};
   SortOption _currentSortOption = SortOption.newest;
   Set<String> _activeFilters = {};
-  String _searchQuery = ''; // For search functionality
+  String _searchQuery = '';
+  bool _loading = false;
+
+  // Dinamik kategoriler
+  List<String> _allCategories = [];
+  List<String> get allCategories => _allCategories;
 
   MarketplaceViewModel() {
-    _updateProducts();
+    refresh();
   }
+
+  Future<void> refreshProducts() => refresh();
 
   Map<String, List<Product>> get groupedProducts => _groupedProducts;
   SortOption get currentSortOption => _currentSortOption;
   Set<String> get activeFilters => _activeFilters;
+  bool get isLoading => _loading;
 
-  void _updateProducts() {
-    List<Product> products;
+  Future<void> refresh() async {
+    _loading = true;
+    notifyListeners();
 
-    // 1. Filter by category
-    if (_activeFilters.isEmpty) {
-      products = List.from(_allProducts);
-    } else {
-      products = _allProducts
-          .where((product) => _activeFilters.contains(product.category))
-          .toList();
+    final products = await _svc.fetchProducts(limit: 200);
+    _allProducts
+      ..clear()
+      ..addAll(products);
+
+    _allCategories = await _svc.fetchCategories();
+
+    _recompute();
+    _loading = false;
+    notifyListeners();
+  }
+
+  void _recompute() {
+    Iterable<Product> items = _allProducts;
+
+    if (_activeFilters.isNotEmpty) {
+      items = items.where((p) => _activeFilters.contains(p.category));
     }
 
-    // 2. Filter by search query
-    if (_searchQuery.isNotEmpty) {
-      products = products
-          .where((product) =>
-              product.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-          .toList();
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      items = items.where((p) =>
+          p.title.toLowerCase().contains(q) ||
+          p.description.toLowerCase().contains(q) ||
+          p.sellerName.toLowerCase().contains(q));
     }
 
-    // 3. Sort
+    final list = items.toList();
     switch (_currentSortOption) {
       case SortOption.priceAsc:
-        products.sort((a, b) => a.price.compareTo(b.price));
+        list.sort((a, b) => a.price.compareTo(b.price));
         break;
       case SortOption.priceDesc:
-        products.sort((a, b) => b.price.compareTo(a.price));
+        list.sort((a, b) => b.price.compareTo(a.price));
         break;
       case SortOption.newest:
-        products.sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         break;
     }
 
-    // 4. Group
-    _groupedProducts = groupBy(products, (Product p) => p.category);
-    notifyListeners();
+    _groupedProducts = groupBy(list, (Product p) => p.category);
   }
 
   void sortProducts(SortOption option) {
     _currentSortOption = option;
-    _updateProducts();
+    _recompute();
+    notifyListeners();
   }
 
   void applyFilters(Set<String> selectedCategories) {
     _activeFilters = selectedCategories;
-    _updateProducts();
+    _recompute();
+    notifyListeners();
   }
 
-  // Search
   void searchProducts(String query) {
     _searchQuery = query;
-    _updateProducts();
+    _recompute();
+    notifyListeners();
   }
 }

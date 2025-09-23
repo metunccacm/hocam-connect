@@ -8,6 +8,7 @@ class HCAppBar extends StatelessWidget implements PreferredSizeWidget {
   const HCAppBar({
     super.key,
     this.title,
+    this.titleStyle,
     this.titleWidget,
     this.centerTitle = true,
     this.leading,
@@ -18,6 +19,7 @@ class HCAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   final String? title;
+  final TextStyle? titleStyle;
   final Widget? titleWidget;
   final bool centerTitle;
   final Widget? leading;
@@ -32,7 +34,7 @@ class HCAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: titleWidget ?? (title != null ? Text(title!) : null),
+      title: titleWidget ?? (title != null ? Text(title!, style: titleStyle) : null),
       centerTitle: centerTitle,
       leading: leading,
       actions: actions,

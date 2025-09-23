@@ -175,6 +175,7 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     final fab = FloatingActionButton.extended(
+      heroTag: 'home_new_message_fab',
       onPressed: _openNewMessagePicker,
       icon: const Icon(Icons.message_outlined),
       label: const Text('New message'),
