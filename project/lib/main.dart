@@ -3,6 +3,7 @@ import 'package:project/view/bottombar_view.dart';
 import 'package:project/view/forgot_password_view.dart';
 import 'package:project/view/recovery_code_view.dart';
 import 'package:project/view/reset_password_view.dart';
+import 'package:project/view/this_week_view.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -198,6 +199,7 @@ class MyApp extends StatelessWidget {
             '/canteen-menu': (_) => const CanteenMenuScreen(),
             '/gpa_calculator': (_) => const GpaCalculatorView(),
             '/forgot-password': (_) => const ForgotPasswordView(),
+            '/twoc': (_) => const ThisWeekView(),
             '/home': (_) => const MainTabView(),
             '/recovery-code': (_) => const RecoveryCodeView(),
             '/reset-password': (_) => const ResetPasswordView(),

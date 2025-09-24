@@ -147,6 +147,19 @@ class _ProfileViewState extends State<ProfileView> {
     });
   }
 
+  Future<void> _logout() async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    await Supabase.instance.client.auth.signOut();
+
+    // Navigate to login and remove all previous routes
+    navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Logged out')),
+    );
+  }
+
   Future<void> updateProfile() async {
     final user = supa.auth.currentUser;
     if (user == null) return;
@@ -335,11 +348,16 @@ class _ProfileViewState extends State<ProfileView> {
         ),
         actions: [
           if (isEditing)
-            IconButton(
-              icon: const Icon(Icons.save),
-              tooltip: 'Save Profile',
-              onPressed: updateProfile,
-            ),
+        IconButton(
+          icon: const Icon(Icons.save),
+          tooltip: 'Save Profile',
+          onPressed: updateProfile,
+        ),
+          IconButton(
+        icon: const Icon(Icons.logout),
+        tooltip: 'Logout',
+        onPressed: _logout,
+          ),
         ],
       ),
       body: SingleChildScrollView(
