@@ -1,23 +1,23 @@
-// lib/view/add_hitchhike_view.dart
+// lib/view/add_hitchike_view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:provider/provider.dart';
 
-import '../viewmodel/create_hitchhike_viewmodel.dart';
+import '../viewmodel/create_hitchikepost_viewmodel.dart';
 
-class AddHitchhikeView extends StatefulWidget {
-  const AddHitchhikeView({super.key});
+class CreateHitchikeView extends StatefulWidget {
+  const CreateHitchikeView({super.key});
 
   @override
-  State<AddHitchhikeView> createState() => _AddHitchhikeViewState();
+  State<CreateHitchikeView> createState() => _CreateHitchikeViewState();
 }
 
-class _AddHitchhikeViewState extends State<AddHitchhikeView> {
+class _CreateHitchikeViewState extends State<CreateHitchikeView> {
   final _formKey = GlobalKey<FormBuilderState>();
 
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<CreateHitchhikeViewModel>();
+    final vm = context.watch<CreateHitchikeViewModel>();
     final locations = vm.locationOptions;
 
     return Scaffold(
@@ -130,7 +130,7 @@ class _AddHitchhikeViewState extends State<AddHitchhikeView> {
                 onPressed: vm.isListing
                     ? null
                     : () => context
-                        .read<CreateHitchhikeViewModel>()
+                        .read<CreateHitchikeViewModel>()
                         .createPost(context, _formKey),
                 child: vm.isListing
                     ? const SizedBox(

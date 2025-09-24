@@ -1,10 +1,10 @@
 // lib/viewmodel/hitchike_viewmodel.dart
 import 'package:flutter/foundation.dart';
 import '../models/hitchike_post.dart';
-import '../services/create_hitchike_post_service.dart' show HitchhikeService;
+import '../services/create_hitchike_post_service.dart' show HitchikeService;
 
 class HitchikeViewModel extends ChangeNotifier {
-  final HitchhikeService _svc = HitchhikeService();
+  final HitchikeService _svc = HitchikeService();
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;

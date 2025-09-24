@@ -1,10 +1,10 @@
 // lib/viewmodel/create_hitchhike_viewmodel.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
-import '../services/hitchhike_service.dart';
+import '../services/create_hitchike_post_service.dart';
 
-class CreateHitchhikeViewModel extends ChangeNotifier {
-  final _svc = HitchhikeService();
+class CreateHitchikeViewModel extends ChangeNotifier {
+  final _svc = HitchikeService();
 
   bool _isListing = false;
   bool get isListing => _isListing;
@@ -110,7 +110,7 @@ class CreateHitchhikeViewModel extends ChangeNotifier {
       // - attach driver (owner) from auth
       // - persist from/to/dateTime/seats/fuelShared
       // - ensure auto-deletion after date_time at DB level (trigger/RPC)
-      await _svc.createHitchhikePost(
+      await _svc.createHitchikePost(
         fromLocation: fromLoc,
         toLocation: toLoc,
         dateTime: dateTime,

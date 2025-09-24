@@ -1,38 +1,23 @@
-// lib/view/hitchhike_detail_view.dart
+// lib/view/hitchike_detail_view.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:project/models/hitchike_post.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
 import 'chat_view.dart';
 
+
 /// View-only model (no driver fields here; service will resolve owner->driver)
-class HitchhikePost {
-  final String id;
-  final String fromLocation; // Where the car is leaving from
-  final String toLocation;   // Where the car is headed to 
-  final DateTime dateTime;
-  final int seats;
-  final int fuelShared; // 0 or 1
 
-  HitchhikePost({
-    required this.id,
-    required this.fromLocation,
-    required this.toLocation,
-    required this.dateTime,
-    required this.seats,
-    required this.fuelShared,
-  });
-}
-
-class HitchhikeDetailView extends StatefulWidget {
-  final HitchhikePost post;
-  const HitchhikeDetailView({super.key, required this.post});
+class HitchikeDetailView extends StatefulWidget {
+  final HitchikePost post;
+  const HitchikeDetailView({super.key, required this.post});
 
   @override
-  State<HitchhikeDetailView> createState() => _HitchhikeDetailViewState();
+  State<HitchikeDetailView> createState() => _HitchikeDetailViewState();
 }
 
-class _HitchhikeDetailViewState extends State<HitchhikeDetailView> {
+class _HitchikeDetailViewState extends State<HitchikeDetailView> {
   final _svc = ChatService();
   final _refreshKey = GlobalKey<RefreshIndicatorState>();
 
@@ -57,7 +42,7 @@ class _HitchhikeDetailViewState extends State<HitchhikeDetailView> {
     unawaited(_reloadFromServer());
   }
 
-  void _bindFromPost(HitchhikePost p) {
+  void _bindFromPost(HitchikePost p) {
     _from = p.fromLocation;
     _to = p.toLocation;
     _dateTime = p.dateTime;
@@ -80,10 +65,10 @@ class _HitchhikeDetailViewState extends State<HitchhikeDetailView> {
     return "$dd.$mm.$yyyy, $t";
   }
 
-  Future<void> _manualRefresh() async {
-    _refreshKey.currentState?.show();
-    await _reloadFromServer();
-  }
+  //Future<void> _manualRefresh() async {
+    //_refreshKey.currentState?.show();
+    //await _reloadFromServer();
+  //}
 
   /// TODO (Service later): owner join + auto-expire delete at DB level
   Future<void> _reloadFromServer() async {
@@ -94,7 +79,7 @@ class _HitchhikeDetailViewState extends State<HitchhikeDetailView> {
       // Expecting a view or select that already joins owner -> profile
       // and can optionally auto-delete expired rows via trigger/RPC (to be done in Service/DB).
       final row = await supa
-          .from('hitchhike_posts') // TODO: replace with your table/view
+          .from('hitchike_posts') // TODO: replace with your table/view
           .select('''
             from_location,
             to_location,

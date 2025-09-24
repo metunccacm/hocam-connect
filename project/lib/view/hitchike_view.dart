@@ -4,11 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-
 import 'create_hitchike_view.dart';
-import 'hitchike_post_detail.dart';
+import 'hitchike_post_detail_view.dart';
 import '../viewmodel/hitchike_viewmodel.dart';
-import '../models/hitchike_post.dart';
 
 class HitchikeView extends StatefulWidget {
   const HitchikeView({super.key});
@@ -159,7 +157,7 @@ class _HitchikeViewState extends State<HitchikeView> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => HitchikePostDetail(post: p),
+                              builder: (_) => HitchikeDetailView(post: p),
                             ),
                           );
                         },
@@ -216,7 +214,7 @@ class _HitchikeViewState extends State<HitchikeView> {
   }
 }
 
-/// ============================
+// ============================
 ///       MY HITCHIKE POSTS
 /// ============================
 class _MyHitchikePostsView extends StatelessWidget {
@@ -280,4 +278,51 @@ class _MyHitchikePostsView extends StatelessWidget {
             );
           }
 
-         
+          // Add a default return to satisfy the non-nullable return type
+          return ListView.separated(
+            padding: const EdgeInsets.all(12),
+            itemCount: myPosts.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, i) {
+              final p = myPosts[i];
+              return Slidable(
+                key: ValueKey(p.id),
+                endActionPane: ActionPane(
+                  motion: const DrawerMotion(),
+                  children: [
+                    SlidableAction(
+                      onPressed: (context) async {
+                        await viewModel.deletePost(p.id);
+                      },
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      icon: Icons.delete,
+                      label: 'Delete',
+                    ),
+                  ],
+                ),
+                child: ListTile(
+                  title: Text('Going to ${p.toLocation}'),
+                  subtitle: Text(
+                    (p.fuelShared == 1)
+                        ? 'Fuel will be shared'
+                        : 'Fuel will not be shared',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HitchikeDetailView(post: p),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}

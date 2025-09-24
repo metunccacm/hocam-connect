@@ -1,10 +1,10 @@
 // lib/services/hitchhike_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class HitchhikeService {
+class HitchikeService {
   final _supa = Supabase.instance.client;
 
-  Future<void> createHitchhikePost({
+  Future<void> createHitchikePost({
     required String fromLocation,
     required String toLocation,
     required DateTime dateTime,
@@ -27,14 +27,14 @@ class HitchhikeService {
       'created_at': DateTime.now().toUtc().toIso8601String(),
     };
 
-    await _supa.from('hitchhike_posts').insert(insert);
+    await _supa.from('hitchike_posts').insert(insert);
   }
 
   /// Optional: returns only non-expired rides
   Future<List<Map<String, dynamic>>> fetchActivePosts() async {
     final nowIso = DateTime.now().toUtc().toIso8601String();
     final rows = await _supa
-        .from('hitchhike_posts_view') // recommend a view that already joins profiles
+        .from('hitchike_posts_view') // recommend a view that already joins profiles
         .select()
         .gte('date_time', nowIso)
         .order('date_time', ascending: true);
@@ -45,7 +45,7 @@ class HitchhikeService {
   Future<int> pruneExpired() async {
     final nowIso = DateTime.now().toUtc().toIso8601String();
     final res = await _supa
-        .from('hitchhike_posts')
+        .from('hitchike_posts')
         .delete()
         .lt('date_time', nowIso)
         .select(); // returns deleted rows
@@ -53,6 +53,6 @@ class HitchhikeService {
   }
 
   Future<void> deletePost(String id) async {
-    await _supa.from('hitchhike_posts').delete().eq('id', id);
+    await _supa.from('hitchike_posts').delete().eq('id', id);
   }
 }
