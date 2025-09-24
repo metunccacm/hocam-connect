@@ -16,6 +16,14 @@ import 'viewmodel/login_viewmodel.dart';
 import 'viewmodel/marketplace_viewmodel.dart';
 import 'viewmodel/register_viewmodel.dart';
 
+import 'view/hitchike_view.dart';
+import 'view/create_hitchike_view.dart';
+import 'view/hitchike_post_detail_view.dart';
+import 'viewmodel/hitchike_viewmodel.dart';
+import 'viewmodel/create_hitchikepost_viewmodel.dart'; 
+import 'package:project/models/hitchike_post.dart';
+
+
 // Theme Controller
 import 'theme_controller.dart';
 
@@ -101,6 +109,12 @@ void main() async {
         // ThemeController tekil instance'ı sağlayalım
         ChangeNotifierProvider<ThemeController>.value(
           value: ThemeController.instance,
+        ),
+        ChangeNotifierProvider<HitchikeViewModel>(
+          create: (context) => HitchikeViewModel(),
+        ),
+        ChangeNotifierProvider<CreateHitchikeViewModel>(
+          create: (context) => CreateHitchikeViewModel(),
         ),
       ],
       child: const MyApp(),
@@ -201,6 +215,8 @@ class MyApp extends StatelessWidget {
             '/home': (_) => const MainTabView(),
             '/recovery-code': (_) => const RecoveryCodeView(),
             '/reset-password': (_) => const ResetPasswordView(),
+            '/hitchike': (_) => const HitchikeView(),
+            '/hitchike/create': (_) => const CreateHitchikeView(),
           },
         );
       },

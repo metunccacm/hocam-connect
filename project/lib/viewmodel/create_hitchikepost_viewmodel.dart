@@ -11,7 +11,7 @@ class CreateHitchikeViewModel extends ChangeNotifier {
 
   // Fixed options for the dropdowns
   final List<String> locationOptions = const [
-    'Campus'
+    'Campus',
     'Kalkanlı',
     'Güzelyurt',
     'Lefkoşa',
@@ -60,10 +60,11 @@ class CreateHitchikeViewModel extends ChangeNotifier {
       // Otherwise combine separate date + time fields if present
       if (dateTime == null) {
         final DateTime? d = v['date'] as DateTime?;
-        final TimeOfDay? t = v['time'] as TimeOfDay?;
+        final DateTime? t = v['time'] as DateTime?;
         if (d != null && t != null) {
-          dateTime = DateTime(d.year, d.month, d.day, t.hour, t.minute);
-        }
+        dateTime = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+}
+
       }
 
       final int? seats = (v['seats'] is int)
@@ -113,7 +114,7 @@ class CreateHitchikeViewModel extends ChangeNotifier {
       await _svc.createHitchikePost(
         fromLocation: fromLoc,
         toLocation: toLoc,
-        dateTime: dateTime,
+        dateTime: dateTime.toUtc(),
         seats: seats,
         fuelShared: fuelShared,
       );
