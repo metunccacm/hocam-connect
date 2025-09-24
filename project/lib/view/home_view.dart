@@ -165,9 +165,9 @@ class _HomeViewState extends State<HomeView> {
       ),
       tile(
         icon: Icons.restaurant_menu_rounded,
-        label: 'Canteen',
+        label: 'Cafeteria',
         gradient: const [Color(0xFFFF512F), Color(0xFFF09819)],
-        onTap: () => _openOrSnack('/canteen-menu'),
+        onTap: () => _openOrSnack('/cafeteria-menu'),
       ),
       tile(
         icon: Icons.campaign_rounded,

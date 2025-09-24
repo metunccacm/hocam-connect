@@ -1,16 +1,18 @@
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:project/viewmodel/cafeteria_menu_viewmodel.dart';
 
-class CanteenMenuScreen extends StatefulWidget {
-  const CanteenMenuScreen({super.key});
+class CafeteriaMenuView extends StatefulWidget {
+  const CafeteriaMenuView({super.key});
 
   @override
-  State<CanteenMenuScreen> createState() => _CanteenMenuScreenState();
+  State<CafeteriaMenuView> createState() => _CafeteriaMenuViewState();
 }
 
-class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
-  int _selectedDayIndex = 0;
+class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
+  int _selectedDayIndex = 0; // 0=Mon
   final List<String> _dayNames = const [
     'Pazartesi',
     'Salı',
@@ -23,15 +25,38 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
   final ScrollController _chipScrollController = ScrollController();
   late final List<GlobalKey> _chipKeys;
 
+  late final CafeteriaMenuViewModel vm;
+
   @override
   void initState() {
     super.initState();
-    final int todayIndex = DateTime.now().weekday - 1; // 1=Mon -> 0 index
-    _selectedDayIndex = todayIndex < 0
-        ? 0
-        : (todayIndex >= _dayNames.length ? _dayNames.length - 1 : todayIndex);
+
+    // Initialize Turkish locale data for date formatting
+    initializeDateFormatting('tr_TR');
+
+    final int todayIndex = DateTime.now().weekday - 1;
+    _selectedDayIndex = todayIndex.clamp(0, _dayNames.length - 1);
     _chipKeys = List<GlobalKey>.generate(_dayNames.length, (_) => GlobalKey());
+
+    vm = CafeteriaMenuViewModel();
+    vm.addListener(_onVmChanged);
+    // initial load (current week)
+    vm.loadCurrentWeek();
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelectedChip());
+  }
+
+  @override
+  void dispose() {
+    vm.removeListener(_onVmChanged);
+    vm.dispose();
+    _chipScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onVmChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   void _scrollToSelectedChip() {
@@ -45,76 +70,6 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
       curve: Curves.easeOut,
     );
   }
-
-  // Örnek menü verisi - ileride backend'den gelecek
-  final Map<String, Map<String, Map<String, List<String>>>> _weeklyMenus = {
-    'Bu Hafta': {
-      'Pazartesi': {
-        'Öğle': ['Mercimek Çorbası', 'Tavuk Sote', 'Pilav', 'Salata', 'Meyve'],
-        'Akşam': ['Ezogelin Çorbası', 'Kıyma Sote', 'Bulgur Pilavı', 'Turşu', 'Yoğurt'],
-      },
-      'Salı': {
-        'Öğle': ['Domates Çorbası', 'Balık Izgara', 'Makarna', 'Salata', 'Tatlı'],
-        'Akşam': ['Mantar Çorbası', 'Tavuk Şiş', 'Pilav', 'Cacık', 'Meyve'],
-      },
-      'Çarşamba': {
-        'Öğle': ['Mercimek Çorbası', 'Et Sote', 'Pilav', 'Salata', 'Yoğurt'],
-        'Akşam': ['Yayla Çorbası', 'Tavuk Pirzola', 'Bulgur', 'Turşu', 'Meyve'],
-      },
-      'Perşembe': {
-        'Öğle': ['Domates Çorbası', 'Balık Tava', 'Makarna', 'Salata', 'Tatlı'],
-        'Akşam': ['Ezogelin Çorbası', 'Kıyma Sote', 'Pilav', 'Cacık', 'Meyve'],
-      },
-      'Cuma': {
-        'Öğle': ['Mercimek Çorbası', 'Tavuk Izgara', 'Pilav', 'Salata', 'Yoğurt'],
-        'Akşam': ['Mantar Çorbası', 'Et Sote', 'Bulgur', 'Turşu', 'Tatlı'],
-      },
-    },
-    'Gelecek Hafta': {
-      'Pazartesi': {
-        'Öğle': ['Yayla Çorbası', 'Tavuk Pirzola', 'Pilav', 'Salata', 'Meyve'],
-        'Akşam': ['Domates Çorbası', 'Balık Izgara', 'Makarna', 'Cacık', 'Yoğurt'],
-      },
-      'Salı': {
-        'Öğle': ['Ezogelin Çorbası', 'Kıyma Sote', 'Bulgur', 'Turşu', 'Tatlı'],
-        'Akşam': ['Mercimek Çorbası', 'Tavuk Sote', 'Pilav', 'Salata', 'Meyve'],
-      },
-      'Çarşamba': {
-        'Öğle': ['Mantar Çorbası', 'Et Sote', 'Pilav', 'Salata', 'Yoğurt'],
-        'Akşam': ['Domates Çorbası', 'Balık Tava', 'Makarna', 'Cacık', 'Tatlı'],
-      },
-      'Perşembe': {
-        'Öğle': ['Yayla Çorbası', 'Tavuk Izgara', 'Bulgur', 'Turşu', 'Meyve'],
-        'Akşam': ['Mercimek Çorbası', 'Kıyma Sote', 'Pilav', 'Salata', 'Yoğurt'],
-      },
-      'Cuma': {
-        'Öğle': ['Ezogelin Çorbası', 'Balık Izgara', 'Makarna', 'Salata', 'Tatlı'],
-        'Akşam': ['Mantar Çorbası', 'Tavuk Pirzola', 'Pilav', 'Cacık', 'Meyve'],
-      },
-    },
-    'Sonraki Hafta': {
-      'Pazartesi': {
-        'Öğle': ['Domates Çorbası', 'Et Sote', 'Pilav', 'Salata', 'Meyve'],
-        'Akşam': ['Yayla Çorbası', 'Tavuk Izgara', 'Bulgur', 'Turşu', 'Yoğurt'],
-      },
-      'Salı': {
-        'Öğle': ['Mercimek Çorbası', 'Balık Tava', 'Makarna', 'Cacık', 'Tatlı'],
-        'Akşam': ['Ezogelin Çorbası', 'Kıyma Sote', 'Pilav', 'Salata', 'Meyve'],
-      },
-      'Çarşamba': {
-        'Öğle': ['Mantar Çorbası', 'Tavuk Pirzola', 'Pilav', 'Salata', 'Yoğurt'],
-        'Akşam': ['Domates Çorbası', 'Et Sote', 'Bulgur', 'Turşu', 'Tatlı'],
-      },
-      'Perşembe': {
-        'Öğle': ['Yayla Çorbası', 'Balık Izgara', 'Makarna', 'Cacık', 'Meyve'],
-        'Akşam': ['Mercimek Çorbası', 'Tavuk Sote', 'Pilav', 'Salata', 'Yoğurt'],
-      },
-      'Cuma': {
-        'Öğle': ['Ezogelin Çorbası', 'Kıyma Sote', 'Pilav', 'Salata', 'Tatlı'],
-        'Akşam': ['Mantar Çorbası', 'Balık Tava', 'Bulgur', 'Turşu', 'Meyve'],
-      },
-    },
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +90,13 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Yenile',
+            onPressed: vm.isLoading ? null : vm.refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -218,7 +180,7 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                _getSelectedDateString(),
+                                _getSelectedDateString(vm.weekStart),
                                 style: textTheme.labelLarge?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -234,31 +196,55 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
             ),
           ),
 
-          // Menü listesi (seçili gün)
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-              itemCount: 1,
-              itemBuilder: (context, index) {
-                String selectedDayName = _dayNames[_selectedDayIndex];
-                final Map<String, List<String>>? maybeDayMenu =
-                    _weeklyMenus['Bu Hafta']?[selectedDayName];
-                final Map<String, List<String>> dayMenu =
-                    maybeDayMenu ?? <String, List<String>>{};
-                return _buildDayMenuCard(selectedDayName, dayMenu);
-              },
+          // Body – loading / error / content
+          if (vm.isLoading)
+            const Expanded(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (vm.errorMessage != null)
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Text(
+                    'Hata: ${vm.errorMessage}',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                itemCount: 1,
+                itemBuilder: (context, index) {
+                  final String selectedDayName = _dayNames[_selectedDayIndex];
+
+                  final lunch = vm.lunchFor(_selectedDayIndex);
+                  final dinner = vm.dinnerFor(_selectedDayIndex);
+
+                  // Build from live data
+                  return _buildDayMenuCard(
+                    selectedDayName,
+                    lunch: lunch,
+                    dinner: dinner,
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildDayMenuCard(String dayName, Map<String, List<String>> dayMenu) {
+  Widget _buildDayMenuCard(
+    String dayName, {
+    required List<String> lunch,
+    required List<String> dinner,
+  }) {
     final ColorScheme colors = Theme.of(context).colorScheme;
     final TextTheme textTheme = Theme.of(context).textTheme;
-    final List<String> lunch = dayMenu['Öğle'] ?? const [];
-    final List<String> dinner = dayMenu['Akşam'] ?? const [];
 
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
@@ -313,7 +299,7 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
             ),
             const SizedBox(height: 20),
 
-            if (lunch.isEmpty && dinner.isEmpty) ...[
+            if (lunch.isEmpty && dinner.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -334,8 +320,8 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                     ),
                   ),
                 ),
-              ),
-            ] else ...[
+              )
+            else ...[
               _buildMealSection('Öğle Yemeği', lunch),
               const SizedBox(height: 20),
               _buildMealSection('Akşam Yemeği', dinner),
@@ -429,12 +415,10 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
     );
   }
 
-  String _getSelectedDateString() {
-    // Seçili günün tarihi (mevcut haftadan)
-    final DateTime now = DateTime.now();
-    final DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final DateTime selectedDate = startOfWeek.add(Duration(days: _selectedDayIndex));
-    final DateFormat formatter = DateFormat('dd MMM yyyy');
+  String _getSelectedDateString(DateTime weekStartMonday) {
+    final DateTime selectedDate =
+        weekStartMonday.add(Duration(days: _selectedDayIndex));
+    final DateFormat formatter = DateFormat('yyyy MM dd', 'tr_TR');
     return formatter.format(selectedDate);
   }
 }
@@ -499,8 +483,7 @@ class _DayPill extends StatelessWidget {
               const SizedBox(width: 8),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? colors.onPrimary.withAlpha((0.15 * 255).round())
