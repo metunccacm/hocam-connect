@@ -90,7 +90,7 @@ class _MainTabViewState extends State<MainTabView>
             // Otherwise, show the logo
             return Padding(
               padding: const EdgeInsets.all(10.0),
-              child: Image.asset('assets/logo/acm_logo.png'),
+              child: Image.asset('assets/logo/hc_logo.png'),
             );
           },
         ),
