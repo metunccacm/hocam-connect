@@ -5,6 +5,7 @@ import 'package:project/view/gpa_calculator_view.dart';
 import 'package:project/view/home_view.dart';
 import 'package:project/view/marketplace_view.dart';
 import 'package:project/view/profile_view.dart';
+import 'package:project/view/settings_view.dart';
 import 'package:project/view/this_week_view.dart';
 import 'package:project/view/hitchhike_view.dart';
 
@@ -39,9 +40,9 @@ class _MainTabViewState extends State<MainTabView>
 
   static const List<Widget> _pages = <Widget>[
     HomeView(),
-    ThisWeekView(),
+    MarketplaceView(),
     ChatListView(),
-    ProfileView(),
+    ThisWeekView(),
   ];
 
   void _onItemTapped(int index) {
@@ -108,7 +109,7 @@ class _MainTabViewState extends State<MainTabView>
                 children: <Widget>[
                   _buildTabItem(icon: Icons.home, label: 'Home', index: 0),
                   _buildTabItem(
-                      icon: Icons.star_border, label: 'TWOC', index: 1),
+                      icon: Icons.storefront, label: 'Marketplace', index: 1),
                 ],
               ),
               Row(
@@ -117,7 +118,7 @@ class _MainTabViewState extends State<MainTabView>
                   _buildTabItem(
                       icon: Icons.chat_bubble_outline, label: 'Chats', index: 2),
                   _buildTabItem(
-                      icon: Icons.person_outline, label: 'Profile', index: 3),
+                      icon: Icons.star_border, label: 'TWOC', index: 3),
                 ],
               )
             ],
@@ -167,8 +168,8 @@ class _MainTabViewState extends State<MainTabView>
               ),
               // Marketplace
               _buildMenuItem(
-                icon: Icons.storefront,
-                heroTag: 'menu_market',
+                icon: Icons.settings,
+                heroTag: 'menu_settings',
                 angle: -90, // Top-center
                 animationValue: animationValue,
                 onPressed: () {
@@ -176,7 +177,7 @@ class _MainTabViewState extends State<MainTabView>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const MarketplaceView()),
+                        builder: (context) => const SettingsView()),
                   );
                 },
               ),
