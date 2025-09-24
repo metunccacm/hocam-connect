@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodel/login_viewmodel.dart';
@@ -10,11 +11,14 @@ class LoginView extends StatefulWidget {
 }
 
 class _LoginViewState extends State<LoginView> {
-  // Local state to toggle password visibility
   bool _isPasswordVisible = false;
 
   @override
   Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+    // Make the logo ~70% of screen width, clamp between 200–420 px
+    final logoSize = (w * 0.70).clamp(200.0, 420.0);
+
     return Consumer<LoginViewModel>(
       builder: (context, viewModel, child) {
         return Scaffold(
@@ -22,38 +26,34 @@ class _LoginViewState extends State<LoginView> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start, // Align content to the left
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const SizedBox(height: 80),
-                  // App logo - using a placeholder for now
+                  const SizedBox(height: 64),
+
+                  // BIGGER hc_beta image (centered)
                   Center(
-                    child: Container(
-                      width: 120,
-                      height: 120,
-                      decoration: const BoxDecoration(
-                        image: DecorationImage(
-                          image: AssetImage(
-                              'assets/logo/hc_logo.png'), // Placeholder image
-                          fit: BoxFit.contain,
-                        ),
+                    child: SizedBox(
+                      width: logoSize,
+                      height: math.min(logoSize, 360.0),
+                      child: Image.asset(
+                        'assets/images/hc_beta.png',
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 60),
 
-                  // "Welcome!" text
+                  const SizedBox(height: 48),
+
                   const Text(
                     'Welcome!',
                     style: TextStyle(
                       fontSize: 32,
-                      fontWeight: FontWeight.w700, // Semi-bold
+                      fontWeight: FontWeight.w700,
                       color: Colors.black,
                     ),
                   ),
                   const SizedBox(height: 40),
 
-                  // Email input field
                   TextFormField(
                     controller: viewModel.emailController,
                     decoration: const InputDecoration(
@@ -71,7 +71,6 @@ class _LoginViewState extends State<LoginView> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Password input field
                   TextFormField(
                     controller: viewModel.passwordController,
                     decoration: InputDecoration(
@@ -90,7 +89,6 @@ class _LoginViewState extends State<LoginView> {
                           color: Colors.grey,
                         ),
                         onPressed: () {
-                          // Toggle the password visibility state
                           setState(() {
                             _isPasswordVisible = !_isPasswordVisible;
                           });
@@ -103,25 +101,27 @@ class _LoginViewState extends State<LoginView> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Forgot password link
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, '/forgot-password',
-                            arguments: viewModel.emailController.text);
+                        Navigator.pushNamed(
+                          context,
+                          '/forgot-password',
+                          arguments: viewModel.emailController.text,
+                        );
                       },
                       child: const Text(
                         'Forgot password?',
                         style: TextStyle(
-                            color: Color(0xFF007BFF),
-                            fontWeight: FontWeight.normal),
+                          color: Color(0xFF007BFF),
+                          fontWeight: FontWeight.normal,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
 
-                  // Login button with loading indicator
                   if (viewModel.isLoading)
                     const Center(child: CircularProgressIndicator())
                   else
@@ -130,15 +130,13 @@ class _LoginViewState extends State<LoginView> {
                         await viewModel.loginUser(context);
                       },
                       style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(
-                            double.infinity, 50), // Full width button
+                        minimumSize: const Size(double.infinity, 50),
                       ),
                       child: const Text('Login'),
                     ),
 
                   const SizedBox(height: 30),
 
-                  // Registration link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -153,8 +151,9 @@ class _LoginViewState extends State<LoginView> {
                         child: const Text(
                           'Sign up now',
                           style: TextStyle(
-                              color: Color(0xFF007BFF),
-                              fontWeight: FontWeight.bold),
+                            color: Color(0xFF007BFF),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
