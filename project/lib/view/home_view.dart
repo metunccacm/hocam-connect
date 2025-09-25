@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:project/view/gpa_calculator_view.dart';
 import 'package:project/view/hitchhike_view.dart';
 import 'package:project/view/marketplace_view.dart';
+import 'package:project/view/student_handbook_tr_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -140,7 +141,7 @@ class _HomeViewState extends State<HomeView> {
         label: 'Handbook',
         gradient: const [Color(0xFF11998E), Color(0xFF38EF7D)],
         onTap: () => Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const ProfileView())),
+            .push(MaterialPageRoute(builder: (_) => const StudentHandbookTrView())),
       ),
       tile(
         icon: Icons.calculate,
