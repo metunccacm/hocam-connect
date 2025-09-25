@@ -123,7 +123,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
         elevation: 1,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
         ),
         titleWidget: _isSearching
             ? TextField(
