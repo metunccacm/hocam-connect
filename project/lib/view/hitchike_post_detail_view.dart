@@ -76,20 +76,21 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
     try {
       final supa = Supabase.instance.client;
       final row = await supa
-          .from('hitchike_posts_view') 
-          .select('''
-            from_location,
-            to_location,
-            date_time,
-            seats,
-            fuel_shared,
-            owner_id,         -- profile/user id of the post owner
-            owner_name,        -- resolved name from profiles (service/DB side)
-            owner_image:owner_image,       -- if column exists, return as owner_image
-            owner_image_url:owner_image,   -- alias to normalize name
-          ''')
+          .from('hitchike_posts_view')
+          .select(
+            'from_location,'
+            'to_location,'
+            'date_time,'
+            'seats,'
+            'fuel_shared,'
+            'owner_id,'
+            'owner_name,'
+            'owner_image_url:owner_image' // tek alias, yorum yok
+          )
           .eq('id', widget.post.id)
           .maybeSingle();
+
+
 
       if (row is Map<String, dynamic>) {
         setState(() {
