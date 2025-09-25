@@ -49,6 +49,9 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
     _dateTime = p.dateTime;
     _seats = p.seats;
     _fuelShared = p.fuelShared;
+    _driverUserId   = p.ownerId;
+    _driverName     = p.ownerName;
+    _driverImageUrl = p.ownerImageUrl;
   }
 
   bool get _isMine {
@@ -111,6 +114,10 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
 
           _driverUserId = row['owner_id'] as String?;
           _driverName = (row['owner_name'] as String?) ?? _driverName;
+          final img = row['owner_image_url'] as String?;
+          if (img != null && img.isNotEmpty) {
+            _driverImageUrl = img;
+          }
         });
       }
 
