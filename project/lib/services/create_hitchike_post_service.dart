@@ -16,7 +16,7 @@ class HitchikeService {
       throw Exception('Not authenticated');
     }
 
-    // owner_id = the post owner (driver). We’ll resolve name via a join/view when reading.
+    // owner_id = the post owner (driver).
     final insert = {
       'owner_id': user.id,
       'from_location': fromLocation,
@@ -32,11 +32,22 @@ class HitchikeService {
 
   /// Optional: returns only non-expired rides
   Future<List<Map<String, dynamic>>> fetchActivePosts() async {
-    final nowIso = DateTime.now().toUtc().toIso8601String();
+    // We normalize the image field to `owner_image_url` regardless of DB column name.
     final rows = await _supa
-        .from('hitchike_posts_view') // recommend a view that already joins profiles
-        .select()
-        .gte('date_time', nowIso)
+        .from('hitchike_posts_view')
+        .select('''
+          id,
+          owner_id,
+          owner_name,
+          owner_image:owner_image,       -- if column exists, return as owner_image
+          owner_image_url:owner_image,   -- alias to normalize name
+          from_location,
+          to_location,
+          date_time,
+          seats,
+          fuel_shared,
+          created_at
+        ''')
         .order('date_time', ascending: true);
     return (rows as List).cast<Map<String, dynamic>>();
   }
@@ -56,3 +67,4 @@ class HitchikeService {
     await _supa.from('hitchike_posts').delete().eq('id', id);
   }
 }
+

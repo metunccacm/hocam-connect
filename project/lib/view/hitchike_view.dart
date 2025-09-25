@@ -169,7 +169,13 @@ class _HitchikeViewState extends State<HitchikeView> {
                           ),
                           child: Row(
                             children: [
-                              const CircleAvatar(radius: 18), // avatar placeholder
+                                  CircleAvatar(
+                                     radius: 18,
+                                     backgroundImage: (p.ownerImageUrl != null && p.ownerImageUrl!.isNotEmpty)
+                                         ? NetworkImage(p.ownerImageUrl!): null,
+                                     child: (p.ownerImageUrl == null || p.ownerImageUrl!.isEmpty)
+                                          ? const Icon(Icons.person, size: 20): null,
+  ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -196,8 +202,6 @@ class _HitchikeViewState extends State<HitchikeView> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.image_outlined, size: 28),
                             ],
                           ),
                         ),

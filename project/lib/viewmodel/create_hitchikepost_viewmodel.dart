@@ -27,14 +27,6 @@ class CreateHitchikeViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Create (list) a hitchhike post.
-  ///
-  /// Expected form fields:
-  /// - from_location: String (required)
-  /// - to_location: String (required)
-  /// - date_time: DateTime (preferred)  OR  date: DateTime + time: TimeOfDay
-  /// - seats: int (1..5) (required)
-  /// - fuel_shared: bool (optional; default false)
   Future<void> createPost(
     BuildContext context,
     GlobalKey<FormBuilderState> formKey,

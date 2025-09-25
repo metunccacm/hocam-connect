@@ -18,10 +18,8 @@ import 'viewmodel/register_viewmodel.dart';
 
 import 'view/hitchike_view.dart';
 import 'view/create_hitchike_view.dart';
-import 'view/hitchike_post_detail_view.dart';
 import 'viewmodel/hitchike_viewmodel.dart';
 import 'viewmodel/create_hitchikepost_viewmodel.dart'; 
-import 'package:project/models/hitchike_post.dart';
 
 
 // Theme Controller

@@ -13,6 +13,7 @@ class HitchikePost {
   final int seats;       // 1..5
   final int fuelShared;  // 0 or 1
   final String? ownerName;   // resolved via join/view
+  final String? ownerImageUrl;
   final DateTime? createdAt; // optional
 
   const HitchikePost({
@@ -24,6 +25,7 @@ class HitchikePost {
     required this.seats,
     required this.fuelShared,
     this.ownerName,
+    this.ownerImageUrl,
     this.createdAt,
   });
 
@@ -39,6 +41,7 @@ class HitchikePost {
     DateTime? dateTime,
     int? seats,
     int? fuelShared,
+    String? ownerImageUrl,
     String? ownerName,
     DateTime? createdAt,
   }) {
@@ -51,6 +54,7 @@ class HitchikePost {
       seats: seats ?? this.seats,
       fuelShared: fuelShared ?? this.fuelShared,
       ownerName: ownerName ?? this.ownerName,
+      ownerImageUrl: ownerImageUrl ?? this.ownerImageUrl,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -79,6 +83,7 @@ class HitchikePost {
       seats: (m['seats'] as num).toInt(),
       fuelShared: (m['fuel_shared'] as num).toInt(),
       ownerName: m['owner_name'] as String?,
+      ownerImageUrl: (m['owner_image_url'] ?? m['owner_image']) as String?,
       createdAt: m['created_at'] != null ? _parseDt(m['created_at']) : null,
     );
   }
@@ -103,6 +108,7 @@ class HitchikePost {
         'seats': seats,
         'fuel_shared': fuelShared,
         'owner_name': ownerName,
+        'owner_image_url': ownerImageUrl,
         'created_at': createdAt?.toUtc().toIso8601String(),
       };
 
@@ -121,7 +127,7 @@ class HitchikePost {
 
   @override
   String toString() =>
-      'HitchikePost(id=$id, from=$fromLocation, to=$toLocation, at=$dateTime, seats=$seats, fuel=$fuelShared, owner=$ownerId)';
+      'HitchikePost(id=$id, from=$fromLocation, to=$toLocation, at=$dateTime, seats=$seats, fuel=$fuelShared, owner=$ownerId, url=$ownerImageUrl)';
 
   @override
   bool operator ==(Object other) =>

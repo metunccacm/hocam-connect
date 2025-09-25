@@ -33,6 +33,7 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
   // Resolved via service join (owner -> profile). Not part of constructor.
   String? _driverUserId;
   String? _driverName;
+  String? _driverImageUrl;
 
   @override
   void initState() {
@@ -74,12 +75,8 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
   Future<void> _reloadFromServer() async {
     try {
       final supa = Supabase.instance.client;
-
-      // NOTE: Adjust table/columns to your schema.
-      // Expecting a view or select that already joins owner -> profile
-      // and can optionally auto-delete expired rows via trigger/RPC (to be done in Service/DB).
       final row = await supa
-          .from('hitchike_posts') // TODO: replace with your table/view
+          .from('hitchike_posts_view') 
           .select('''
             from_location,
             to_location,
@@ -87,7 +84,9 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
             seats,
             fuel_shared,
             owner_id,         -- profile/user id of the post owner
-            owner_name        -- resolved name from profiles (service/DB side)
+            owner_name,        -- resolved name from profiles (service/DB side)
+            owner_image:owner_image,       -- if column exists, return as owner_image
+            owner_image_url:owner_image,   -- alias to normalize name
           ''')
           .eq('id', widget.post.id)
           .maybeSingle();
@@ -272,7 +271,14 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
             // Driver (resolved via service on refresh)
             Row(
               children: [
-                const CircleAvatar(child: Icon(Icons.person)),
+                CircleAvatar(
+                   radius: 20,
+                   backgroundImage: (_driverImageUrl != null && _driverImageUrl!.isNotEmpty)
+                        ? NetworkImage(_driverImageUrl!) : null,
+                   child: (_driverImageUrl == null || _driverImageUrl!.isEmpty)
+                       ? const Icon(Icons.person) : null,
+    ),
+    const SizedBox(width: 10),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
