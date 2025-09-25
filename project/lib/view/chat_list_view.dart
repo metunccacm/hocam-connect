@@ -44,6 +44,16 @@ class _ChatListViewState extends State<ChatListView> {
   RealtimeChannel? _blockChMine; // changes where I am blocker
   RealtimeChannel? _blockChOther; // changes where I am blocked
 
+
+  final TextEditingController _chatReportCtrl = TextEditingController();
+  final List<String> _reportReasons = const [
+    'Harassment / Abuse',
+    'Scam / Fraud',
+    'Spam',
+    'Hate / Threats',
+    'Other',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +67,7 @@ class _ChatListViewState extends State<ChatListView> {
     _blockChMine?.unsubscribe();
     _blockChOther?.unsubscribe();
     _search.dispose();
+    _chatReportCtrl.dispose();
     super.dispose();
   }
 
@@ -107,6 +118,90 @@ class _ChatListViewState extends State<ChatListView> {
       );
     }
   }
+
+  // Get other user id
+  Future<String?> _getOtherUserIdFor(String conversationId) async {
+    final me = _supa.auth.currentUser!.id;
+    var mem = _members[conversationId];
+    if (mem == null) {
+      await _ensureMeta(conversationId); // fills _members
+      mem = _members[conversationId];
+    }
+    if (mem == null) return null;
+    final others = mem.where((u) => u != me).toList();
+    return (others.length == 1) ? others.first : null; // only for DMs
+  }
+
+Future<void> _reportAfterBlock(String conversationId) async {
+  final other = await _getOtherUserIdFor(conversationId);
+  if (other == null) return; // group or not resolvable -> silently skip
+
+  String selected = _reportReasons.first;
+  _chatReportCtrl.clear();
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Report user'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            value: selected,
+            items: _reportReasons
+                .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                .toList(),
+            onChanged: (v) => selected = v ?? selected,
+            decoration: const InputDecoration(labelText: 'Reason'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _chatReportCtrl,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'Details (optional)',
+              hintText: 'Add any context (optional)…',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit')),
+      ],
+    ),
+  );
+
+  if (ok != true) return;
+
+  final me = _supa.auth.currentUser?.id;
+  if (me == null) return;
+
+  try {
+    await _supa.from('chat_abuse_reports').insert({
+      'conversation_id': conversationId,
+      'reporter_id': me,
+      'reported_user_id': other,
+      'reason': selected,
+      'details': _chatReportCtrl.text.trim().isEmpty ? null : _chatReportCtrl.text.trim(),
+      'message_id': null,
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report submitted.')));
+  } on PostgrestException catch (e) {
+    if (e.code == '23505') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You already reported this conversation.')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not submit: ${e.message}')));
+    }
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not submit: $e')));
+  }
+}
+
+
 
   Future<void> _loadUnread() async {
     try {
@@ -506,6 +601,7 @@ class _ChatListViewState extends State<ChatListView> {
       if (mounted) setState(() {});
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('User blocked')));
+          await _reportAfterBlock(id);
     } catch (e) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Block failed: $e')));

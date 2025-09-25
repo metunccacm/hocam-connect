@@ -42,100 +42,54 @@ class _SettingsViewState extends State<SettingsView> {
     // Bildirim entegrasyonunu burada yapacağız.
   }
 
-  // ACCOUNT DELETE WILL BE IMPLEMENTED LATER!!!!
-  Future<void> _deleteAccount() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Account'),
-        content: const Text(
-          'This will delete your profile data and avatar, then sign you out. '
-          'Your authentication record may remain until an admin purges it.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+Future<void> _deleteAccount() async {
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Delete Account'),
+      content: const Text(
+        'This will permanently delete your account and related data. This action cannot be undone.',
       ),
-    );
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+      ],
+    ),
+  );
+  if (confirm != true) return;
 
-    if (confirm != true) return;
-
-    final user = _supa.auth.currentUser;
-    if (user == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No active user')),
-      );
-      return;
-    }
-
-    setState(() => _busy = true);
-
-    String msg = 'Account data deleted';
-    try {
-      // 1) Storage: avatars/<uid> içini sil
-      final prefix = 'avatars/${user.id}';
-
-      // Parti parti listele ve sil (v2 API: named params)
-      List<FileObject> batch = await _supa.storage.from(_bucket).list(
-        path: prefix,
-        searchOptions: const SearchOptions(limit: 100, offset: 0),
-      );
-      var offset = 0;
-
-      while (batch.isNotEmpty) {
-        final keys = batch.map((o) => '$prefix/${o.name}').toList();
-        try {
-          if (keys.isNotEmpty) {
-            await _supa.storage.from(_bucket).remove(keys);
-          }
-        } catch (e) {
-          // ignore: avoid_print
-          print('Storage remove warning: $e');
-        }
-
-        offset += batch.length;
-        batch = await _supa.storage.from(_bucket).list(
-          path: prefix,
-          searchOptions: SearchOptions(limit: 100, offset: offset),
-        );
-      }
-
-      // 2) public.profiles satırını sil (RLS policy gerekir)
-      try {
-        await _supa.from('profiles').delete().eq('id', user.id);
-      } catch (e) {
-        // Silinemezse "deactivate" deneyelim
-        // ignore: avoid_print
-        print('profiles delete warning: $e');
-        try {
-          await _supa.from('profiles').update({'deactivated': true}).eq('id', user.id);
-          msg = 'Account deactivated';
-        } catch (_) {}
-      }
-
-      // 3) Oturumu kapat ve çık
-      await _supa.auth.signOut();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Deletion failed: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+  final user = _supa.auth.currentUser;
+  if (user == null) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active user')));
+    return;
   }
+
+  setState(() => _busy = true);
+  try {
+    // Edge Function call (uses user’s JWT automatically if signed in)
+    final resp = await _supa.functions.invoke('account-delete', body: {});
+    if (resp.status != 200) {
+      throw Exception('Function error: ${resp.data}');
+    }
+
+    // Sign out locally (the auth user is already deleted server-side)
+    await _supa.auth.signOut();
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true)
+    .pushNamedAndRemoveUntil('/welcome', (route) => false);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Your account was deleted.')));
+    Navigator.of(context).popUntil((r) => r.isFirst);
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Deletion failed: $e')));
+  } finally {
+    if (mounted) setState(() => _busy = false);
+  }
+}
+
 
   // EMAIL
   Future<void> _launchEmail() async {

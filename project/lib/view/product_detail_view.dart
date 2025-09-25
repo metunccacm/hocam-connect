@@ -91,8 +91,11 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     _pager = ctrl;
   }
 
+  final TextEditingController _reportDetailsCtrl = TextEditingController();
+
   @override
   void dispose() {
+    _reportDetailsCtrl.dispose();
     if (_pagerListener != null && _pager != null) {
       _pager!.removeListener(_pagerListener!);
     }
@@ -120,7 +123,102 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     }
   }
 
-  // ⬇️ TEK NOKTA: elle veya çek-bırak ile kullanılan yenileme
+  // Report User
+  Future<void> _reportUser() async {
+  if (_busy) return;
+  if (_isMine) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('You cannot report your own listing.')),
+    );
+    return;
+  }
+
+  final reasons = const [
+    'Scam / Fraud',
+    'Harassment / Abuse',
+    'Fake or Misleading',
+    'Prohibited Item',
+    'Spam',
+    'Other',
+  ];
+  String selected = reasons.first;
+  _reportDetailsCtrl.clear();
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Report user'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            value: selected,
+            items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+            onChanged: (v) => selected = v ?? selected,
+            decoration: const InputDecoration(labelText: 'Reason'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _reportDetailsCtrl,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'Details (optional)',
+              hintText: 'Add any useful info/screenshots links, etc.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Submit'),
+        ),
+      ],
+    ),
+  );
+
+  if (ok != true) return;
+
+  setState(() => _busy = true);
+  final supa = Supabase.instance.client;
+  final messenger = ScaffoldMessenger.of(context);
+
+  try {
+    final me = supa.auth.currentUser?.id;
+    if (me == null) throw Exception('Not authenticated');
+
+    // insert
+    final payload = {
+      'product_id': widget.product.id,
+      'reporter_id': me,
+      'reported_user_id': _sellerId,
+      'reason': selected,
+      'details': _reportDetailsCtrl.text.trim().isEmpty ? null : _reportDetailsCtrl.text.trim(),
+    };
+
+    await supa.from('abuse_reports').insert(payload);
+
+    if (!mounted) return;
+    messenger.showSnackBar(const SnackBar(content: Text('Report submitted. Thank you.')));
+  } on PostgrestException catch (e) {
+    // unique ihlali (aynı ürünü iki kez raporlama)
+    if (e.code == '23505') {
+      messenger.showSnackBar(const SnackBar(content: Text('You already reported this listing.')));
+    } else {
+      messenger.showSnackBar(SnackBar(content: Text('Could not submit: ${e.message}')));
+    }
+  } catch (e) {
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text('Could not submit: $e')));
+  } finally {
+    if (mounted) setState(() => _busy = false);
+  }
+}
+
+
+  // elle veya çek-bırak ile kullanılan yenileme
   Future<void> _manualRefresh() async {
     // indikatörü ekranda göster (opsiyonel)
     _refreshKey.currentState?.show();
@@ -342,7 +440,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             onPressed: _manualRefresh,
             icon: const Icon(Icons.refresh),
           ),*/
-          if (_isMine)
+            if (!_isMine) // Kullanıcı için rapor butonu
+            IconButton(
+              tooltip: 'Report',
+              icon: const Icon(Icons.flag_outlined),
+              onPressed: _busy ? null : _reportUser,
+            ),
+          if (_isMine) // Satıcı için düzenle butonu
             IconButton(
               tooltip: 'Edit',
               icon: const Icon(Icons.edit_outlined),

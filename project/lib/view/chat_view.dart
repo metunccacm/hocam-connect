@@ -55,6 +55,17 @@ class _ChatViewState extends State<ChatView> {
     _bootstrap();
   }
 
+  final TextEditingController _chatReportCtrl = TextEditingController();
+  final List<String> _reportReasons = const [
+    'Harassment / Abuse',
+    'Scam / Fraud',
+    'Spam',
+    'Hate / Threats',
+    'Other',
+  ];
+
+  String? _otherUserId;
+
   @override
   void dispose() {
     _msgChannel?.unsubscribe();
@@ -63,6 +74,7 @@ class _ChatViewState extends State<ChatView> {
     _controller.dispose();
     _scroll.dispose();
     _typingDebounce?.cancel();
+    _chatReportCtrl.dispose();
     super.dispose();
   }
 
@@ -112,6 +124,83 @@ class _ChatViewState extends State<ChatView> {
     }
     _decryptRunning = false;
   }
+
+  // Report User
+
+  Future<void> _reportUserInChat({
+  required String conversationId,
+  required String reportedUserId,
+}) async {
+  if (!mounted) return;
+
+  String selected = _reportReasons.first;
+  _chatReportCtrl.clear();
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Report user'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            value: selected,
+            items: _reportReasons
+                .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                .toList(),
+            onChanged: (v) => selected = v ?? selected,
+            decoration: const InputDecoration(labelText: 'Reason'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _chatReportCtrl,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'Details (optional)',
+              hintText: 'Gerekirse açıklama ekleyin…',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit')),
+      ],
+    ),
+  );
+
+  if (ok != true) return;
+
+  final supa = Supabase.instance.client;
+  final me = supa.auth.currentUser?.id;
+  if (me == null) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not authenticated')));
+    return;
+  }
+
+  try {
+    await supa.from('chat_abuse_reports').insert({
+      'conversation_id': conversationId,
+      'reporter_id': me,
+      'reported_user_id': reportedUserId,
+      'reason': selected,
+      'details': _chatReportCtrl.text.trim().isEmpty ? null : _chatReportCtrl.text.trim(),
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report submitted.')));
+  } on PostgrestException catch (e) {
+    if (e.code == '23505') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You already reported this conversation.')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not submit: ${e.message}')));
+    }
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not submit: $e')));
+  }
+}
+
 
   Future<void> _bootstrap() async {
     // 1) uzun vadeli anahtar (E2EE)
@@ -175,27 +264,44 @@ class _ChatViewState extends State<ChatView> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
-  void _onAvatarMenuSelected(String value) async {
-    if (value == 'block') {
-      try {
-        await _svc.blockInDm(widget.conversationId);
-        await _loadBlockStatus();
-        _show('User blocked');
-      } catch (e) {
-        _show('Block failed: $e');
+void _onAvatarMenuSelected(String value) async {
+  if (value == 'block') {
+    try {
+      await _svc.blockInDm(widget.conversationId);
+      await _loadBlockStatus();
+      _show('User blocked');
+
+      // Block biter bitmez rapor dialogu
+      if (mounted && _otherUserId != null) {
+        await _reportUserInChat(
+          conversationId: widget.conversationId,
+          reportedUserId: _otherUserId!,
+        );
       }
-    } else if (value == 'unblock') {
-      try {
-        await _svc.unblockInDm(widget.conversationId);
-        await _loadBlockStatus();
-        _show('User unblocked');
-      } catch (e) {
-        _show('Unblock failed: $e');
-      }
-    } else if (value == 'view') {
-      // buraya profil ekranına gitme vs. ekleyebilirsin
+    } catch (e) {
+      _show('Block failed: $e');
     }
+  } else if (value == 'unblock') {
+    try {
+      await _svc.unblockInDm(widget.conversationId);
+      await _loadBlockStatus();
+      _show('User unblocked');
+    } catch (e) {
+      _show('Unblock failed: $e');
+    }
+  } else if (value == 'report') {
+    if (_otherUserId == null) {
+      _show('Cannot determine user to report.');
+      return;
+    }
+    await _reportUserInChat(
+      conversationId: widget.conversationId,
+      reportedUserId: _otherUserId!,
+    );
+  } else if (value == 'view') {
   }
+}
+
 
 
 Future<void> _loadHeaderMeta() async {
@@ -216,6 +322,7 @@ Future<void> _loadHeaderMeta() async {
       final map = await _svc.getDisplayMap([others.first]);
       final d = map[others.first];
       _otherDisplayName = d?.displayName ?? 'User ${others.first.substring(0, 6)}';
+      _otherUserId = others.first; // User ID for reporting
       _otherAvatarUrl   = d?.avatarUrl;
     } else if (others.isEmpty) {
       _otherDisplayName = 'Saved messages';
@@ -390,9 +497,28 @@ Widget build(BuildContext context) {
               ];
               if (_isDm) {
                 items.add(
-                  PopupMenuItem<String>(
-                    value: _iBlocked ? 'unblock' : 'block',
-                    child: Text(_iBlocked ? 'Unblock user' : 'Block user'),
+                PopupMenuItem<String>(
+                  value: _iBlocked ? 'unblock' : 'block',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    leading: Icon(
+                      _iBlocked ? Icons.lock_open : Icons.block,
+                      color: _iBlocked ? Colors.grey : Colors.red,
+                    ),
+                    title: Text(_iBlocked ? 'Unblock user' : 'Block user'),
+                  ),
+                ),
+              );
+              items.add(
+                  const PopupMenuItem<String>(
+                    value: 'report',
+                    child: ListTile(
+                      leading: Icon(Icons.flag_outlined),
+                      title: Text('Report user'),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
                   ),
                 );
               }
