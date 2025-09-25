@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
-
+import 'dart:io' show Platform;
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'settings_view.dart';
 import 'package:project/widgets/custom_appbar.dart';
 
@@ -24,6 +27,15 @@ class _ProfileViewState extends State<ProfileView> {
   DateTime? _dob; // DB için gerçek tarih
   String? profileImageUrl; // public/signed url
 
+  final TextEditingController _bugDetailsCtrl = TextEditingController();
+  static const List<String> _bugReasons = [
+    'Crash',
+    'UI issue',
+    'Performance',
+    'Wrong data',
+    'Other',
+  ];
+
   // Department dropdown için:
   static const List<String> _departments = <String>[
     // Burayı kendi bölümlerinizle doldurun
@@ -38,11 +50,11 @@ class _ProfileViewState extends State<ProfileView> {
     'MECH',
     'PSIR',
     'PSY',
+    'INE',
     'PGE',
     'SNG',
     'GPC',
-    'TEFL',
-    'Other'
+    'TEFL'
   ];
   String? _selectedDepartment; // null ise hiç seçilmemiş demektir (hint görünsün)
 
@@ -62,6 +74,7 @@ class _ProfileViewState extends State<ProfileView> {
     nameController.dispose();
     emailController.dispose();
     dobController.dispose();
+    _bugDetailsCtrl.dispose();
     super.dispose();
   }
 
@@ -100,6 +113,68 @@ class _ProfileViewState extends State<ProfileView> {
     }
     return null;
   }
+
+// For bug metadata
+Future<Map<String, dynamic>> _collectBugMeta() async {
+  final meta = <String, dynamic>{};
+
+  // app info
+  Map<String, dynamic> app = {
+    'name': 'Hocam Connect',
+    'version': 'unknown',
+    'build': 'unknown',
+  };
+  try {
+    final p = await PackageInfo.fromPlatform();
+    app = {'name': p.appName, 'version': p.version, 'build': p.buildNumber};
+  } catch (_) {
+    // keep defaults
+  }
+  meta['app'] = app;
+
+  // platform/device
+  final deviceInfo = DeviceInfoPlugin();
+  String platform = kIsWeb ? 'Web' : Platform.operatingSystem;
+  Map<String, dynamic> device = {'info': 'generic'};
+
+  try {
+    if (!kIsWeb && Platform.isIOS) {
+      final ios = await deviceInfo.iosInfo;
+      platform = 'iOS';
+      device = {
+        'name': ios.name,
+        'model': ios.model,
+        'machine': ios.utsname.machine,      // x86_64/arm64 on simulator
+        'systemName': ios.systemName,
+        'systemVersion': ios.systemVersion,
+        'isPhysicalDevice': ios.isPhysicalDevice,
+      };
+    } else if (!kIsWeb && Platform.isAndroid) {
+      final and = await deviceInfo.androidInfo;
+      platform = 'Android';
+      device = {
+        'brand': and.brand,
+        'model': and.model,
+        'device': and.device,
+        'version': and.version.release,
+        'sdkInt': and.version.sdkInt,
+        'isPhysicalDevice': and.isPhysicalDevice,
+      };
+    }
+  } catch (_) {/* keep generic */}
+
+  meta['platform'] = platform;
+  meta['device'] = device;
+
+  // locale + timestamp
+  try {
+    meta['locale'] = WidgetsBinding.instance.platformDispatcher.locale.toString();
+  } catch (_) {}
+  meta['ts'] = DateTime.now().toIso8601String();
+
+  return meta;
+}
+
 
   Future<void> fetchProfile() async {
     final user = supa.auth.currentUser;
@@ -146,6 +221,69 @@ class _ProfileViewState extends State<ProfileView> {
       profileImageUrl = (data['avatar_url'] ?? '').toString();
     });
   }
+
+// Report a bug
+Future<void> _reportBug() async {
+  final me = supa.auth.currentUser?.id;
+  final meta = await _collectBugMeta();
+  if (me == null) return;
+
+  String selected = _bugReasons.first;
+  _bugDetailsCtrl.clear();
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Report a bug'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            value: selected,
+            items: _bugReasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+            onChanged: (v) => selected = v ?? selected,
+            decoration: const InputDecoration(labelText: 'Reason'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _bugDetailsCtrl,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'Details (optional)',
+              hintText: 'What happened? Steps to reproduce?',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit')),
+      ],
+    ),
+  );
+
+  if (ok != true) return;
+
+  try {
+    await supa.from('bug_reports').insert({
+      'reporter_id': me,
+      'screen': 'profile',
+      'reason': selected,
+      'details': _bugDetailsCtrl.text.trim().isEmpty ? null : _bugDetailsCtrl.text.trim(),
+       'meta': meta, 
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thanks! Bug reported.')));
+  } on PostgrestException catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Submit failed: ${e.message}')));
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Submit failed: $e')));
+  }
+}
+
 
   Future<void> _logout() async {
     final navigator = Navigator.of(context);
@@ -282,38 +420,6 @@ class _ProfileViewState extends State<ProfileView> {
     }
   }
 
-  void _showMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Edit Profile'),
-              onTap: () {
-                Navigator.pop(ctx);
-                setState(() => isEditing = true);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              onTap: () {
-                Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SettingsView()),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   String get _departmentDisplay =>
       (_selectedDepartment == null || _selectedDepartment!.trim().isEmpty)
           ? 'Please add department'
@@ -340,26 +446,27 @@ class _ProfileViewState extends State<ProfileView> {
     );
 
     return Scaffold(
-      appBar: HCAppBar(
-        title: 'Profile',
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => _showMenu(context),
-        ),
-        actions: [
-          if (isEditing)
-        IconButton(
-          icon: const Icon(Icons.save),
-          tooltip: 'Save Profile',
-          onPressed: updateProfile,
-        ),
-          IconButton(
-        icon: const Icon(Icons.logout),
-        tooltip: 'Logout',
-        onPressed: _logout,
-          ),
-        ],
+     appBar: HCAppBar(
+      title: 'Profile',
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => Navigator.pop(context),
       ),
+      actions: [
+        if (isEditing)
+          IconButton(
+            icon: const Icon(Icons.save),
+            tooltip: 'Save Profile',
+            onPressed: updateProfile,
+          ),
+        IconButton(
+          icon: const Icon(Icons.logout),
+          tooltip: 'Logout',
+          onPressed: _logout,
+        ),
+      ],
+    ),
+
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -459,16 +566,65 @@ class _ProfileViewState extends State<ProfileView> {
             ),
             const SizedBox(height: 32),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.lock, size: 16, color: Colors.grey),
-                SizedBox(width: 6),
-                Text(
-                  'All sensitive data is stored securely.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.lock, size: 16, color: Colors.grey),
+              SizedBox(width: 6),
+              Text(
+                'All sensitive data is stored securely.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Çiplerin "onPressed"lerini state'e bağlayabilmek için Builder kullan:
+          Builder(
+            builder: (ctx) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ActionChip(
+                      avatar: const Icon(Icons.edit, size: 18),
+                      label: const Text('Edit Profile'),
+                      onPressed: () => setState(() => isEditing = true),
+                    ),
+                    ActionChip(
+                      avatar: const Icon(Icons.settings, size: 18),
+                      label: const Text('Settings'),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const SettingsView()),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              ],
+              );
+            },
+          ),
+
+          // ⬇️ EKLE: Report a bug (tam genişlik, unobtrusive)
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.bug_report_outlined),
+                label: const Text('Report a bug'),
+                onPressed: _reportBug, // <-- yeni fonksiyon
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
             ),
+          ),
           ],
         ),
       ),
