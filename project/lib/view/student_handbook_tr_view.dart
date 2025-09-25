@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'student_handbook_eng_view.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -34,7 +35,7 @@ class StudentHandbookTrView extends StatelessWidget {
             title: 'Hoş Geldiniz',
             children: [
               _Bullet(
-                "Hoş geldiniz! Artık bizim bir parçamızsınız ve burada olduğunuz için mutluyuz. "
+                "Hoş geldiniz! Artık bizim bir parçamızsınız ve burada olduğunuz için çok mutluyuz. "
                 "Bu rehber, ilk günlerinizi kolaylaştırmak ve kampüsü daha hızlı tanımanıza yardımcı olmak için hazırlandı. "
                 "Başlamadan önce kampüs hakkında görsel bir fikir edinmek için kısa bir kampüs turu videosuna göz atabilirsiniz:",
               ),
@@ -108,7 +109,7 @@ class StudentHandbookTrView extends StatelessWidget {
                   "Günlük ihtiyaçlarınız için ideal bir yerdir."),
               const _Bullet("Macro’nun yanında İş Bankası bulunur. "
                   "Henüz banka hesabınız yoksa burada açmanızı tavsiye ederiz çünkü her yerde uluslararası kart kabul edilmeyebilir. "
-                  "Önünde İş Bankası ATM’leri, otobüs durağına yakın ise Ziraat Bankası ATM’si vardır."),
+                  "Önünde İş Bankası ATM’leri, otobüs durağının yanında ise Ziraat Bankası ATM’si vardır."),
               const _Bullet("Yürümeye devam ettiğinizde berber ve kuaförün bulunduğu küçük bir sokak göreceksiniz. "
                   "Sokağın sonunda Deniz Plaza vardır, burada kırtasiye, defter, kalem ve bazı ders kitaplarını bulabilirsiniz."),
               const _Bullet("Deniz Plaza’nın yanında terzi ve KKTCELL ofisi bulunur. "
@@ -156,9 +157,9 @@ class StudentHandbookTrView extends StatelessWidget {
             title: 'İnternet ve Bilişim',
             children: [
               const _Bullet(
-                "Kampüs genelinde kablosuz internet vardır ancak cihazlarınızı Bilişim Teknolojileri (BT) binasında kaydettirmeniz gerekir. "
+                "Kampüs genelinde kablosuz internet vardır ancak cihazlarınızı Bilişim Teknolojileri (IT) binasında kaydettirmeniz gerekir. "
                 "Bu bina Yemekhanenin arkasındadır. "
-                "İki cihaz kaydı yapabilirsiniz."
+                "İki cihaza kadar kayıt yapabilirsiniz. Dikkatli seçin!"
               ),
               _linkTile(
                 context,
@@ -167,7 +168,7 @@ class StudentHandbookTrView extends StatelessWidget {
               ),
               _linkTile(
                 context,
-                label: 'BT web sitesi',
+                label: 'IT web sitesi',
                 url: 'https://ncc.metu.edu.tr/tr/btm',
               ),
             ],
@@ -178,9 +179,10 @@ class StudentHandbookTrView extends StatelessWidget {
             title: 'Kütüphane',
             children: [
               const _Bullet(
-                "BT binasının yanında kütüphane vardır. "
+                "IT binasının yanında kampüsün en önemli parçası olan kütüphane yer almaktadır. "
                 "Üç katlıdır; ortak çalışma alanları, grup odaları vardır. "
-                "Ayrıca copycard kullanabilirsiniz."
+                "Ayrıca burada copycard kullanabilirsiniz."
+                "Daha yakından bir bakış için kütüphane turu videosuna göz atabilirsiniz."
               ),
               _linkTile(
                 context,
@@ -198,6 +200,7 @@ class StudentHandbookTrView extends StatelessWidget {
                 "Kütüphanenin yanında Rektörlük binası vardır. "
                 "Aynı zamanda Öğrenci İşleri de buradadır. "
                 "Transkript, öğrenci kartı ve dersle ilgili birçok konuda buradan yardım alabilirsiniz."
+                "Kısacası çözemediğiniz bir sorun olursa Öğrenci İşleri sizin ilk durağınız olmalı"
               ),
             ],
           ),
@@ -207,16 +210,26 @@ class StudentHandbookTrView extends StatelessWidget {
             title: 'Akademik Binalar ve Hazırlık Okulu',
             children: [
               const _Bullet(
-                "Hazırlık Okulu Yemekhane’nin arkasındadır. "
-                "Bölüm öğrencileri çoğunlukla T, R ve S binalarında ders görür."
+                "Ana Yemekhane’nin yakınında, Hazırlık Okulu binasına inen merdivenleri göreceksiniz."
+                "Eğer İngilizce hazırlık programında okuyorsanız, derslerinizin çoğu burada yapılacak."
+                "Eğer doğrudan bölümünüze başlıyorsanız, zamanınızın çoğunu üç ana akademik binada geçireceksiniz: T, R ve S."
               ),
               const _Bullet(
-                "T (Teaching) binasında derslikler, R (Research) binasında laboratuvarlar, S binasında ise teraslı sınıflar bulunur."
+                "T (Teaching - Eğitim) Binası, amfilerin ve küçük bir kafeteryanın bulunduğu yerdir."
+                "R (Research - Araştırma) Binası, çeşitli laboratuvarlara sahiptir."
+                "S Binası’nın üst katında güzel bir teras vardır."
+                "Üçü de köprülerle birbirine bağlıdır, böylece dışarı çıkmadan aralarında geçiş yapabilirsiniz."
               ),
               const _Bullet(
-                "Sınıf kodları: TZ-111 (T binası, zemin kat, oda 111), R-103, S-201 gibi."
+                "Derslikler bina, kat ve oda numarası ile kodlanır."
+                "Örneğin, TZ-111: T binası, zemin kat, 111 numaralı oda;"
+                "R-103: R binası, birinci kat, 103 numaralı oda;"
+                "S-201: S binası, ikinci kat, 201 numaralı oda demektir."
               ),
             ],
+            footerLinks: [
+							_FooterLink('Yabancı Diller Okulu hakkında daha fazla bilgi için tıklayın', 'https://ncc.metu.edu.tr/sfl/general-info'),
+						],
           ),
           _section(
             context,
@@ -224,21 +237,38 @@ class StudentHandbookTrView extends StatelessWidget {
             title: 'Medico ve Spor Merkezi',
             children: [
               const _Bullet(
-                "Otobüs durağının ilerisinde Medico bulunur. "
-                "Temel sağlık hizmetleri verir. "
-                "Devamında Spor Merkezi vardır; tenis kortları, basketbol sahası, tırmanma duvarı ve yüzme havuzu bulunur."
+                "Otobüs durağından gelen yolu takip ederseniz, futbol sahasının karşısında yer alan kampüs sağlık merkezi Medico’yu göreceksiniz."
+                "Burada temel sağlık hizmetleri verilir ve sistemde yer alması gereken sağlık raporları için de buraya gelirsiniz."
+                "Aynı yoldan devam ederseniz Spor Merkezi’ne ulaşırsınız. İçinde tenis kortları, spor salonu, kapalı basketbol sahası ve masa tenisi alanı vardır."
+                "Yakınında ayrıca tırmanma duvarı, yüzme havuzu, açık basketbol ve voleybol sahaları ile koşu pisti bulunur."
               ),
             ],
+            footerLinks: [
+							_FooterLink('Mediko hakkında daha fazla bilgi için tıklayın', 'https://www.youtube.com/embed/ek3Jh-1xt78?rel=0'),
+							_FooterLink('Sporlar hakkında daha fazla bilgi için tıklayın', 'https://ncc.metu.edu.tr/campus-life/sports-mission'),
+						],
           ),
           _section(
             context,
             icon: Icons.card_membership_rounded,
             title: 'Öğrenci Kartı ve Copycard',
             children: [
-              const _Bullet(
-                "Öğrenci kartı otobüslerde ve bazı işlemlerde gereklidir, bakiye yüklemeleri cyppass.com üzerinden yapılabilir. "
-                "Copycard ise kütüphane ve yurtlarda yazıcı kullanmak için gereklidir, kütüphaneden alabilirsiniz."
-              ),
+              _BulletInline([
+                const TextSpan(text: "Kampüste ihtiyacınız olacak iki kart vardır: öğrenci kartı ve kopya kartı. "),
+                const TextSpan(text: "Öğrenci kartı, otobüsleri kullanmak için gereklidir ve "),
+                TextSpan(
+                  text: 'cyppass.com',
+                  style: const TextStyle(
+                    color: Colors.lightBlue,
+                    decoration: TextDecoration.underline,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  recognizer: TapGestureRecognizer()..onTap = () => _openUrl(context, 'https://www.cyppass.com/tr'),
+                ),
+                const TextSpan(text: " adresinden ya da otobüs durağı yakınındaki istasyondan kredi yüklenebilir. "),
+                const TextSpan(text: "Kopya kartı ise yurtlarda ve kütüphanede çıktı almak için kullanılır. "),
+                const TextSpan(text: "Bu kartı doğrudan Kütüphane’den alabilir ve orada bakiye yükleyebilirsiniz."),
+              ]),
             ],
           ),
           _section(
@@ -247,8 +277,9 @@ class StudentHandbookTrView extends StatelessWidget {
             title: 'Otobüs Sistemi',
             children: [
               const _Bullet(
-                "Yerel otobüsler kampüsü Kalkanlı ve Güzelyurt’a bağlar. "
-                "Her saat hareket eder, dönüşte aynı güzergahı kullanır."
+                "Yerel otobüs sistemi kampüsü Kalkanlı ve Güzelyurt ile bağlar."
+                "Otobüsler kampüsten her saat başı kalkar, önce Kalkanlı’ya uğrar ve Güzelyurt terminalinde son bulur."
+                "Daha sonra aynı güzergâhtan kampüse geri dönerler."
               ),
               _linkTile(
                 context,
@@ -263,9 +294,10 @@ class StudentHandbookTrView extends StatelessWidget {
             title: 'Kampüs Kapıları',
             children: [
               const _Bullet(
-                "Kampüsün iki ana kapısı vardır. "
-                "Üst kapı Kalkanlı köyüne çıkar (restoran, Lombard kafe, Kaş Market). "
-                "Alt kapıdan ise VOY kafeye gidilir."
+                "Kampüsün iki ana kapısı vardır."
+                "Üst kapı doğrudan Kalkanlı köyüne çıkar; burada restoranlar, Lombard kafe ve Kaş Market bulunur."
+                "Kaş Market’e gitmek için kapıdan dümdüz yürüyün, yolun sonunda Lombard’a vardığınızda sola dönün; sağınızda Kaş tabelasını göreceksiniz."
+                "Alt kapı ise VOY adlı başka bir kafeye çıkar."
               ),
             ],
           ),
@@ -275,8 +307,8 @@ class StudentHandbookTrView extends StatelessWidget {
             title: 'Kampüsteki Kafeler',
             children: [
               const _Bullet(
-                "En popüler yerlerden biri Segafredo Tchibo kafedir. "
-                "Atatürk heykelinin altındadır, ders aralarında veya akşamları vakit geçirmek için idealdir."
+                "En popüler yerlerden biri, otobüs durağının yanındaki Atatürk heykelinin hemen altında bulunan Segafredo Tchibo Kafe’dir."
+                "Burada kahve, tatlı alabilir ve ders aralarında ya da akşamları arkadaşlarınızla vakit geçirebilirsiniz."    
               ),
             ],
           ),
@@ -286,12 +318,19 @@ class StudentHandbookTrView extends StatelessWidget {
             title: 'CCC, Mühendislik Labları ve Kaltev',
             children: [
               const _Bullet(
-                "Hazırlık Okulu’nun yanında CCC binası vardır. "
-                "Kampüs etkinlikleri burada yapılır, e-postalarınızı kontrol ederek etkinlikleri takip edebilirsiniz."
+                "Hazırlık Okulu’nun yanında, METU NCC heykelinin önünde bulunan CCC Binası, kampüsteki etkinliklerin ana mekânıdır."
+                "Burada neler olduğunu öğrenmek için e-postalarınıza gelen veya HocamConnect uygulamasından “This Week On Campus” duyurularını takip edin."
+                "CCC’nin arkasında mühendislik laboratuvar binaları vardır, bazı bölüm laboratuvarları burada yapılır."
+                "Daha gerisinde ise girişimlerin, araştırma projelerinin ve inovasyon alanlarının bulunduğu Kaltev (Kalkanlı Teknoloji Vadisi) yer alır."
               ),
               const _Bullet(
-                "CCC’nin arkasında mühendislik laboratuvarları, daha ilerisinde ise girişimcilik merkezi Kaltev bulunur."
+                "Kaltev’in alt katında Root adında samimi ve geleceğe dönük bir restoran/kafe vardır."
+                "Root, özgün dekorasyonuyla şık bir atari salonu görünümündedir."
+                "Atari makineleri oynanabilir durumdadır ve ayrıca arkadaşlarınızla oynayabileceğiniz birçok masa oyunu da bulunur."
               ),
+            ],
+            footerLinks: [
+              _FooterLink('Kaltev hakkında daha fazla bilgi için tıklayın', 'https://odtukaltev.com.tr/'),
             ],
           ),
           _section(
@@ -321,6 +360,34 @@ class StudentHandbookTrView extends StatelessWidget {
             'İpucu: Sık kullandığınız linkleri tarayıcı veya ana ekrana kaydedin.',
             style: TextStyle(color: Colors.black54),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BulletInline extends StatelessWidget {
+  const _BulletInline(this.spans);
+  final List<TextSpan> spans;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 6.0, right: 8.0),
+            child: Icon(Icons.circle, size: 8, color: Colors.grey),
+          ),
+            Expanded(
+              child: RichText(
+                text: TextSpan(
+                  style: DefaultTextStyle.of(context).style.merge(const TextStyle(height: 1.35, fontSize: 14)),
+                  children: spans,
+                ),
+              ),
+            ),
         ],
       ),
     );

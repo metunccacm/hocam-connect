@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'student_handbook_tr_view.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -164,7 +165,7 @@ class StudentHandbookEngView extends StatelessWidget {
               "The IT building is just behind the Main Cafeteria."
               "From the cafeteria entrance, take the road to the left and you’ll soon see the building on your left, right after the statue."
               "Inside, you’ll also find computer rooms for study, and if you’re a CNG or SNG student, some of your lab classes will take place here."
-              "You can register up to two devices, so choose carefully."
+              "You can register up to two devices, so choose carefully!"
               ),
               _linkTile(
 								context,
@@ -251,11 +252,22 @@ class StudentHandbookEngView extends StatelessWidget {
 						icon: Icons.card_membership_rounded,
 						title: 'Student Card and Copycard',
 						children: [
-							const _Bullet("There are two cards you’ll need on campus: the student card and the copycard."
-              "Your student card is essential for using the buses and can be loaded with credits online at https://www.cyppass.com/tr or at the station near the bus stop."
-              "The copycard is used for printing in the dorms and library."
-              "You can get one directly from the Library and load balance there"
-              ),
+						_BulletInline([
+							const TextSpan(text: "There are two cards you’ll need on campus: the student card and the copycard. "),
+							const TextSpan(text: "Your student card is essential for using the buses and can be loaded with credits online at "),
+							TextSpan(
+								text: 'cyppass.com',
+								style: TextStyle(
+									color: Colors.lightBlue,
+									decoration: TextDecoration.underline,
+									fontWeight: FontWeight.w600,
+								),
+								recognizer: TapGestureRecognizer()..onTap = () => _openUrl(context, 'https://www.cyppass.com/tr'),
+							),
+							const TextSpan(text: " or at the station near the bus stop. "),
+							const TextSpan(text: "The copycard is used for printing in the dorms and library. "),
+							const TextSpan(text: "You can get one directly from the Library and load balance there."),
+						]),
 						],
 					),
 					_section(
@@ -303,7 +315,7 @@ class StudentHandbookEngView extends StatelessWidget {
             title: 'CCC, Engineering Labs, and Kaltev',
             children: [
               const _Bullet("In front of the METU NCC statue, next to the Prep School, is the CCC Building, the main venue for campus events."
-              "Keep an eye on your email for announcements under 'This Week On Campus' to know what’s happening there."
+              "Keep an eye on your email or HocamConnect app for announcements under 'This Week On Campus' to know what’s happening there."
               "Behind CCC are the engineering laboratory buildings, where some departmental labs take place."
               "Further behind them is Kaltev (Kalkanlı Technology Valley), home to startups, research projects, and innovation spaces."
               ),
@@ -342,6 +354,34 @@ class StudentHandbookEngView extends StatelessWidget {
 					const Text(
 						'Tip: Save links you use often to your browser or homescreen.',
 						style: TextStyle(color: Colors.black54),
+					),
+				],
+			),
+		);
+	}
+}
+
+class _BulletInline extends StatelessWidget {
+	const _BulletInline(this.spans);
+	final List<TextSpan> spans;
+	@override
+	Widget build(BuildContext context) {
+		return Padding(
+			padding: const EdgeInsets.only(bottom: 8.0),
+			child: Row(
+				crossAxisAlignment: CrossAxisAlignment.start,
+				children: [
+					const Padding(
+						padding: EdgeInsets.only(top: 6.0, right: 8.0),
+						child: Icon(Icons.circle, size: 8, color: Colors.grey),
+					),
+					Expanded(
+						child: RichText(
+							text: TextSpan(
+								style: DefaultTextStyle.of(context).style.merge(const TextStyle(height: 1.35, fontSize: 14)),
+								children: spans,
+							),
+						),
 					),
 				],
 			),
