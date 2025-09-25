@@ -18,12 +18,19 @@ class HitchikeView extends StatefulWidget {
 class _HitchikeViewState extends State<HitchikeView> {
   bool _isSearching = false;
   final _searchController = TextEditingController();
+  bool _bootstrapped = false; // guard
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(() {
       context.read<HitchikeViewModel>().searchPosts(_searchController.text);
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _bootstrapped) return;
+      _bootstrapped = true;
+      context.read<HitchikeViewModel>().refreshPosts();
     });
   }
 
