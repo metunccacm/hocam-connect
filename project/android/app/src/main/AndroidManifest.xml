@@ -1,7 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:label="Hocam Connect"
-        android:name="Hocam Connect"
         android:icon="@mipmap/launcher_icon">
         <activity
             android:name=".MainActivity"
