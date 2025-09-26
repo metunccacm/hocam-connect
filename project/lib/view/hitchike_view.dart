@@ -74,7 +74,7 @@ class _HitchikeViewState extends State<HitchikeView> {
                 ),
                 style: const TextStyle(color: Colors.black, fontSize: 16),
               )
-            : const Text('Hitchike', style: TextStyle(color: Colors.black)),
+            : const Text('Hitchhike', style: TextStyle(color: Colors.black)),
         centerTitle: true,
         actions: [
           IconButton(
@@ -189,7 +189,15 @@ class _HitchikeViewState extends State<HitchikeView> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Going to ${p.toLocation}',
+                                      '${p.fromLocation} - ${p.toLocation}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16),
+                                    ),
+                                    Text (
+                                    '${p.dateTime.day}/${p.dateTime.month}, ${p.dateTime.hour.toString().padLeft(2, '0')}:${p.dateTime.minute.toString().padLeft(2, '0')}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
@@ -313,7 +321,11 @@ class _MyHitchikePostsView extends StatelessWidget {
                   ],
                 ),
                 child: ListTile(
-                  title: Text('Going to ${p.toLocation}'),
+                  title: Text(
+                'From ${p.fromLocation} - ${p.toLocation} at ${p.dateTime}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                ),
                   subtitle: Text(
                     (p.fuelShared == 1)
                         ? 'Fuel will be shared'
