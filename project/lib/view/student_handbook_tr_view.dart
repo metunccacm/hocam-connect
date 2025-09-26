@@ -315,10 +315,10 @@ class StudentHandbookTrView extends StatelessWidget {
           _section(
             context,
             icon: Icons.business_center_rounded,
-            title: 'CCC, Mühendislik Labları ve Kaltev',
+            title: 'KKM, Mühendislik Labları ve Kaltev',
             children: [
               const _Bullet(
-                "Hazırlık Okulu’nun yanında, METU NCC heykelinin önünde bulunan CCC Binası, kampüsteki etkinliklerin ana mekânıdır."
+                "Hazırlık Okulu’nun yanında, Bilim Ağacı heykelinin önünde bulunan KKM Binası, kampüsteki etkinliklerin ana mekânıdır."
                 "Burada neler olduğunu öğrenmek için e-postalarınıza gelen veya HocamConnect uygulamasından “This Week On Campus” duyurularını takip edin."
                 "CCC’nin arkasında mühendislik laboratuvar binaları vardır, bazı bölüm laboratuvarları burada yapılır."
                 "Daha gerisinde ise girişimlerin, araştırma projelerinin ve inovasyon alanlarının bulunduğu Kaltev (Kalkanlı Teknoloji Vadisi) yer alır."

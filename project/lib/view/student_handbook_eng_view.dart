@@ -314,7 +314,7 @@ class StudentHandbookEngView extends StatelessWidget {
             icon: Icons.business_center_rounded,
             title: 'CCC, Engineering Labs, and Kaltev',
             children: [
-              const _Bullet("In front of the METU NCC statue, next to the Prep School, is the CCC Building, the main venue for campus events."
+              const _Bullet("In front of the Science Tree statue, next to the Prep School, is the CCC Building, the main venue for campus events."
               "Keep an eye on your email or HocamConnect app for announcements under 'This Week On Campus' to know what’s happening there."
               "Behind CCC are the engineering laboratory buildings, where some departmental labs take place."
               "Further behind them is Kaltev (Kalkanlı Technology Valley), home to startups, research projects, and innovation spaces."
