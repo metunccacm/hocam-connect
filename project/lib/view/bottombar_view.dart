@@ -7,7 +7,7 @@ import 'package:project/view/marketplace_view.dart';
 import 'package:project/view/profile_view.dart';
 import 'package:project/view/settings_view.dart';
 import 'package:project/view/this_week_view.dart';
-import 'package:project/view/hitchhike_view.dart';
+import 'package:project/view/hitchike_view.dart';
 
 import 'dart:math' as math;
 
@@ -192,7 +192,7 @@ class _MainTabViewState extends State<MainTabView>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const HitchhikeView()),
+                        builder: (context) => const HitchikeView()),
                   );
                 },
               ),
