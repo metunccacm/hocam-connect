@@ -155,7 +155,7 @@ class _HomeViewState extends State<HomeView> {
         label: 'Marketplace',
         gradient: const [Color.fromARGB(255, 6, 153, 222), Color.fromARGB(255, 0, 133, 195)],
         onTap: () => Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const MarketplaceView())),
+            .pushReplacement(MaterialPageRoute(builder: (_) => const MarketplaceView())),
       ),
       tile(
         icon: Icons.directions_car,
