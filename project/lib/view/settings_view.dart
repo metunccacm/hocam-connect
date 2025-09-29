@@ -4,6 +4,8 @@ import 'package:project/widgets/custom_appbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_controller.dart'; //Theme Controller
 
+import 'terms_and_conditions_view.dart';
+
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
 
@@ -179,6 +181,19 @@ Future<void> _deleteAccount() async {
                                 value: notificationsEnabled,
                                 onChanged: _toggleNotifications,
                               ),
+                            ),
+
+                            // Terms & Conditions
+                            ListTile(
+                              title: const Text('Terms & Conditions'),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const TermsAndConditionsView(),
+                                  ),
+                                );
+                              },
                             ),
 
                             const Divider(),
