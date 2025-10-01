@@ -94,7 +94,7 @@ class StudentHandbookTrView extends StatelessWidget {
               ),
               const _Bullet(
                 "Yurt 4, kampüsün üst kapısına yakın bir noktadadır. "
-                "Akademik binalara yürüyerek yaklaşık 15 dakika sürer, biraz uzaktır ama yine de elverişlidir."
+                "Akademik binalara yürüyerek yaklaşık 15 dakika sürer, diğer yurtlara kıyasla daha uzaktır ama yine de elverişlidir."
               ),
               const _Bullet("Yurt personeli giriş işlemlerinde her zaman yardımcı olur—güvenliğe danışabilirsiniz."),
             ],
@@ -136,7 +136,7 @@ class StudentHandbookTrView extends StatelessWidget {
             children: [
               const _Bullet(
                 "Bankanın ilerisinde Ana Yemekhane bulunmaktadır. "
-                "Alt katı oyun salonuna dönüştürülmüş, üst katında ise restoran vardır. "
+                "Alt katında restoran, üst katı ise oyun salonuna dönüştürülmüştür. "
                 "Günlük ev yemekleri ve zaman zaman farklı mutfaklardan yemekler sunulur. "
                 "Yanında Pastane bulunur; döner, burger ve hamur işleri alabilirsiniz. "
                 "Üst katta ise Teras Cafe vardır, buradan dağ manzarasını izleyebilirsiniz."
@@ -315,10 +315,10 @@ class StudentHandbookTrView extends StatelessWidget {
           _section(
             context,
             icon: Icons.business_center_rounded,
-            title: 'CCC, Mühendislik Labları ve Kaltev',
+            title: 'KKM, Mühendislik Labları ve Kaltev',
             children: [
               const _Bullet(
-                "Hazırlık Okulu’nun yanında, METU NCC heykelinin önünde bulunan CCC Binası, kampüsteki etkinliklerin ana mekânıdır."
+                "Hazırlık Okulu’nun yanında, Bilim Ağacı heykelinin önünde bulunan KKM Binası, kampüsteki etkinliklerin ana mekânıdır."
                 "Burada neler olduğunu öğrenmek için e-postalarınıza gelen veya HocamConnect uygulamasından “This Week On Campus” duyurularını takip edin."
                 "CCC’nin arkasında mühendislik laboratuvar binaları vardır, bazı bölüm laboratuvarları burada yapılır."
                 "Daha gerisinde ise girişimlerin, araştırma projelerinin ve inovasyon alanlarının bulunduğu Kaltev (Kalkanlı Teknoloji Vadisi) yer alır."

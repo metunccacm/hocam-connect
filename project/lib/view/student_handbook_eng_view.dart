@@ -89,7 +89,7 @@ class StudentHandbookEngView extends StatelessWidget {
               "Like the others, the dorm staff will help you once you arrive."
               ),
 							_Bullet("Dorm 4 is a bit further away, near the top gate of the campus."
-              "It takes around 15 minutes to walk from there to the academic buildings, so it’s slightly more distant but still very manageable."
+              "It takes around 15 minutes to walk from there to the academic buildings, so it’s slightly more distant than the othersbut still very manageable."
 			  ),
 							const _Bullet("Dorm staff help with check‑in any time—just ask security."),
 						],
@@ -138,7 +138,8 @@ class StudentHandbookEngView extends StatelessWidget {
 						children: [
               const _Bullet(
               "Following the road past the bank, you’ll reach the Main Cafeteria."
-              "The first floor has been turned into a gaming lounge, and the upper floor is a rooftop restaurant."
+              "The first floor is turned into a gaming lounge, and the upper floor is a rooftop restaurant."
+              "The ground floor has been converted into a restaurant, while the upper floor has been turned into a gaming lounge."
               "Here you can enjoy daily homemade meals, and from time to time even dishes from different cuisines."
               "Just next to it is the Patisserie (patisserie and main cafeteria is connected at the top floor, having the rooftop restaurant), where you can grab quick bites such as döner, burgers, or pastries."
               "If you head upstairs, you’ll also find a cozy café called Teras Café where you can sit with friends, sip coffee, and enjoy desserts."
@@ -314,7 +315,7 @@ class StudentHandbookEngView extends StatelessWidget {
             icon: Icons.business_center_rounded,
             title: 'CCC, Engineering Labs, and Kaltev',
             children: [
-              const _Bullet("In front of the METU NCC statue, next to the Prep School, is the CCC Building, the main venue for campus events."
+              const _Bullet("In front of the Science Tree statue, next to the Prep School, is the CCC Building, the main venue for campus events."
               "Keep an eye on your email or HocamConnect app for announcements under 'This Week On Campus' to know what’s happening there."
               "Behind CCC are the engineering laboratory buildings, where some departmental labs take place."
               "Further behind them is Kaltev (Kalkanlı Technology Valley), home to startups, research projects, and innovation spaces."

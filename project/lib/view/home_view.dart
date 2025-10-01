@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project/view/gpa_calculator_view.dart';
-import 'package:project/view/hitchhike_view.dart';
+import 'package:project/view/hitchike_view.dart';
 import 'package:project/view/marketplace_view.dart';
 import 'package:project/view/student_handbook_eng_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -162,7 +162,7 @@ class _HomeViewState extends State<HomeView> {
         label: 'Hitchhike',
         gradient: const [Color.fromARGB(255, 49, 255, 145), Color(0xFFF09819)],
         onTap: () => Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const HitchhikeView())),
+            .push(MaterialPageRoute(builder: (_) => const HitchikeView())),
       ),
       tile(
         icon: Icons.restaurant_menu_rounded,
