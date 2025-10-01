@@ -60,8 +60,8 @@ class _HitchikeViewState extends State<HitchikeView> {
         backgroundColor: Colors.white,
         elevation: 1,
         leading: IconButton(
-          icon: const Icon(Icons.search, color: Colors.black),
-          onPressed: _toggleSearch,
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+        onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
         ),
         titleWidget: _isSearching
             ? TextField(
@@ -89,6 +89,10 @@ class _HitchikeViewState extends State<HitchikeView> {
                 ),
               );
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.black),
+            onPressed: _toggleSearch,
           ),
           IconButton(
             tooltip: 'Refresh',

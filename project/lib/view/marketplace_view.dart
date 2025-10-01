@@ -117,7 +117,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
-  appBar: HCAppBar(
+      appBar: HCAppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 1,
