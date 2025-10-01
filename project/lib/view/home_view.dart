@@ -182,12 +182,14 @@ class _HomeViewState extends State<HomeView> {
         gradient: const [Color(0xFF614385), Color(0xFF516395)],
         onTap: () async {
           const url = 'https://cet.ncc.metu.edu.tr/';
-          if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
           } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open the link')),
-        );
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not open the link')),
+            );
           }
         },
       ),
@@ -196,16 +198,15 @@ class _HomeViewState extends State<HomeView> {
         label: 'Intranet',
         gradient: const [Color(0xFFFC5C7D), Color(0xFF6A82FB)],
         onTap: () async {
-          final ctx = context;
           const url = 'https://intranet.ncc.metu.edu.tr/';
-          if (await canLaunchUrl(Uri.parse(url))) {
-            await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
           } else {
-            if (mounted) {
-              ScaffoldMessenger.of(ctx).showSnackBar(
-                const SnackBar(content: Text('Could not open the link')),
-              );
-            }
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not open the link')),
+            );
           }
         },
       ),
@@ -214,15 +215,15 @@ class _HomeViewState extends State<HomeView> {
         label: 'ODTUCLASS',
         gradient: const [Color(0xFF00C6FF), Color(0xFF0072FF)],
         onTap: () async {
-          const url = 'https://odtuclass2025f.metu.edu.tr';
-          if (await canLaunchUrl(Uri.parse(url))) {
-            await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+          const url = 'https://odtuclass2025f.metu.edu.tr/';
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
           } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not open the link')),
-              );
-            }
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not open the link')),
+            );
           }
         },
       ),
