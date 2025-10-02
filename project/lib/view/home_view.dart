@@ -183,12 +183,26 @@ class _HomeViewState extends State<HomeView> {
         onTap: () async {
           const url = 'https://cet.ncc.metu.edu.tr/';
           final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } else {
+          try {
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(
+                uri,
+                mode: LaunchMode.externalApplication,
+                webViewConfiguration: const WebViewConfiguration(
+                  enableJavaScript: true,
+                  enableDomStorage: true,
+                ),
+              );
+            } else {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Could not open CET website')),
+              );
+            }
+          } catch (e) {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Could not open the link')),
+              SnackBar(content: Text('Error opening CET: $e')),
             );
           }
         },
@@ -200,12 +214,26 @@ class _HomeViewState extends State<HomeView> {
         onTap: () async {
           const url = 'https://intranet.ncc.metu.edu.tr/';
           final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } else {
+          try {
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(
+                uri,
+                mode: LaunchMode.externalApplication,
+                webViewConfiguration: const WebViewConfiguration(
+                  enableJavaScript: true,
+                  enableDomStorage: true,
+                ),
+              );
+            } else {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Could not open Intranet website')),
+              );
+            }
+          } catch (e) {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Could not open the link')),
+              SnackBar(content: Text('Error opening Intranet: $e')),
             );
           }
         },
@@ -217,12 +245,26 @@ class _HomeViewState extends State<HomeView> {
         onTap: () async {
           const url = 'https://odtuclass2025f.metu.edu.tr/';
           final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } else {
+          try {
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(
+                uri,
+                mode: LaunchMode.externalApplication,
+                webViewConfiguration: const WebViewConfiguration(
+                  enableJavaScript: true,
+                  enableDomStorage: true,
+                ),
+              );
+            } else {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Could not open ODTUCLASS website')),
+              );
+            }
+          } catch (e) {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Could not open the link')),
+              SnackBar(content: Text('Error opening ODTUCLASS: $e')),
             );
           }
         },
