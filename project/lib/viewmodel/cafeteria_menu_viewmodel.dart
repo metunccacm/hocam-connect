@@ -44,13 +44,56 @@ class CafeteriaMenuViewModel extends ChangeNotifier {
   CafeteriaMenuViewModel({
     SupabaseClient? client,
     this.tableName = 'cafeteria_menu',
-  }) : _client = client ?? Supabase.instance.client;
+  }) : _client = client ?? Supabase.instance.client {
+    // Default pricing info shown via a "?" button in the UI
+    _pricingInfo =
+        'ALAKART SALON FİYAT LİSTESİ\n'
+        '  3 ÇEŞİT                           170,00 TL\n'
+        '  4 ÇEŞİT                           185,00 TL\n'
+        '\n'
+        'PARÇA FİYATLARI\n'
+        '  ÇORBA                              50,00 TL\n'
+        '  ANA YEMEK                          75,00 TL\n'
+        '  VEJETERYAN YEMEK                   75,00 TL\n'
+        '  YARDIMCI YEMEK                     35,00 TL\n'
+        '  YOĞURT/SALATA                      35,00 TL\n'
+        '  TATLI                              45,00 TL\n'
+        '\n'
+        'TABLDOLT YEMEK\n'
+        '  1 ANA YEMEK + 1 VEJETERYAN + 1 ÇEŞİT  230,00 TL\n'
+        '  1 ANA YEMEK + 1 VEJETERYAN + 2 ÇEŞİT  250,00 TL\n'
+        '  2 ANA YEMEK + 1 ÇEŞİT                 250,00 TL\n'
+        '  2 ANA YEMEK + 2 ÇEŞİT                 290,00 TL\n'
+        '  ANA YEMEK VE VEJETERYAN + 2 ÇEŞİT     150,00 TL\n'
+        '  ANA YEMEK VE VEJETERYAN + 3 ÇEŞİT     150,00 TL\n'
+        '\n'
+        'İÇECEKLER\n'
+        '  KOLA                                 30,00 TL\n'
+        '  AYRAN                                25,00 TL\n'
+        '  SU                                   12,00 TL\n'
+        '  SOĞUK ÇAY                            30,00 TL\n'
+        '  SODA                                 20,00 TL\n'
+        '  MEYVELİ SODA                         25,00 TL\n';
+  }
 
   final SupabaseClient _client;
   final String tableName;
 
   bool isLoading = false;
   String? errorMessage;
+
+  /// Optional pricing information text to show in UI (e.g., via a "?" button)
+  String? _pricingInfo;
+  String? get pricingInfo => _pricingInfo;
+  bool get hasPricingInfo => (_pricingInfo != null && _pricingInfo!.trim().isNotEmpty);
+  void setPricingInfo(String? text) {
+    _pricingInfo = (text == null) ? null : text.trim();
+    notifyListeners();
+  }
+  void clearPricingInfo() {
+    _pricingInfo = null;
+    notifyListeners();
+  }
 
   /// Monday=0 … Sunday=6
   final Map<int, CafeteriaMenu> _byWeekday = {};

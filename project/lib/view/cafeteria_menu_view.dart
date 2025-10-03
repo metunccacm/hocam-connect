@@ -92,6 +92,28 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
         centerTitle: true,
         actions: [
           IconButton(
+            tooltip: 'Fiyat Listesi',
+            onPressed: () {
+              final raw = (vm.pricingInfo ?? '').trim();
+              showDialog(
+                context: context,
+                builder: (ctx) {
+                  return AlertDialog(
+                    title: const Text('Fiyat Bilgisi'),
+                    content: _PricingDialogContent(text: raw),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('Kapat'),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+            icon: const Icon(Icons.help_outline),
+          ),
+          IconButton(
             tooltip: 'Yenile',
             onPressed: vm.isLoading ? null : vm.refresh,
             icon: const Icon(Icons.refresh),
@@ -506,6 +528,155 @@ class _DayPill extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Fiyat listesi için düzenli, başlık + satır formatlı içerik
+class _PricingDialogContent extends StatelessWidget {
+  const _PricingDialogContent({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    if (text.isEmpty) {
+      return const Text('Bilgi bulunamadı');
+    }
+
+    final lines = text.split('\n').map((e) => e.trimRight()).toList();
+
+    // Bölümleri boş satırlara göre ayır
+    final List<List<String>> sections = [];
+    List<String> current = [];
+    for (final l in lines) {
+      if (l.isEmpty) {
+        if (current.isNotEmpty) {
+          sections.add(current);
+          current = [];
+        }
+      } else {
+        current.add(l);
+      }
+    }
+    if (current.isNotEmpty) sections.add(current);
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < sections.length; i++) ...[
+            _SectionWidget(lines: sections[i]),
+            if (i != sections.length - 1)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Divider(height: 1),
+              ),
+          ]
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionWidget extends StatelessWidget {
+  const _SectionWidget({required this.lines});
+
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (lines.isEmpty) return const SizedBox.shrink();
+
+    // İlk satırı başlık, kalan satırları madde/kalem olarak işleyelim
+    final String header = lines.first;
+    final List<String> items = lines.skip(1).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              _iconForHeader(header),
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                header,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...items.map((l) => _PriceRow(line: l)).toList(),
+      ],
+    );
+  }
+
+  IconData _iconForHeader(String header) {
+    final h = header.toLowerCase();
+    if (h.contains('alakart')) return Icons.restaurant_menu;
+    if (h.contains('parça')) return Icons.list_alt;
+    if (h.contains('tabldot')) return Icons.dinner_dining;
+    if (h.contains('kola') || h.contains('ayran') || h.contains('su') || h.contains('soda')) {
+      return Icons.local_drink;
+    }
+    return Icons.info_outline;
+  }
+}
+
+class _PriceRow extends StatelessWidget {
+  const _PriceRow({required this.line});
+
+  final String line;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Satırları sağdaki son fiyatı yakalayacak şekilde bölmeye çalış
+    // Ör: "ÇORBA 50,00 TL" → left: "ÇORBA", right: "50,00 TL"
+    String left = line;
+    String right = '';
+
+    final priceMatch = RegExp(r'(\d{1,3}(?:\.\d{3})*,\d{2}\s*TL)$').firstMatch(line);
+    if (priceMatch != null) {
+      right = priceMatch.group(0) ?? '';
+      left = line.substring(0, priceMatch.start).trimRight();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              left,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (right.isNotEmpty)
+            Text(
+              right,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+        ],
       ),
     );
   }
