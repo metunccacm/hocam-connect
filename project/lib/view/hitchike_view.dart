@@ -53,33 +53,48 @@ class _HitchikeViewState extends State<HitchikeView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: cs.background,
       appBar: HCAppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
+        backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
         elevation: 1,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-        onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
+          icon: Icon(Icons.arrow_back, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+          onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
         ),
         titleWidget: _isSearching
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Search rides...',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.black54),
+                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                    color: (theme.appBarTheme.foregroundColor ?? cs.onSurface).withOpacity(0.6),
+                  ),
                 ),
-                style: const TextStyle(color: Colors.black, fontSize: 16),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.appBarTheme.foregroundColor ?? cs.onSurface,
+                  fontSize: 16,
+                ),
               )
-            : const Text('Hitchhike', style: TextStyle(color: Colors.black)),
+            : Text(
+                'Hitchhike',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.appBarTheme.foregroundColor ?? cs.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
         centerTitle: true,
         actions: [
           IconButton(
             tooltip: 'My Posts',
-            icon: const Icon(Icons.inventory_2_outlined, color: Colors.black),
+            icon: Icon(Icons.inventory_2_outlined,
+                color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
             onPressed: () {
               final me = Supabase.instance.client.auth.currentUser?.id;
               Navigator.push(
@@ -91,16 +106,16 @@ class _HitchikeViewState extends State<HitchikeView> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.search, color: Colors.black),
+            icon: Icon(Icons.search, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
             onPressed: _toggleSearch,
           ),
           IconButton(
             tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh, color: Colors.black),
+            icon: Icon(Icons.refresh, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
             onPressed: _doRefresh,
           ),
           IconButton(
-            icon: const Icon(Icons.add, color: Colors.black),
+            icon: Icon(Icons.add, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
             onPressed: () {
               Navigator.push(
                 context,
@@ -113,14 +128,21 @@ class _HitchikeViewState extends State<HitchikeView> {
       body: Column(
         children: [
           const SizedBox(height: 8),
-          const Text('Posts',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18)),
+          Text(
+            'Posts',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: cs.onBackground,
+            ),
+          ),
           const SizedBox(height: 8),
           Expanded(
             child: Consumer<HitchikeViewModel>(
               builder: (context, vm, _) {
                 if (vm.isLoading) {
                   return RefreshIndicator(
+                    color: cs.primary,
+                    backgroundColor: cs.surface,
                     onRefresh: _doRefresh,
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -130,7 +152,7 @@ class _HitchikeViewState extends State<HitchikeView> {
                       itemBuilder: (_, __) => Container(
                         height: 64,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE6E6E6),
+                          color: cs.surfaceVariant,
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
@@ -140,18 +162,29 @@ class _HitchikeViewState extends State<HitchikeView> {
 
                 if (vm.posts.isEmpty) {
                   return RefreshIndicator(
+                    color: cs.primary,
+                    backgroundColor: cs.surface,
                     onRefresh: _doRefresh,
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 120),
-                        Center(child: Text('No hitchike posts yet.')),
+                      children: [
+                        const SizedBox(height: 120),
+                        Center(
+                          child: Text(
+                            'No hitchike posts yet.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: cs.onSurface.withOpacity(0.8),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   );
                 }
 
                 return RefreshIndicator(
+                  color: cs.primary,
+                  backgroundColor: cs.surface,
                   onRefresh: _doRefresh,
                   child: ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -160,8 +193,10 @@ class _HitchikeViewState extends State<HitchikeView> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, i) {
                       final p = vm.posts[i];
-                      final fuelText =
-                          (p.fuelShared == 1) ? 'Fuel will be shared' : 'Fuel will not be shared';
+                      final fuelText = (p.fuelShared == 1)
+                          ? 'Fuel will be shared'
+                          : 'Fuel will not be shared';
+
                       return InkWell(
                         borderRadius: BorderRadius.circular(16),
                         onTap: () {
@@ -175,49 +210,69 @@ class _HitchikeViewState extends State<HitchikeView> {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF2F6FF),
+                            color: cs.surfaceVariant, // tema-uyumlu kart arka planı
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
                             children: [
-                                  CircleAvatar(
-                                     radius: 18,
-                                     backgroundImage: (p.ownerImageUrl != null && p.ownerImageUrl!.isNotEmpty)
-                                         ? NetworkImage(p.ownerImageUrl!): null,
-                                     child: (p.ownerImageUrl == null || p.ownerImageUrl!.isEmpty)
-                                          ? const Icon(Icons.person, size: 20): null,
-  ),
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: cs.secondaryContainer,
+                                backgroundImage: (p.ownerImageUrl != null &&
+                                        p.ownerImageUrl!.isNotEmpty)
+                                    ? NetworkImage(p.ownerImageUrl!)
+                                    : null,
+                                child: (p.ownerImageUrl == null ||
+                                        p.ownerImageUrl!.isEmpty)
+                                    ? Icon(Icons.person, size: 20, color: cs.onSecondaryContainer)
+                                    : null,
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    // From - To
                                     Text(
                                       '${p.fromLocation} - ${p.toLocation}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 16),
+                                      style: theme.textTheme.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: cs.onSurface,
+                                      ),
                                     ),
-                                    Text (
-                                    '${p.dateTime.day}/${p.dateTime.month}, ${p.dateTime.hour.toString().padLeft(2, '0')}:${p.dateTime.minute.toString().padLeft(2, '0')}',
+                                    // Date / Time
+                                    Text(
+                                      '${p.dateTime.day}/${p.dateTime.month}, '
+                                      '${p.dateTime.hour.toString().padLeft(2, '0')}:'
+                                      '${p.dateTime.minute.toString().padLeft(2, '0')}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 16),
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: cs.onSurfaceVariant,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
-                                    Text(fuelText, style: const TextStyle(fontSize: 12)),
+                                    // Fuel
+                                    Text(
+                                      fuelText,
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
                               const SizedBox(width: 12),
+                              // Owner name (soluk)
                               Opacity(
-                                opacity: .55,
+                                opacity: .75,
                                 child: Text(
                                   p.ownerName ?? '',
-                                  style: const TextStyle(fontSize: 12),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -246,13 +301,21 @@ class _MyHitchikePostsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final vm = context.read<HitchikeViewModel>();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Posts'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        title: Text(
+          'My Posts',
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.appBarTheme.foregroundColor ?? cs.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
+        foregroundColor: theme.appBarTheme.foregroundColor ?? cs.onSurface,
         elevation: 1,
         actions: [
           IconButton(
@@ -265,10 +328,13 @@ class _MyHitchikePostsView extends StatelessWidget {
       body: Consumer<HitchikeViewModel>(
         builder: (context, viewModel, _) {
           if (myUserId == null || myUserId!.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Text('You need to sign in to see your posts.'),
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  'You need to sign in to see your posts.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurface),
+                ),
               ),
             );
           }
@@ -283,70 +349,92 @@ class _MyHitchikePostsView extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (_, __) => Container(
                 height: 64,
-                color: const Color(0xFFE6E6E6),
+                decoration: BoxDecoration(
+                  color: cs.surfaceVariant,
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             );
           }
 
           if (myPosts.isEmpty) {
             return RefreshIndicator(
+              color: cs.primary,
+              backgroundColor: cs.surface,
               onRefresh: () => viewModel.refreshPosts(),
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 120),
-                  Center(child: Text("You don't have any posts yet.")),
+                children: [
+                  const SizedBox(height: 120),
+                  Center(
+                    child: Text(
+                      "You don't have any posts yet.",
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurface.withOpacity(0.8),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             );
           }
 
-          // Add a default return to satisfy the non-nullable return type
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: myPosts.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final p = myPosts[i];
-              return Slidable(
-                key: ValueKey(p.id),
-                endActionPane: ActionPane(
-                  motion: const DrawerMotion(),
-                  children: [
-                    SlidableAction(
-                      onPressed: (context) async {
-                        await viewModel.deletePost(p.id);
-                      },
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      icon: Icons.delete,
-                      label: 'Delete',
-                    ),
-                  ],
-                ),
-                child: ListTile(
-                  title: Text(
-                'From ${p.fromLocation} - ${p.toLocation} at ${p.dateTime}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                ),
-                  subtitle: Text(
-                    (p.fuelShared == 1)
-                        ? 'Fuel will be shared'
-                        : 'Fuel will not be shared',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => HitchikeDetailView(post: p),
+          return RefreshIndicator(
+            color: cs.primary,
+            backgroundColor: cs.surface,
+            onRefresh: () => viewModel.refreshPosts(),
+            child: ListView.separated(
+              padding: const EdgeInsets.all(12),
+              itemCount: myPosts.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final p = myPosts[i];
+                return Slidable(
+                  key: ValueKey(p.id),
+                  endActionPane: ActionPane(
+                    motion: const DrawerMotion(),
+                    children: [
+                      SlidableAction(
+                        onPressed: (context) async {
+                          await viewModel.deletePost(p.id);
+                        },
+                        backgroundColor: cs.error,
+                        foregroundColor: cs.onError,
+                        icon: Icons.delete,
+                        label: 'Delete',
                       ),
-                    );
-                  },
-                ),
-              );
-            },
+                    ],
+                  ),
+                  child: ListTile(
+                    tileColor: cs.surfaceVariant,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    title: Text(
+                      'From ${p.fromLocation} - ${p.toLocation} at ${p.dateTime}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurface),
+                    ),
+                    subtitle: Text(
+                      (p.fuelShared == 1)
+                          ? 'Fuel will be shared'
+                          : 'Fuel will not be shared',
+                      style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                    trailing: Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => HitchikeDetailView(post: p),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           );
         },
       ),

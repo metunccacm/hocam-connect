@@ -6,9 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
 import 'chat_view.dart';
 
-
 /// View-only model (no driver fields here; service will resolve owner->driver)
-
 class HitchikeDetailView extends StatefulWidget {
   final HitchikePost post;
   const HitchikeDetailView({super.key, required this.post});
@@ -39,7 +37,6 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
   void initState() {
     super.initState();
     _bindFromPost(widget.post);
-    // Optionally preload fresh owner/profile info
     unawaited(_reloadFromServer());
   }
 
@@ -69,12 +66,7 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
     return "$dd.$mm.$yyyy, $t";
   }
 
-  //Future<void> _manualRefresh() async {
-    //_refreshKey.currentState?.show();
-    //await _reloadFromServer();
-  //}
-
-  /// TODO (Service later): owner join + auto-expire delete at DB level
+  /// owner join + auto-expire handled elsewhere
   Future<void> _reloadFromServer() async {
     try {
       final supa = Supabase.instance.client;
@@ -88,12 +80,10 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
             'fuel_shared,'
             'owner_id,'
             'owner_name,'
-            'owner_image_url:owner_image' // tek alias, yorum yok
+            'owner_image_url:owner_image'
           )
           .eq('id', widget.post.id)
           .maybeSingle();
-
-
 
       if (row is Map<String, dynamic>) {
         setState(() {
@@ -115,14 +105,9 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
           _driverUserId = row['owner_id'] as String?;
           _driverName = (row['owner_name'] as String?) ?? _driverName;
           final img = row['owner_image_url'] as String?;
-          if (img != null && img.isNotEmpty) {
-            _driverImageUrl = img;
-          }
+          if (img != null && img.isNotEmpty) _driverImageUrl = img;
         });
       }
-
-      // Optional: if expired, you might navigate back. We will only hint in UI here.
-      // Actual deletion (DB + app) will be implemented in Service/DB.
     } catch (_) {
       // silent
     }
@@ -157,7 +142,7 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
         ..writeln('• Empty seats: $_seats');
       if (_fuelShared == 1) sb.writeln('• Fuel will be shared');
       else if (_fuelShared == 0) sb.writeln('• Fuel will NOT be shared');
-      
+
       await _svc.sendTextEncrypted(conversationId: convId, text: sb.toString());
 
       if (!mounted) return;
@@ -175,20 +160,27 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final onSurface = cs.onSurface;
+    final onSurfaceVariant = cs.onSurfaceVariant;
     final whenText = _fmtDateTime(context);
 
     return Scaffold(
+      backgroundColor: cs.background,
       appBar: AppBar(
-        title: const Text('Hitchhike'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        title: Text(
+          'Hitchhike',
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.appBarTheme.foregroundColor ?? cs.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
+        foregroundColor: theme.appBarTheme.foregroundColor ?? cs.onSurface,
         elevation: 1,
-        actions: [
-          // IconButton(
-          //   tooltip: 'Refresh',
-          //   onPressed: _manualRefresh,
-          //   icon: const Icon(Icons.refresh),
-          // ),
+        actions: const [
+          // Add refresh if you expose manual refresh later
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -209,6 +201,10 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
+                backgroundColor: cs.primary,
+                foregroundColor: cs.onPrimary,
+                disabledBackgroundColor: cs.surfaceVariant,
+                disabledForegroundColor: onSurfaceVariant,
                 minimumSize: const Size(double.infinity, 48),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -218,6 +214,8 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
       ),
       body: RefreshIndicator(
         key: _refreshKey,
+        color: cs.primary,
+        backgroundColor: cs.surface,
         onRefresh: _reloadFromServer,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
@@ -227,15 +225,22 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.place, size: 18),
+                Icon(Icons.place, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('From: $_from', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text('From: $_from',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: onSurface,
+                          )),
                       const SizedBox(height: 4),
-                      Text('To: $_to'),
+                      Text('To: $_to',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: onSurface,
+                          )),
                     ],
                   ),
                 ),
@@ -246,9 +251,12 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
             // When
             Row(
               children: [
-                const Icon(Icons.schedule, size: 18),
+                Icon(Icons.schedule, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 8),
-                Text(whenText),
+                Text(
+                  whenText,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -256,9 +264,12 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
             // Seats
             Row(
               children: [
-                const Icon(Icons.event_seat, size: 18),
+                Icon(Icons.event_seat, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 8),
-                Text('Empty seats: $_seats'),
+                Text(
+                  'Empty seats: $_seats',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+                ),
               ],
             ),
 
@@ -266,10 +277,13 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
             if (_fuelShared == 1) ...[
               const SizedBox(height: 8),
               Row(
-                children: const [
-                  Icon(Icons.local_gas_station, size: 18),
-                  SizedBox(width: 8),
-                  Text('Fuel will be shared'),
+                children: [
+                  Icon(Icons.local_gas_station, size: 18, color: onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Fuel will be shared',
+                    style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+                  ),
                 ],
               ),
             ],
@@ -280,20 +294,25 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
             Row(
               children: [
                 CircleAvatar(
-                   radius: 20,
-                   backgroundImage: (_driverImageUrl != null && _driverImageUrl!.isNotEmpty)
-                        ? NetworkImage(_driverImageUrl!) : null,
-                   child: (_driverImageUrl == null || _driverImageUrl!.isEmpty)
-                       ? const Icon(Icons.person) : null,
-    ),
-    const SizedBox(width: 10),
+                  radius: 20,
+                  backgroundColor: cs.surfaceVariant,
+                  backgroundImage: (_driverImageUrl != null && _driverImageUrl!.isNotEmpty)
+                      ? NetworkImage(_driverImageUrl!)
+                      : null,
+                  child: (_driverImageUrl == null || _driverImageUrl!.isEmpty)
+                      ? Icon(Icons.person, color: onSurfaceVariant)
+                      : null,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     _driverName ?? 'Driver',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: onSurface,
+                    ),
                   ),
                 ),
               ],
@@ -301,16 +320,30 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
 
             if (_isExpired) ...[
               const SizedBox(height: 16),
-              Text(
-                'This post has expired.',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.errorContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'This post has expired.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: cs.onErrorContainer),
+                ),
               ),
             ],
 
             const SizedBox(height: 16),
-            Text(
-              '• This system is not designed for and cannot be used as a money earning system!',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.errorContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '• This system is not designed for and cannot be used as a money earning system!',
+                style: theme.textTheme.bodyMedium?.copyWith(color: cs.onErrorContainer),
+              ),
             ),
           ],
         ),

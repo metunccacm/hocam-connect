@@ -7,15 +7,10 @@ import 'package:provider/provider.dart';
 import 'package:project/viewmodel/marketplace_viewmodel.dart';
 import '../models/product.dart';
 
-// 🧩 Cache & Shimmer paketleri
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:shimmer/shimmer.dart';
-
-// 🔐 current user id
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-// 👇 NEW
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 class MarketplaceView extends StatefulWidget {
@@ -25,7 +20,7 @@ class MarketplaceView extends StatefulWidget {
   State<MarketplaceView> createState() => _MarketplaceViewState();
 }
 
-// 🔒 Özel Cache Manager (disk önbellek, TTL, limit)
+// 🔒 Özel Cache Manager
 class _MarketplaceImageCacheManager extends CacheManager {
   static const key = 'marketplace_images_cache';
   _MarketplaceImageCacheManager()
@@ -43,7 +38,6 @@ class _MarketplaceImageCacheManager extends CacheManager {
 class _MarketplaceViewState extends State<MarketplaceView> {
   bool _isSearching = false;
   final _searchController = TextEditingController();
-
   static final _cacheManager = _MarketplaceImageCacheManager();
 
   @override
@@ -64,21 +58,23 @@ class _MarketplaceViewState extends State<MarketplaceView> {
   void _toggleSearch() {
     setState(() {
       _isSearching = !_isSearching;
-      if (!_isSearching) {
-        _searchController.clear();
-      }
+      if (!_isSearching) _searchController.clear();
     });
   }
 
+  // ——— THEME-AWARE SHIMMER HELPERS ———
   Widget _shimmerRect({double borderRadius = 0, double? width, double? height}) {
+    final cs = Theme.of(context).colorScheme;
+    final base = cs.surfaceVariant.withOpacity(0.6);
+    final highlight = cs.surfaceVariant.withOpacity(0.85);
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE6E6E6),
-      highlightColor: const Color(0xFFF5F5F5),
+      baseColor: base,
+      highlightColor: highlight,
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: const Color(0xFFE0E0E0),
+          color: cs.surfaceVariant,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
       ),
@@ -86,14 +82,17 @@ class _MarketplaceViewState extends State<MarketplaceView> {
   }
 
   Widget _shimmerCircle({double size = 24}) {
+    final cs = Theme.of(context).colorScheme;
+    final base = cs.surfaceVariant.withOpacity(0.6);
+    final highlight = cs.surfaceVariant.withOpacity(0.85);
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE6E6E6),
-      highlightColor: const Color(0xFFF5F5F5),
+      baseColor: base,
+      highlightColor: highlight,
       child: Container(
         width: size,
         height: size,
-        decoration: const BoxDecoration(
-          color: Color(0xFFE0E0E0),
+        decoration: BoxDecoration(
+          color: cs.surfaceVariant,
           shape: BoxShape.circle,
         ),
       ),
@@ -115,33 +114,45 @@ class _MarketplaceViewState extends State<MarketplaceView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final onSurface = cs.onSurface;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
+      // ❗️Tema-tabanlı arka plan
+      backgroundColor: cs.background,
       appBar: HCAppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
+        // ❗️AppBar’ı tema ile sür
+        backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
         elevation: 1,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
           onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
         ),
         titleWidget: _isSearching
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Search products...',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.black54),
+                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                    color: onSurface.withOpacity(0.6),
+                  ),
                 ),
-                style: const TextStyle(color: Colors.black, fontSize: 16),
+                style: theme.textTheme.bodyMedium?.copyWith(color: onSurface, fontSize: 16),
               )
-            : const Text('Marketplace', style: TextStyle(color: Colors.black)),
+            : Text('Marketplace',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.appBarTheme.foregroundColor ?? cs.onSurface,
+                  fontWeight: FontWeight.w600,
+                )),
         centerTitle: true,
         actions: [
           if (_isSearching)
             IconButton(
-              icon: const Icon(Icons.close, color: Colors.black),
+              icon: Icon(Icons.close, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
               onPressed: _toggleSearch,
             )
           else ...[
@@ -149,7 +160,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               builder: (context, vm, _) {
                 return IconButton(
                   tooltip: 'My Posts',
-                  icon: const Icon(Icons.inventory_2_outlined, color: Colors.black),
+                  icon: Icon(Icons.inventory_2_outlined,
+                      color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
                   onPressed: () {
                     final me = Supabase.instance.client.auth.currentUser?.id;
                     Navigator.push(
@@ -167,21 +179,18 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               },
             ),
             IconButton(
-              icon: const Icon(Icons.search, color: Colors.black),
+              icon: Icon(Icons.search, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
               onPressed: _toggleSearch,
             ),
             IconButton(
               tooltip: 'Refresh',
-              icon: const Icon(Icons.refresh, color: Colors.black),
+              icon: Icon(Icons.refresh, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
               onPressed: () => _doRefresh(context),
             ),
             IconButton(
-              icon: const Icon(Icons.add, color: Colors.black),
+              icon: Icon(Icons.add, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AddItemView()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const AddItemView()));
               },
             ),
           ]
@@ -195,6 +204,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               builder: (context, viewModel, child) {
                 if (viewModel.isLoading) {
                   return RefreshIndicator(
+                    color: cs.primary,
+                    backgroundColor: cs.surface,
                     onRefresh: () => _doRefresh(context),
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -209,27 +220,34 @@ class _MarketplaceViewState extends State<MarketplaceView> {
 
                 if (viewModel.groupedProducts.isEmpty) {
                   return RefreshIndicator(
+                    color: cs.primary,
+                    backgroundColor: cs.surface,
                     onRefresh: () => _doRefresh(context),
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 120),
-                        Center(child: Text('No products found.')),
+                      children: [
+                        const SizedBox(height: 120),
+                        Center(
+                          child: Text(
+                            'No products found.',
+                            style: theme.textTheme.bodyMedium?.copyWith(color: onSurface.withOpacity(0.8)),
+                          ),
+                        ),
                       ],
                     ),
                   );
                 }
 
                 return RefreshIndicator(
+                  color: cs.primary,
+                  backgroundColor: cs.surface,
                   onRefresh: () => _doRefresh(context),
                   child: ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
                     itemCount: viewModel.groupedProducts.keys.length,
                     itemBuilder: (context, index) {
-                      final category =
-                          viewModel.groupedProducts.keys.elementAt(index);
-                      final products =
-                          viewModel.groupedProducts[category]!;
+                      final category = viewModel.groupedProducts.keys.elementAt(index);
+                      final products = viewModel.groupedProducts[category]!;
                       return _buildCategorySection(category, products);
                     },
                   ),
@@ -243,18 +261,28 @@ class _MarketplaceViewState extends State<MarketplaceView> {
   }
 
   Widget _buildCategorySection(String category, List<Product> products) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final onSurface = cs.onSurface;
+    final onSurfaceVariant = cs.onSurfaceVariant;
+
     final coverOrPlaceholder = (List<String> urls) =>
         urls.isNotEmpty ? urls.first : 'https://via.placeholder.com/400x300?text=No+Image';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Başlık + See more
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(category, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(category,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: onSurface,
+                  )),
               InkWell(
                 onTap: () {
                   Navigator.push(
@@ -269,8 +297,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                 },
                 child: Text(
                   'See more',
-                  style: TextStyle(
-                    color: Colors.blue.shade700,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -278,6 +306,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
             ],
           ),
         ),
+        // Ürün kartları
         SizedBox(
           height: 220,
           child: ListView.builder(
@@ -287,6 +316,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
             itemBuilder: (context, index) {
               final p = products[index];
               final cover = coverOrPlaceholder(p.imageUrls);
+
               return SizedBox(
                 width: 180,
                 child: GestureDetector(
@@ -304,38 +334,48 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Görsel
                         Expanded(
                           child: Container(
-                            color: const Color(0xFFEAF2FF),
+                            color: cs.surfaceVariant, // ❗️tema uyumlu placeholder arka plan
                             child: CachedNetworkImage(
                               imageUrl: cover,
                               cacheManager: _MarketplaceViewState._cacheManager,
                               fit: BoxFit.cover,
                               width: double.infinity,
-                              placeholder: (context, url) =>
-                                  _shimmerRect(borderRadius: 0),
-                              errorWidget: (_, __, ___) =>
-                                  const Center(
-                                    child: Icon(
-                                      Icons.image_not_supported_outlined,
-                                      color: Colors.grey,
-                                      size: 40,
-                                    ),
-                                  ),
+                              placeholder: (context, url) => _shimmerRect(borderRadius: 0),
+                              errorWidget: (_, __, ___) => Center(
+                                child: Icon(
+                                  Icons.image_not_supported_outlined,
+                                  color: onSurfaceVariant,
+                                  size: 40,
+                                ),
+                              ),
                             ),
                           ),
                         ),
+                        // Başlık
                         Padding(
                           padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                          child: Text(p.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            p.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+                          ),
                         ),
+                        // Fiyat
                         Padding(
                           padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
                           child: Text(
                             '${p.currency == 'TL' ? '₺' : p.currency == 'USD' ? '\$' : '€'}${p.price.toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: onSurface,
+                            ),
                           ),
                         ),
+                        // Satıcı satırı
                         Padding(
                           padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                           child: Row(
@@ -349,25 +389,24 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                                     height: 24,
                                     fit: BoxFit.cover,
                                     placeholder: (_, __) => _shimmerCircle(size: 24),
-                                    errorWidget: (_, __, ___) => const Icon(
-                                      Icons.person,
-                                      size: 18,
-                                      color: Colors.grey,
-                                    ),
+                                    errorWidget: (_, __, ___) =>
+                                        Icon(Icons.person, size: 18, color: onSurfaceVariant),
                                   ),
                                 )
                               else
-                                const CircleAvatar(
+                                CircleAvatar(
                                   radius: 12,
-                                  backgroundColor: Color(0xFFE0E0E0),
-                                  child: Icon(Icons.person, size: 14, color: Colors.grey),
+                                  backgroundColor: cs.surfaceVariant,
+                                  child: Icon(Icons.person, size: 14, color: onSurfaceVariant),
                                 ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   p.sellerName,
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                                   overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ],
@@ -386,6 +425,9 @@ class _MarketplaceViewState extends State<MarketplaceView> {
   }
 
   Widget _buildFilterAndSortControls() {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Consumer<MarketplaceViewModel>(
       builder: (context, viewModel, child) {
         return Padding(
@@ -395,6 +437,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
             children: [
               TextButton.icon(
                 style: TextButton.styleFrom(
+                  foregroundColor: cs.primary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
                 ),
                 onPressed: () => _showFilterDialog(viewModel),
@@ -403,6 +446,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               ),
               TextButton.icon(
                 style: TextButton.styleFrom(
+                  foregroundColor: cs.primary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
                 ),
                 onPressed: () => _showSortDialog(viewModel),
@@ -429,19 +473,25 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                 title: const Text('Newest'),
                 value: SortOption.newest,
                 groupValue: viewModel.currentSortOption,
-                onChanged: (v) { if (v != null) { viewModel.sortProducts(v); Navigator.pop(dialogContext); } },
+                onChanged: (v) {
+                  if (v != null) { viewModel.sortProducts(v); Navigator.pop(dialogContext); }
+                },
               ),
               RadioListTile<SortOption>(
                 title: const Text('Price: Low to High'),
                 value: SortOption.priceAsc,
                 groupValue: viewModel.currentSortOption,
-                onChanged: (v) { if (v != null) { viewModel.sortProducts(v); Navigator.pop(dialogContext); } },
+                onChanged: (v) {
+                  if (v != null) { viewModel.sortProducts(v); Navigator.pop(dialogContext); }
+                },
               ),
               RadioListTile<SortOption>(
                 title: const Text('Price: High to Low'),
                 value: SortOption.priceDesc,
                 groupValue: viewModel.currentSortOption,
-                onChanged: (v) { if (v != null) { viewModel.sortProducts(v); Navigator.pop(dialogContext); } },
+                onChanged: (v) {
+                  if (v != null) { viewModel.sortProducts(v); Navigator.pop(dialogContext); }
+                },
               ),
             ],
           ),
@@ -505,7 +555,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
 }
 
 /// ====================================================================
-///                          MY ITEMS VIEW
+///                          MY ITEMS VIEW (tema uyumlu)
 /// ====================================================================
 
 class MyItemsView extends StatelessWidget {
@@ -520,16 +570,16 @@ class MyItemsView extends StatelessWidget {
     required this.cacheManager,
   });
 
-  Widget _shimmerRect({double? height}) {
+  Widget _shimmerRect(BuildContext context, {double? height}) {
+    final cs = Theme.of(context).colorScheme;
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE6E6E6),
-      highlightColor: const Color(0xFFF5F5F5),
-      child: Container(height: height ?? 160, color: const Color(0xFFE0E0E0)),
+      baseColor: cs.surfaceVariant.withOpacity(0.6),
+      highlightColor: cs.surfaceVariant.withOpacity(0.85),
+      child: Container(height: height ?? 160, color: cs.surfaceVariant),
     );
   }
 
-  // === Helpers for deleting product + storage ===
-
+  // === Storage helpers ===
   String? _extractStorageKey(String url) {
     const pub = '/object/public/marketplace/';
     const sig = '/object/sign/marketplace/';
@@ -557,8 +607,6 @@ class MyItemsView extends StatelessWidget {
 
   Future<void> _deleteProductEverywhere(Product p) async {
     final supa = Supabase.instance.client;
-
-    // Always fetch current image URLs from DB
     final rows = await supa
         .from('marketplace_images')
         .select('url')
@@ -582,13 +630,9 @@ class MyItemsView extends StatelessWidget {
   Future<void> _confirmAndMarkAsSold(BuildContext context, Product p) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Mark as sold?'),
-        content: const Text('This will remove the product and its images permanently.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Mark as sold')),
-        ],
+      builder: (_) => const AlertDialog(
+        title: Text('Mark as sold?'),
+        content: Text('This will remove the product and its images permanently.'),
       ),
     );
     if (ok != true) return;
@@ -608,13 +652,9 @@ class MyItemsView extends StatelessWidget {
   Future<void> _confirmAndDelete(BuildContext context, Product p) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete post?'),
-        content: const Text('This will permanently delete the post and its images.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
-        ],
+      builder: (_) => const AlertDialog(
+        title: Text('Delete post?'),
+        content: Text('This will permanently delete the post and its images.'),
       ),
     );
     if (ok != true) return;
@@ -633,13 +673,18 @@ class MyItemsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final onSurface = cs.onSurface;
+    final onSurfaceVariant = cs.onSurfaceVariant;
+
     final vm = context.read<MarketplaceViewModel>();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Posts'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
+        foregroundColor: theme.appBarTheme.foregroundColor ?? cs.onSurface,
         elevation: 1,
         actions: [
           IconButton(
@@ -652,10 +697,13 @@ class MyItemsView extends StatelessWidget {
       body: Consumer<MarketplaceViewModel>(
         builder: (context, viewModel, _) {
           if (myUserId == null || myUserId!.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Text('You need to sign in to see your posts.'),
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  'You need to sign in to see your posts.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+                ),
               ),
             );
           }
@@ -669,25 +717,33 @@ class MyItemsView extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemCount: 6,
-              itemBuilder: (_, __) => _shimmerRect(height: 160),
+              itemBuilder: (_, __) => _shimmerRect(context, height: 160),
             );
           }
 
           if (myItems.isEmpty) {
             return RefreshIndicator(
+              color: cs.primary,
+              backgroundColor: cs.surface,
               onRefresh: () => viewModel.refreshProducts(),
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 120),
-                  Center(child: Text("You don't have any posts yet.")),
+                children: [
+                  const SizedBox(height: 120),
+                  Center(
+                    child: Text(
+                      "You don't have any posts yet.",
+                      style: theme.textTheme.bodyMedium?.copyWith(color: onSurface.withOpacity(0.8)),
+                    ),
+                  ),
                 ],
               ),
             );
           }
 
-          // 👇 Slidable list with actions
           return RefreshIndicator(
+            color: cs.primary,
+            backgroundColor: cs.surface,
             onRefresh: () => viewModel.refreshProducts(),
             child: ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -705,7 +761,7 @@ class MyItemsView extends StatelessWidget {
                   closeOnScroll: true,
                   endActionPane: ActionPane(
                     motion: const DrawerMotion(),
-                    extentRatio: 0.52, // two actions, ~26% each
+                    extentRatio: 0.52,
                     children: [
                       SlidableAction(
                         onPressed: (_) => _confirmAndMarkAsSold(context, p),
@@ -747,9 +803,10 @@ class MyItemsView extends StatelessWidget {
                                 imageUrl: cover,
                                 cacheManager: cacheManager,
                                 fit: BoxFit.cover,
-                                placeholder: (_, __) => _shimmerRect(),
-                                errorWidget: (_, __, ___) =>
-                                    const Center(child: Icon(Icons.image_not_supported_outlined)),
+                                placeholder: (_, __) => _shimmerRect(context),
+                                errorWidget: (_, __, ___) => Center(
+                                  child: Icon(Icons.image_not_supported_outlined, color: onSurfaceVariant),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -759,16 +816,27 @@ class MyItemsView extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(p.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    Text(
+                                      p.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: onSurface,
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
-                                    Text(price, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    Text(
+                                      price,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: onSurface,
+                                      ),
+                                    ),
                                     const Spacer(),
                                     Text(
                                       p.category,
-                                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                      style: theme.textTheme.labelSmall?.copyWith(color: onSurfaceVariant),
                                     ),
                                   ],
                                 ),

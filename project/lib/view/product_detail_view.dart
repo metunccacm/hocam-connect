@@ -15,10 +15,13 @@ class _ShimmerBox extends StatelessWidget {
   const _ShimmerBox();
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final base = cs.surfaceVariant.withOpacity(0.6);
+    final highlight = cs.surfaceVariant.withOpacity(0.85);
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE9ECEF),
-      highlightColor: const Color(0xFFF8F9FA),
-      child: Container(color: Colors.white),
+      baseColor: base,
+      highlightColor: highlight,
+      child: Container(color: cs.surfaceVariant),
     );
   }
 }
@@ -34,7 +37,6 @@ class ProductDetailView extends StatefulWidget {
 class _ProductDetailViewState extends State<ProductDetailView> {
   final _svc = ChatService();
 
-  // ⬇️ pull-to-refresh kontrolü
   final _refreshKey = GlobalKey<RefreshIndicatorState>();
 
   PageController? _pager;
@@ -53,6 +55,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   late String _sellerName;
   late String _sellerImageUrl;
   late List<String> _imageUrls;
+
+  final TextEditingController _reportDetailsCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -91,8 +95,6 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     _pager = ctrl;
   }
 
-  final TextEditingController _reportDetailsCtrl = TextEditingController();
-
   @override
   void dispose() {
     _reportDetailsCtrl.dispose();
@@ -125,102 +127,98 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
   // Report User
   Future<void> _reportUser() async {
-  if (_busy) return;
-  if (_isMine) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('You cannot report your own listing.')),
-    );
-    return;
-  }
+    if (_busy) return;
+    if (_isMine) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You cannot report your own listing.')),
+      );
+      return;
+    }
 
-  final reasons = const [
-    'Scam / Fraud',
-    'Harassment / Abuse',
-    'Fake or Misleading',
-    'Prohibited Item',
-    'Spam',
-    'Other',
-  ];
-  String selected = reasons.first;
-  _reportDetailsCtrl.clear();
+    final reasons = const [
+      'Scam / Fraud',
+      'Harassment / Abuse',
+      'Fake or Misleading',
+      'Prohibited Item',
+      'Spam',
+      'Other',
+    ];
+    String selected = reasons.first;
+    _reportDetailsCtrl.clear();
 
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text('Report user'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<String>(
-            value: selected,
-            items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-            onChanged: (v) => selected = v ?? selected,
-            decoration: const InputDecoration(labelText: 'Reason'),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _reportDetailsCtrl,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Details (optional)',
-              hintText: 'Add any useful info/screenshots links, etc.',
-              border: OutlineInputBorder(),
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Report user'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              value: selected,
+              items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+              onChanged: (v) => selected = v ?? selected,
+              decoration: const InputDecoration(labelText: 'Reason'),
             ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _reportDetailsCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Details (optional)',
+                hintText: 'Add any useful info/screenshots links, etc.',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Submit'),
           ),
         ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Submit'),
-        ),
-      ],
-    ),
-  );
+    );
 
-  if (ok != true) return;
+    if (ok != true) return;
 
-  setState(() => _busy = true);
-  final supa = Supabase.instance.client;
-  final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    final supa = Supabase.instance.client;
+    final messenger = ScaffoldMessenger.of(context);
 
-  try {
-    final me = supa.auth.currentUser?.id;
-    if (me == null) throw Exception('Not authenticated');
+    try {
+      final me = supa.auth.currentUser?.id;
+      if (me == null) throw Exception('Not authenticated');
 
-    // insert
-    final payload = {
-      'product_id': widget.product.id,
-      'reporter_id': me,
-      'reported_user_id': _sellerId,
-      'reason': selected,
-      'details': _reportDetailsCtrl.text.trim().isEmpty ? null : _reportDetailsCtrl.text.trim(),
-    };
+      final payload = {
+        'product_id': widget.product.id,
+        'reporter_id': me,
+        'reported_user_id': _sellerId,
+        'reason': selected,
+        'details': _reportDetailsCtrl.text.trim().isEmpty ? null : _reportDetailsCtrl.text.trim(),
+      };
 
-    await supa.from('abuse_reports').insert(payload);
+      await supa.from('abuse_reports').insert(payload);
 
-    if (!mounted) return;
-    messenger.showSnackBar(const SnackBar(content: Text('Report submitted. Thank you.')));
-  } on PostgrestException catch (e) {
-    // unique ihlali (aynı ürünü iki kez raporlama)
-    if (e.code == '23505') {
-      messenger.showSnackBar(const SnackBar(content: Text('You already reported this listing.')));
-    } else {
-      messenger.showSnackBar(SnackBar(content: Text('Could not submit: ${e.message}')));
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('Report submitted. Thank you.')));
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') {
+        messenger.showSnackBar(const SnackBar(content: Text('You already reported this listing.')));
+      } else {
+        messenger.showSnackBar(SnackBar(content: Text('Could not submit: ${e.message}')));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Could not submit: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-  } catch (e) {
-    if (!mounted) return;
-    messenger.showSnackBar(SnackBar(content: Text('Could not submit: $e')));
-  } finally {
-    if (mounted) setState(() => _busy = false);
   }
-}
-
 
   // elle veya çek-bırak ile kullanılan yenileme
   Future<void> _manualRefresh() async {
-    // indikatörü ekranda göster (opsiyonel)
     _refreshKey.currentState?.show();
     await _reloadFromServer();
   }
@@ -258,12 +256,10 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           _sizeValue = (row['size_value'] as String?) ?? _sizeValue;
           _sellerId = (row['seller_id'] as String?) ?? _sellerId;
           _sellerName = (row['seller_name'] as String?) ?? _sellerName;
-          _sellerImageUrl =
-              (row['seller_image_url'] as String?) ?? _sellerImageUrl;
+          _sellerImageUrl = (row['seller_image_url'] as String?) ?? _sellerImageUrl;
           _imageUrls = imgs;
         });
 
-        // görsel adedi değiştiyse PageController’ı güvenle yenile
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _createPager(initialPage: 0);
@@ -351,14 +347,9 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     if (_busy) return;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Mark as sold?'),
-        content: const Text(
-            'This will remove the product and its images permanently.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Mark as sold')),
-        ],
+      builder: (_) => const AlertDialog(
+        title: Text('Mark as sold?'),
+        content: Text('This will remove the product and its images permanently.'),
       ),
     );
     if (ok != true) return;
@@ -422,31 +413,47 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     return null;
   }
 
+  Color _dotsColor({required bool active}) {
+    final brightness = Theme.of(context).brightness;
+    if (brightness == Brightness.dark) {
+      return active ? Colors.white.withOpacity(0.95) : Colors.white70;
+    } else {
+      return active ? Colors.black87 : Colors.black45;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final imgs = _imageUrls;
     final hasImgs = imgs.isNotEmpty;
     final safePageIx = (_pageIx >= imgs.length) ? 0 : _pageIx;
 
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final onSurface = cs.onSurface;
+    final onSurfaceVariant = cs.onSurfaceVariant;
+
     return Scaffold(
+      backgroundColor: cs.background,
       appBar: AppBar(
-        title: Text(_title),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        title: Text(
+          _title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.appBarTheme.foregroundColor ?? cs.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
+        foregroundColor: theme.appBarTheme.foregroundColor ?? cs.onSurface,
         elevation: 1,
         actions: [
-          /*IconButton(
-            tooltip: 'Refresh',
-            onPressed: _manualRefresh,
-            icon: const Icon(Icons.refresh),
-          ),*/
-            if (!_isMine) // Kullanıcı için rapor butonu
+          if (!_isMine)
             IconButton(
               tooltip: 'Report',
               icon: const Icon(Icons.flag_outlined),
               onPressed: _busy ? null : _reportUser,
             ),
-          if (_isMine) // Satıcı için düzenle butonu
+          if (_isMine)
             IconButton(
               tooltip: 'Edit',
               icon: const Icon(Icons.edit_outlined),
@@ -463,16 +470,14 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _busy ? null : (_isMine ? _markAsSold : _contactSeller),
-              icon: Icon(
-                _isMine ? Icons.check_circle_outline : Icons.send_rounded,
-                size: 20,
-              ),
+              icon: Icon(_isMine ? Icons.check_circle_outline : Icons.send_rounded, size: 20),
               label: Text(
                 _isMine ? 'Mark as sold' : 'Contact Hocam',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _isMine ? const Color(0xFFFF4D4F) : null,
+                backgroundColor: _isMine ? cs.error : cs.primary,
+                foregroundColor: _isMine ? cs.onError : cs.onPrimary,
                 minimumSize: const Size(double.infinity, 48),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -485,11 +490,11 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       // ⬇️ Pull-to-refresh
       body: RefreshIndicator(
         key: _refreshKey,
+        color: cs.primary,
+        backgroundColor: cs.surface,
         onRefresh: _reloadFromServer,
         child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           children: [
             AspectRatio(
@@ -508,7 +513,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                               fit: BoxFit.cover,
                               placeholder: (_, __) => const _ShimmerBox(),
                               errorWidget: (_, __, ___) =>
-                                  const Center(child: Icon(Icons.broken_image_outlined, size: 32)),
+                                  Center(child: Icon(Icons.broken_image_outlined, size: 32, color: onSurfaceVariant)),
                             ),
                           ),
                           if (imgs.length > 1)
@@ -524,7 +529,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                                     width: active ? 10 : 6,
                                     height: 6,
                                     decoration: BoxDecoration(
-                                      color: active ? Colors.white : Colors.white70,
+                                      color: _dotsColor(active: active),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                   );
@@ -534,8 +539,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                         ],
                       )
                     : Container(
-                        color: const Color(0xFFEFF3F7),
-                        child: const Center(child: Icon(Icons.image, size: 40)),
+                        color: cs.surfaceVariant,
+                        child: Icon(Icons.image, size: 40, color: onSurfaceVariant),
                       ),
               ),
             ),
@@ -544,27 +549,40 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
             Text(
               _title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: onSurface,
+              ),
             ),
 
             const SizedBox(height: 6),
 
             Text(
               _fmtPrice(),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: onSurface,
+              ),
             ),
 
             const SizedBox(height: 12),
 
-            if (_description.isNotEmpty) Text(_description),
+            if (_description.isNotEmpty)
+              Text(
+                _description,
+                style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+              ),
 
             const SizedBox(height: 16),
 
             Row(
               children: [
                 CircleAvatar(
+                  backgroundColor: cs.surfaceVariant,
                   backgroundImage: _sellerImageUrl.isNotEmpty ? NetworkImage(_sellerImageUrl) : null,
-                  child: _sellerImageUrl.isEmpty ? const Icon(Icons.person) : null,
+                  child: _sellerImageUrl.isEmpty
+                      ? Icon(Icons.person, color: onSurfaceVariant)
+                      : null,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -572,6 +590,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                     _sellerName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
                   ),
                 ),
               ],
@@ -579,7 +598,10 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
             if ((_sizeValue ?? '').isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text('Size: $_sizeValue', style: const TextStyle(color: Colors.black54)),
+              Text(
+                'Size: $_sizeValue',
+                style: theme.textTheme.bodyMedium?.copyWith(color: onSurfaceVariant),
+              ),
             ],
 
             const SizedBox(height: 8),
