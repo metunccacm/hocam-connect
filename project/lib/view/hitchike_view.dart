@@ -110,11 +110,6 @@ class _HitchikeViewState extends State<HitchikeView> {
             onPressed: _toggleSearch,
           ),
           IconButton(
-            tooltip: 'Refresh',
-            icon: Icon(Icons.refresh, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
-            onPressed: _doRefresh,
-          ),
-          IconButton(
             icon: Icon(Icons.add, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
             onPressed: () {
               Navigator.push(

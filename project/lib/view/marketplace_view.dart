@@ -183,11 +183,6 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               onPressed: _toggleSearch,
             ),
             IconButton(
-              tooltip: 'Refresh',
-              icon: Icon(Icons.refresh, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
-              onPressed: () => _doRefresh(context),
-            ),
-            IconButton(
               icon: Icon(Icons.add, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
               onPressed: () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const AddItemView()));
