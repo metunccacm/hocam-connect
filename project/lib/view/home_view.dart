@@ -8,8 +8,8 @@ import 'package:project/widgets/custom_appbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/chat_service.dart';
-import 'chat_view.dart';
-import 'chat_list_view.dart';
+// import 'chat_view.dart';
+// import 'chat_list_view.dart';
 import 'profile_view.dart';
 
 class HomeView extends StatefulWidget {
@@ -20,7 +20,7 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   final _svc = ChatService();
-  bool _busy = false;
+  // bool _busy = false;
 
   @override
   void initState() {
@@ -124,15 +124,17 @@ class _HomeViewState extends State<HomeView> {
       );
     }
 
-    void _openOrSnack(String routeName) {
+    Object? _openOrSnack(String routeName) {
       // Avoid crashing if the route doesn't exist yet
       if (Navigator.canPop(context) || ModalRoute.of(context) != null) {
-        Navigator.pushNamed(context, routeName).catchError((_) {
+        return Navigator.pushNamed(context, routeName).catchError((error) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Route not found: $routeName')),
           );
+          return error;
         });
       }
+      return null;
     }
 
     return [
@@ -268,6 +270,12 @@ class _HomeViewState extends State<HomeView> {
             );
           }
         },
+      ),
+      tile(
+        icon: Icons.chat_bubble_outline,
+        label: 'Sosyal',
+        gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+        onTap: () => _openOrSnack('/social'),
       ),
     ];
   }
