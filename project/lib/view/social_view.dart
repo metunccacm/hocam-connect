@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -32,30 +33,149 @@ class _SocialViewBody extends StatelessWidget {
       length: 2,
       initialIndex: vm.currentTab == SocialTab.explore ? 0 : 1,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Sosyal'),
-          bottom: TabBar(
-            onTap: (i) => vm.switchTab(i == 0 ? SocialTab.explore : SocialTab.friends),
-            tabs: const [
-              Tab(text: 'Keşfet'),
-              Tab(text: 'Arkadaşlar'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              toolbarHeight: 48,
+              elevation: 0,
+              backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(191),
+              leading: Navigator.canPop(context)
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                      onPressed: () => Navigator.maybePop(context),
+                    )
+                  : null,
+              flexibleSpace: ClipRect(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+              title: const Text('Hocam Connect', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22)),
+              centerTitle: true,
+              actions: [
+                IconButton(
+                  tooltip: 'Bildirimler',
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/notifications');
+                  },
+                  icon: const Icon(Icons.notifications_none_outlined),
+                ),
+              ],
+              floating: true,
+              snap: true,
+              pinned: false,
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(44),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TabBar(
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.black87,
+                      dividerColor: Colors.transparent,
+                      indicator: BoxDecoration(
+                        color: const Color(0xFF007BFF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      onTap: (i) => vm.switchTab(i == 0 ? SocialTab.explore : SocialTab.friends),
+                      tabs: const [
+                        Tab(text: 'Explore'),
+                        Tab(text: 'Friends'),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Column(
+                children: const [
+                  SizedBox(height: 8),
+                ],
+              ),
+            ),
+            if (vm.isLoading)
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        _ShimmerBox(width: 160, height: 16),
+                        SizedBox(height: 12),
+                        _ShimmerBox(width: double.infinity, height: 12),
+                        SizedBox(height: 8),
+                        _ShimmerBox(width: double.infinity, height: 120),
+                      ],
+                    ),
+                  ),
+                  childCount: 6,
+                ),
+              )
+            else ...[
+              SliverToBoxAdapter(child: _Composer(vm: vm)),
+              SliverToBoxAdapter(child: const Divider(height: 1)),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => _PostTile(post: vm.feed[i]),
+                  childCount: vm.feed.length,
+                ),
+              ),
             ],
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          heroTag: 'social_menu_fab',
+          shape: const CircleBorder(),
+          backgroundColor: Colors.white,
+          elevation: 4.0,
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (_) => _SocialQuickMenu(),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Image.asset('assets/logo/hc_logo.png'),
           ),
         ),
-        body: Column(
-          children: [
-            _Composer(vm: vm),
-            const Divider(height: 1),
-            Expanded(
-              child: vm.isLoading
-                  ? _FeedShimmer()
-                  : ListView.separated(
-                      itemCount: vm.feed.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1, thickness: 0.6),
-                      itemBuilder: (context, i) => _PostTile(post: vm.feed[i]),
-                    ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        bottomNavigationBar: BottomAppBar(
+          shape: const CircularNotchedRectangle(),
+          notchMargin: 8.0,
+          child: SizedBox(
+            height: 60,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    _SocialBottomItem(icon: Icons.home, label: 'Home', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
+                    _SocialBottomItem(icon: Icons.storefront, label: 'Marketplace', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
+                  ],
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    _SocialBottomItem(icon: Icons.chat_bubble_outline, label: 'Chats', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
+                    _SocialBottomItem(icon: Icons.star_border, label: 'TWOC', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
+                  ],
+                )
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -148,8 +268,6 @@ class _ComposerState extends State<_Composer> {
   final ImagePicker _picker = ImagePicker();
   OverlayEntry? _mentionOverlay;
   final LayerLink _layerLink = LayerLink();
-  // Tracks current mention query (for future UX tweaks like highlighting)
-  String _mentionQuery = '';
   List<SocialUser> _suggestions = const [];
 
   Future<void> _pickImages() async {
@@ -191,32 +309,81 @@ class _ComposerState extends State<_Composer> {
             ),
             const SizedBox(height: 8),
           ],
-          CompositedTransformTarget(
-            link: _layerLink,
-            child: TextField(
-              controller: vm.composerController,
-            minLines: 2,
-            maxLines: 6,
-            decoration: InputDecoration(
-              hintText: vm.isEditing ? 'Gönderiyi düzenle...' : 'Ne düşünüyorsun?',
-              border: const OutlineInputBorder(),
-            ),
-              onChanged: (t) async {
-                setState(() {});
-                final at = t.lastIndexOf('@');
-                if (at >= 0) {
-                  final q = t.substring(at + 1).split(RegExp(r'\s')).first;
-                  _mentionQuery = q;
-                  if (q.isNotEmpty) {
-                    _suggestions = await context.read<SocialViewModel>().mentionSuggestions(q);
-                    _showMentions();
-                  } else {
-                    _hideMentions();
-                  }
-                } else {
-                  _hideMentions();
-                }
-              },
+          Card(
+            elevation: 3,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: CompositedTransformTarget(
+                link: _layerLink,
+                child: Stack(
+                  alignment: Alignment.centerRight,
+                  children: [
+                    FutureBuilder<SocialUser?>(
+                      future: context.read<SocialViewModel>().repository.getUser(vm.meId),
+                      builder: (context, snapshot) {
+                        final displayName = snapshot.data?.displayName;
+                        final hint = vm.isEditing
+                            ? 'Gönderiyi düzenle...'
+                            : (displayName == null || displayName.isEmpty
+                                ? 'Ne düşünüyorsun?'
+                                : 'Ne düşünüyorsun, $displayName...');
+                        return TextField(
+                          controller: vm.composerController,
+                          minLines: 2,
+                          maxLines: 6,
+                          decoration: InputDecoration(
+                            hintText: hint,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            filled: true,
+                            fillColor: Colors.white,
+                          ),
+                          onChanged: (t) async {
+                            setState(() {});
+                            final at = t.lastIndexOf('@');
+                            if (at >= 0) {
+                              final q = t.substring(at + 1).split(RegExp(r'\s')).first;
+                              if (q.isNotEmpty) {
+                                _suggestions = await context.read<SocialViewModel>().mentionSuggestions(q);
+                                _showMentions();
+                              } else {
+                                _hideMentions();
+                              }
+                            } else {
+                              _hideMentions();
+                            }
+                          },
+                        );
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.grey.shade200,
+                        child: IconButton(
+                          icon: const Icon(Icons.send),
+                          color: Colors.grey.shade700,
+                          onPressed: vm.isPosting
+                              ? null
+                              : () async {
+                                  final names = context.read<SocialViewModel>().extractMentionNames(vm.composerController.text);
+                                  if (!context.read<SocialViewModel>().canMentionAllNames(names)) {
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
+                                    return;
+                                  }
+                                  if (vm.isEditing) {
+                                    await vm.updatePost();
+                                  } else {
+                                    vm.postNow();
+                                  }
+                                },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           if (vm.pendingImagePaths.isNotEmpty) ...[
@@ -225,41 +392,8 @@ class _ComposerState extends State<_Composer> {
           ],
           Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.image_outlined),
-                tooltip: 'Görsel ekle',
-                onPressed: _pickImages,
-              ),
-              const Spacer(),
-              if (canPost)
-                Container(
-                  height: 36,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    onPressed: vm.isPosting
-                        ? null
-                        : () async {
-                            final names = context.read<SocialViewModel>().extractMentionNames(vm.composerController.text);
-                            if (!context.read<SocialViewModel>().canMentionAllNames(names)) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
-                              return;
-                            }
-                            if (vm.isEditing) {
-                              await vm.updatePost();
-                            } else {
-                              vm.postNow();
-                            }
-                          },
-                    child: vm.isPosting 
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
-                        : Text(vm.isEditing ? 'Güncelle' : 'Paylaş', style: const TextStyle(fontSize: 14)),
-                  ),
-                ),
+              _MediaAction(icon: Icons.photo_outlined, label: 'Gallery', onTap: _pickImages),
+              // Only the inline send icon is kept; removed duplicate bottom share button
             ],
           ),
         ],
@@ -323,31 +457,168 @@ class _ImagesGrid extends StatelessWidget {
   const _ImagesGrid({required this.paths, this.enableViewer = false});
   @override
   Widget build(BuildContext context) {
-    final display = paths.take(4).toList();
-    return GridView.count(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      crossAxisCount: 3,
-      crossAxisSpacing: 6,
-      mainAxisSpacing: 6,
-      children: [
-        for (int i = 0; i < display.length; i++)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: GestureDetector(
-              onTap: !enableViewer
-                  ? null
-                  : () {
-                      showDialog(
-                        context: context,
-                        barrierColor: Colors.black87,
-                        builder: (_) => _ImageViewer(paths: paths, initialIndex: i),
-                      );
-                    },
-              child: Image.file(File(display[i]), fit: BoxFit.cover),
+    final total = paths.length;
+    final show = paths.take(4).toList();
+    const double radius = 8;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    // best-effort estimate for available width inside cards/padding
+    final double availableWidth = screenWidth - 24; // outer padding approx
+    final double dpr = MediaQuery.of(context).devicePixelRatio;
+
+    void openViewer(int index) {
+      if (!enableViewer) return;
+      showDialog(
+        context: context,
+        barrierColor: Colors.black87,
+        builder: (_) => _ImageViewer(paths: paths, initialIndex: index),
+      );
+    }
+
+    Widget buildThumb(int index, {BorderRadius? br, required double targetWidth, required double targetHeight}) {
+      final cacheWidth = (targetWidth * dpr).clamp(256, 2048).round();
+      final image = Image.file(
+        File(show[index]),
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.low,
+        cacheWidth: cacheWidth,
+      );
+      final child = ClipRRect(
+        borderRadius: br ?? BorderRadius.circular(radius),
+        child: RepaintBoundary(child: image),
+      );
+      return GestureDetector(onTap: () => openViewer(index), child: child);
+    }
+
+    if (show.length == 1) {
+      final w = availableWidth;
+      final h = w * 3 / 4;
+      return SizedBox(
+        width: w,
+        height: h,
+        child: buildThumb(0, targetWidth: w, targetHeight: h),
+      );
+    }
+
+    if (show.length == 2) {
+      final h = 200.0;
+      final w = (availableWidth - 6) / 2;
+      return SizedBox(
+        height: h,
+        child: Row(
+          children: [
+            Expanded(child: buildThumb(0, br: BorderRadius.circular(radius), targetWidth: w, targetHeight: h)),
+            const SizedBox(width: 6),
+            Expanded(child: buildThumb(1, br: BorderRadius.circular(radius), targetWidth: w, targetHeight: h)),
+          ],
+        ),
+      );
+    }
+
+    if (show.length == 3) {
+      final h = 220.0;
+      final leftW = (availableWidth - 6) * 2 / 3;
+      final rightW = (availableWidth - 6) / 3;
+      return SizedBox(
+        height: h,
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: buildThumb(0, br: BorderRadius.circular(radius), targetWidth: leftW, targetHeight: h),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              flex: 1,
+              child: Column(
+                children: [
+                  Expanded(child: buildThumb(1, br: BorderRadius.circular(radius), targetWidth: rightW, targetHeight: h / 2 - 3)),
+                  const SizedBox(height: 6),
+                  Expanded(child: buildThumb(2, br: BorderRadius.circular(radius), targetWidth: rightW, targetHeight: h / 2 - 3)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 4 or more => 2x2 grid with +N overlay on last tile
+    final extra = total - 4;
+    final h = 240.0;
+    final cellW = (availableWidth - 6) / 2;
+    final cellH = (h - 6) / 2;
+    return SizedBox(
+      height: h,
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: buildThumb(0, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH)),
+                const SizedBox(width: 6),
+                Expanded(child: buildThumb(1, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH)),
+              ],
             ),
           ),
-      ],
+          const SizedBox(height: 6),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: buildThumb(2, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      buildThumb(3, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH),
+                      if (extra > 0)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(radius),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '+$extra',
+                            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MediaAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _MediaAction({required this.icon, required this.label, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.grey.shade700, size: 20),
+              const SizedBox(height: 2),
+              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -412,6 +683,9 @@ class _PostTile extends StatelessWidget {
     final vm = context.watch<SocialViewModel>();
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
@@ -469,6 +743,7 @@ class _PostTile extends StatelessWidget {
             _ImagesGrid(paths: post.imagePaths, enableViewer: true),
             ],
             const SizedBox(height: 8),
+            const Divider(height: 16, thickness: 0.6),
             Row(
               children: [
                 IconButton(
@@ -496,6 +771,75 @@ class _PostTile extends StatelessWidget {
   }
 }
 
+class _SocialBottomItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _SocialBottomItem({required this.icon, required this.label, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final color = Colors.grey;
+    return MaterialButton(
+      minWidth: 40,
+      onPressed: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Icon(icon, color: color),
+          Text(label, style: TextStyle(color: color, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+class _SocialQuickMenu extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black.withOpacity(0.3),
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 80.0),
+            child: Wrap(
+              spacing: 16,
+              children: [
+                _QuickAction(icon: Icons.calculate_outlined, label: 'GPA', onTap: () => Navigator.pushNamed(context, '/gpa_calculator')),
+                _QuickAction(icon: Icons.settings, label: 'Ayarlar', onTap: () => Navigator.pushNamed(context, '/settings')),
+                _QuickAction(icon: Icons.directions_car_outlined, label: 'Hitchhike', onTap: () => Navigator.pushNamed(context, '/hitchike')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _QuickAction({required this.icon, required this.label, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton(
+      mini: true,
+      onPressed: onTap,
+      backgroundColor: Colors.white,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.grey.shade700),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(color: Colors.grey.shade700, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+}
 class _FirstCommentOrMore extends StatelessWidget {
   final Post post;
   const _FirstCommentOrMore({required this.post});
@@ -908,8 +1252,8 @@ Future<void> _deletePost(BuildContext context, Post post) async {
     ),
   );
   if (ok != true) return;
-  // Local stub: Şimdilik sadece Snackbar; repo'ya delete eklendiğinde listeden kaldıracağız.
-  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Silme yakında eklenecek.')));
+  await context.read<SocialViewModel>().deletePostById(post.id);
+  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gönderi silindi.')));
 }
 
 
