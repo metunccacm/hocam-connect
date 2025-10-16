@@ -51,6 +51,9 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
   @override
   void dispose() {
+    // Auto-save before disposing
+    _autoSave();
+    
     // dispose semester-name controllers used for inline editing
     for (final ctrl in _semNameCtrls.values) {
       ctrl.dispose();
@@ -275,38 +278,34 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     _semNameCtrls.remove(sIdx)?.dispose();
   }
 
-  // ---- explicit Save ---------------------------------------------------------
+  // ---- semester reordering ---------------------------------------------------
+  void _moveSemesterUp(int sIdx) {
+    if (sIdx == 0) return; // Already at top
+    setState(() {
+      final temp = semesters[sIdx];
+      semesters[sIdx] = semesters[sIdx - 1];
+      semesters[sIdx - 1] = temp;
+    });
+  }
 
-  Future<void> _save() async {
-    if (_isSaving) return;
-    setState(() => _isSaving = true);
+  void _moveSemesterDown(int sIdx) {
+    if (sIdx >= semesters.length - 1) return; // Already at bottom
+    setState(() {
+      final temp = semesters[sIdx];
+      semesters[sIdx] = semesters[sIdx + 1];
+      semesters[sIdx + 1] = temp;
+    });
+  }
 
-    try {
-      vm.setSemestersFromUi(semesters);
-      await vm.saveSnapshot(); // <— upsert by user_id
-
-      if (vm.error != null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: ${vm.error}')),
-        );
-        return;
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+  // ---- Auto-save (silent, no UI feedback) ------------------------------------
+  
+  void _autoSave() {
+    // Silent save without UI updates - fire and forget
+    vm.setSemestersFromUi(semesters);
+    vm.saveSnapshot().catchError((e) {
+      // Log error silently, don't show to user during dispose
+      debugPrint('Auto-save error: $e');
+    });
   }
 
   // ---- Sync from department courses -----------------------------------------
@@ -404,18 +403,13 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
       children: [
         Scaffold(
           appBar: HCAppBar(
-            leading: const BackButton(), // just go back, no save here
+            leading: const BackButton(),
             title: 'GPA Calculator',
             actions: [
               IconButton(
                 onPressed: _isSaving ? null : _syncFromDepartment,
                 tooltip: 'Sync from Department',
-                icon: const Icon(Icons.sync),
-              ),
-              IconButton(
-                onPressed: _isSaving ? null : _save,
-                tooltip: 'Save',
-                icon: const Icon(Icons.save_outlined),
+                icon: const Icon(Icons.cloud_download),
               ),
             ],
           ),
@@ -446,8 +440,17 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                 child: Card(
                   key: ObjectKey(semesters[sIdx]),
                   margin: EdgeInsets.zero,
-                  elevation: 0,
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  elevation: 2,
+                  color: sIdx.isEven
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                      : Theme.of(context).colorScheme.surfaceContainerHigh,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      width: 1,
+                    ),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                     child: Column(
@@ -495,11 +498,22 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                                 onPressed: () => _cancelEditSemName(sIdx),
                               ),
                             ] else ...[
+                              // Reorder buttons
                               IconButton(
-                                icon: const Icon(Icons.edit_outlined),
-                                tooltip: 'Edit semester name',
-                                onPressed: () => _beginEditSemName(sIdx),
+                                icon: const Icon(Icons.arrow_upward),
+                                tooltip: 'Move semester up',
+                                iconSize: 20,
+                                onPressed: sIdx > 0 ? () => _moveSemesterUp(sIdx) : null,
                               ),
+                              IconButton(
+                                icon: const Icon(Icons.arrow_downward),
+                                tooltip: 'Move semester down',
+                                iconSize: 20,
+                                onPressed: sIdx < semesters.length - 1 
+                                    ? () => _moveSemesterDown(sIdx) 
+                                    : null,
+                              ),
+                             
                               IconButton(
                                 icon: const Icon(Icons.delete_outline),
                                 tooltip: 'Delete semester',
@@ -510,6 +524,47 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                         ),
 
                         const SizedBox(height: 12),
+
+                        // Field headers
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 5,
+                                child: Text(
+                                  'Course Name',
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  'Grade',
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'Credits',
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Space for delete button
+                              const SizedBox(width: 48),
+                            ],
+                          ),
+                        ),
 
                         for (int cIdx = 0;
                             cIdx < semesters[sIdx].courses.length;
@@ -710,7 +765,7 @@ class _CourseRow extends StatelessWidget {
       children: [
         // Course name
         Expanded(
-          flex: 4,
+          flex: 5,
           child: SizedBox(
             height: kFieldHeight,
             child: TextFormField(
@@ -731,9 +786,12 @@ class _CourseRow extends StatelessWidget {
             height: kFieldHeight,
             child: DropdownButtonFormField<String>(
               value: course.grade,
-              decoration: boxDeco(),
+              decoration: boxDeco().copyWith(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              ),
               hint: const Text('XX'),
               isExpanded: true,
+              isDense: true,
               items: grades
                   .map((g) => DropdownMenuItem(value: g, child: Text(g)))
                   .toList(),
