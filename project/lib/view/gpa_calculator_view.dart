@@ -20,6 +20,54 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
   final Map<int, TextEditingController> _semNameCtrls = {};
   final Set<int> _editingSemesters = {};
 
+  // Generate a light, faded color for each semester based on index
+  Color _getSemesterColor(int index, BuildContext context) {
+    // Predefined pastel/light colors that work well with both light and dark themes
+    final lightColors = [
+      const Color(0xFFBBDEFB), // Light blue (more vibrant)
+      const Color(0xFFE1BEE7), // Light purple (more vibrant)
+      const Color(0xFFC8E6C9), // Light green (more vibrant)
+      const Color(0xFFFFE0B2), // Light orange (more vibrant)
+      const Color(0xFFF8BBD0), // Light pink (more vibrant)
+      const Color(0xFFDCEDC8), // Light lime (more vibrant)
+      const Color(0xFFB2EBF2), // Light cyan (more vibrant)
+      const Color(0xFFFFF59D), // Light yellow (more vibrant)
+      const Color(0xFFD1C4E9), // Light deep purple (more vibrant)
+      const Color(0xFFFFE082), // Light amber (more vibrant)
+    ];
+
+    final darkColors = [
+      const Color(0xFF1E3A5F), // Dark blue
+      const Color(0xFF4A148C), // Dark purple
+      const Color(0xFF1B5E20), // Dark green
+      const Color(0xFFE65100), // Dark orange
+      const Color(0xFF880E4F), // Dark pink
+      const Color(0xFF33691E), // Dark lime
+      const Color(0xFF006064), // Dark cyan
+      const Color(0xFFF57F17), // Dark yellow
+      const Color(0xFF311B92), // Dark deep purple
+      const Color(0xFFFF6F00), // Dark amber
+    ];
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = isDark ? darkColors : lightColors;
+    final baseColor = colors[index % colors.length];
+
+    // Make it even more faded/lighter for light theme
+    if (!isDark) {
+      return Color.alphaBlend(
+        baseColor.withValues(alpha: 0.5),
+        Theme.of(context).colorScheme.surface,
+      );
+    } else {
+      // For dark theme, make it more subtle
+      return Color.alphaBlend(
+        baseColor.withValues(alpha: 0.15),
+        Theme.of(context).colorScheme.surface,
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -441,9 +489,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                   key: ObjectKey(semesters[sIdx]),
                   margin: EdgeInsets.zero,
                   elevation: 2,
-                  color: sIdx.isEven
-                      ? Theme.of(context).colorScheme.surfaceContainerHighest
-                      : Theme.of(context).colorScheme.surfaceContainerHigh,
+                  color: _getSemesterColor(sIdx, context),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
@@ -621,7 +667,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
           Positioned.fill(
             child: AbsorbPointer(
               child: Container(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
                 child: const Center(child: CircularProgressIndicator()),
               ),
             ),
@@ -710,7 +756,7 @@ class _ReplacementNote extends StatelessWidget {
               child: Text(
                 'Replaced by $laterSemesterName — excluded from final CGPA.',
                 style: textTheme.bodySmall?.copyWith(
-                  color: textTheme.bodySmall?.color?.withOpacity(0.75),
+                  color: textTheme.bodySmall?.color?.withValues(alpha: 0.75),
                 ),
               ),
             ),
