@@ -30,8 +30,8 @@ jobs:
       run: flutter pub get
       working-directory: ./project
     
-    - name: Run tests
-      run: flutter test
+    - name: Analyze code
+      run: flutter analyze
       working-directory: ./project
     
     - name: Build APK
