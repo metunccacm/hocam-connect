@@ -4,12 +4,12 @@ import 'package:project/view/gpa_calculator_view.dart';
 
 import 'package:project/view/home_view.dart';
 import 'package:project/view/marketplace_view.dart';
-import 'package:project/view/profile_view.dart';
 import 'package:project/view/settings_view.dart';
 import 'package:project/view/this_week_view.dart';
 import 'package:project/view/hitchike_view.dart';
 
 import 'dart:math' as math;
+
 
 class MainTabView extends StatefulWidget {
   const MainTabView({super.key});

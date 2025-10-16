@@ -27,6 +27,7 @@ abstract class SocialRepository {
   Future<void> likeComment({required String commentId, required String userId});
   Future<void> unlikeComment({required String commentId, required String userId});
   Future<List<CommentLike>> getCommentLikes(String commentId);
+  Future<void> clearAllData();
 }
 
 class LocalHiveSocialRepository implements SocialRepository {
@@ -260,6 +261,15 @@ class LocalHiveSocialRepository implements SocialRepository {
   @override
   Future<List<CommentLike>> getCommentLikes(String commentId) async {
     return _commentLikes.values.where((l) => l.commentId == commentId).toList();
+  }
+
+  Future<void> clearAllData() async {
+    await _users.clear();
+    await _posts.clear();
+    await _comments.clear();
+    await _likes.clear();
+    await _commentLikes.clear();
+    await _friendships.clear();
   }
 }
 
