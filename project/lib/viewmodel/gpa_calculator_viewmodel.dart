@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Import your SemesterModel / Course definitions (from your view file)
 import '../view/gpa_calculator_view.dart' show SemesterModel, Course;
+import '../view/profile_view.dart';
 
 class GpaViewModel extends ChangeNotifier {
   GpaViewModel({
@@ -104,6 +105,118 @@ class GpaViewModel extends ChangeNotifier {
     }
   }
 
+  /// Sync courses from department_courses table based on user's department.
+  Future<List<SemesterModel>> syncFromDepartmentCourses(BuildContext context) async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) {
+      _setError('Not authenticated');
+      return [];
+    }
+
+    _setLoading(true);
+    try {
+      // 1. Fetch user's department from profiles table
+      final profileData = await _client
+          .from('profiles')
+          .select('department')
+          .eq('id', uid)
+          .maybeSingle();
+
+      if (profileData == null) {
+        _setError('Profile not found');
+        return [];
+      }
+
+      final department = (profileData['department'] ?? '').toString().trim();
+      if (department.isEmpty) {
+        _setError('Department not set in profile');
+        // Show dialog prompting user to update department
+        if (context.mounted) {
+          await _showDepartmentNotSetDialog(context);
+        }
+        return [];
+      }
+
+      // Debug: print what we're searching for
+      debugPrint('GPA Sync: Searching for department="$department" (length: ${department.length})');
+
+      // 2. Fetch department courses filtered by department (case-insensitive)
+      final coursesData = await _client
+          .from('department_courses')
+          .select('semester, course_code, credits, department')
+          .ilike('department', department) // case-insensitive match
+          .order('semester', ascending: true)
+          .order('course_code', ascending: true);
+
+      debugPrint('GPA Sync: Found ${coursesData.length} courses');
+
+      if (coursesData.isEmpty) {
+        // Try to get a sample of what departments exist for debugging
+        try {
+          final allCourses = await _client
+              .from('department_courses')
+              .select('department')
+              .limit(10);
+          
+          debugPrint('GPA Sync: Total rows in sample: ${allCourses.length}');
+          
+          if (allCourses.isEmpty) {
+            _setError('The department_courses table is empty. Please contact support.');
+            return [];
+          }
+          
+          final uniqueDepts = <String>{};
+          for (final row in allCourses) {
+            final dept = (row['department'] ?? '').toString();
+            debugPrint('GPA Sync: Found department in table: "$dept" (length: ${dept.length})');
+            if (dept.isNotEmpty) uniqueDepts.add(dept);
+          }
+          _setError('No courses found for department: "$department".');
+        } catch (e) {
+          _setError('No courses found for department: "$department". Could not fetch available departments: $e');
+        }
+        return [];
+      }
+
+      // 3. Group courses by semester
+      final Map<int, List<Map<String, dynamic>>> semesterMap = {};
+      for (final row in coursesData) {
+        final sem = _asInt(row['semester']) ?? 0;
+        semesterMap.putIfAbsent(sem, () => []).add(row);
+      }
+
+      // 4. Build SemesterModel list
+      final List<SemesterModel> newSemesters = [];
+      final sortedSemesters = semesterMap.keys.toList()..sort();
+
+      for (final semNum in sortedSemesters) {
+        final courses = semesterMap[semNum]!.map<Course>((c) {
+          final courseCode = (c['course_code'] ?? '').toString();
+          final credits = _asInt(c['credits']) ?? 0;
+          return Course(
+            nameCtrl: TextEditingController(text: courseCode),
+            creditCtrl: TextEditingController(text: '$credits'),
+            grade: null, // User will fill grade
+            credits: credits,
+          );
+        }).toList();
+
+        newSemesters.add(SemesterModel(
+          courses: courses,
+          name: 'Semester $semNum',
+        ));
+      }
+
+      _clearError();
+      return newSemesters;
+    } catch (e) {
+      _setError(e.toString());
+      return [];
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   // ----------------- JSON helpers -----------------
 
   List<SemesterModel> _semestersFromRecord(Map<String, dynamic> record) {
@@ -118,7 +231,7 @@ class GpaViewModel extends ChangeNotifier {
       final credits = _asInt(m['credits']) ?? 0;
       return Course(
         nameCtrl: TextEditingController(text: name),
-        creditCtrl: TextEditingController(text: credits == 0 ? '' : '$credits'),
+        creditCtrl: TextEditingController(text: '$credits'),
         grade: grade,
         credits: credits,
       );
@@ -147,6 +260,39 @@ Map<String, dynamic> _semestersToRecordJson(List<SemesterModel> semesters) {
     }).toList(),
   };
 }
+
+  // ----------------- Dialog utils -----------------
+  Future<void> _showDepartmentNotSetDialog(BuildContext context) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Department Not Set'),
+          content: const Text(
+            'Please update your department in your profile to sync courses for your program.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ProfileView(),
+                  ),
+                );
+              },
+              child: const Text('Go to Profile'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   // ----------------- state utils -----------------
   void _setLoading(bool v) {

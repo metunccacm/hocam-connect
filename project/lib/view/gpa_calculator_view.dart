@@ -86,7 +86,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
   // ---- helpers --------------------------------------------------------------
 
   bool _isActive(Course c) =>
-      c.nameCtrl.text.trim().isNotEmpty && c.grade != null && c.credits > 0;
+      c.nameCtrl.text.trim().isNotEmpty && c.grade != null && c.credits >= 0;
 
   // Normalize a course name for duplicate detection
   String _norm(String s) =>
@@ -309,6 +309,87 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     }
   }
 
+  // ---- Sync from department courses -----------------------------------------
+
+  Future<void> _syncFromDepartment() async {
+    if (_isSaving) return;
+
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sync from Department Courses'),
+        content: const Text(
+          'Your current record will be changed. This will load courses from your department\'s curriculum. You can still edit grades after syncing.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      final newSemesters = await vm.syncFromDepartmentCourses(context);
+
+      if (vm.error != null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sync failed: ${vm.error}')),
+        );
+        return;
+      }
+
+      if (newSemesters.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No courses found to sync')),
+        );
+        return;
+      }
+
+      // Dispose old controllers
+      for (final s in semesters) {
+        for (final c in s.courses) {
+          c.dispose();
+        }
+      }
+
+      // Update UI with new semesters
+      setState(() {
+        semesters
+          ..clear()
+          ..addAll(newSemesters);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Synced ${newSemesters.length} semesters successfully'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sync error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   // ---- UI -------------------------------------------------------------------
 
   @override
@@ -326,6 +407,11 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
             leading: const BackButton(), // just go back, no save here
             title: 'GPA Calculator',
             actions: [
+              IconButton(
+                onPressed: _isSaving ? null : _syncFromDepartment,
+                tooltip: 'Sync from Department',
+                icon: const Icon(Icons.sync),
+              ),
               IconButton(
                 onPressed: _isSaving ? null : _save,
                 tooltip: 'Save',
