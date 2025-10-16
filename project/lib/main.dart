@@ -34,6 +34,7 @@ import 'models/social_models.dart';
 import 'services/social_repository.dart';
 import 'view/social_view.dart';
 import 'view/user_profile_view.dart';
+import 'view/notifications_view.dart';
 
 //SUPA CONNECTION
 const supabaseUrl = 'https://supa-api.hocamconnect.com.tr';
@@ -248,6 +249,7 @@ class MyApp extends StatelessWidget {
             '/hitchike': (_) => const HitchikeView(),
             '/hitchike/create': (_) => const CreateHitchikeView(),
             '/social': (_) => const SocialView(),
+            '/notifications': (_) => const NotificationsView(),
             '/user-profile': (ctx) {
               final args = ModalRoute.of(ctx)?.settings.arguments as Map<String, dynamic>?;
               final userId = args?['userId'] as String?;

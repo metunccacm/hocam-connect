@@ -351,6 +351,19 @@ class SocialViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> deletePostById(String postId) async {
+    try {
+      await repository.deletePost(postId);
+      feed.removeWhere((p) => p.id == postId);
+      _likeCounts.remove(postId);
+      _commentCounts.remove(postId);
+      _likedByMe.remove(postId);
+      notifyListeners();
+    } catch (_) {
+      // swallow for now; could surface error snackbar via caller
+    }
+  }
+
   @override
   void dispose() {
     composerController.dispose();
