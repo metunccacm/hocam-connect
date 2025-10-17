@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Import your SemesterModel / Course definitions (from your view file)
-import '../view/gpa_calculator_view.dart' show SemesterModel, Course;
+// Import models from separate file (no circular dependency)
+import '../models/gpa_models.dart';
 
 class GpaViewModel extends ChangeNotifier {
   GpaViewModel({
@@ -104,11 +104,150 @@ class GpaViewModel extends ChangeNotifier {
     }
   }
 
+  /// Sync courses from department_courses table based on user's department.
+  /// Returns SyncCoursesResult with either semesters or error information.
+  /// The View layer should handle displaying appropriate UI based on the result.
+  Future<SyncCoursesResult> syncFromDepartmentCourses() async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) {
+      _setError('Not authenticated');
+      return SyncCoursesResult.error(SyncError(
+        type: SyncErrorType.notAuthenticated,
+        message: 'Not authenticated',
+      ));
+    }
+
+    _setLoading(true);
+    try {
+      // 1. Fetch user's department from profiles table
+      final profileData = await _client
+          .from('profiles')
+          .select('department')
+          .eq('id', uid)
+          .maybeSingle();
+
+      if (profileData == null) {
+        _setError('Profile not found');
+        return SyncCoursesResult.error(SyncError(
+          type: SyncErrorType.profileNotFound,
+          message: 'Profile not found',
+        ));
+      }
+
+      final department = (profileData['department'] ?? '').toString().trim();
+      if (department.isEmpty) {
+        _setError('Department not set in profile');
+        return SyncCoursesResult.error(SyncError(
+          type: SyncErrorType.departmentNotSet,
+          message: 'Department not set in profile',
+        ));
+      }
+
+      // Debug: print what we're searching for
+      debugPrint('GPA Sync: Searching for department="$department" (length: ${department.length})');
+
+      // 2. Fetch department courses filtered by department (case-insensitive)
+      final coursesData = await _client
+          .from('department_courses')
+          .select('semester, course_code, credits, department')
+          .ilike('department', department) // case-insensitive match
+          .order('semester', ascending: true)
+          .order('course_code', ascending: true);
+
+      debugPrint('GPA Sync: Found ${coursesData.length} courses');
+
+      if (coursesData.isEmpty) {
+        // Try to get a sample of what departments exist for debugging
+        try {
+          final allCourses = await _client
+              .from('department_courses')
+              .select('department')
+              .limit(10);
+          
+          debugPrint('GPA Sync: Total rows in sample: ${allCourses.length}');
+          
+          if (allCourses.isEmpty) {
+            _setError('No courses found in department_courses table. Please contact support if this is unexpected.');
+            return SyncCoursesResult.error(SyncError(
+              type: SyncErrorType.noCoursesFound,
+              message: 'No courses found in department_courses table. Please contact support if this is unexpected.',
+              department: department,
+            ));
+          }
+          
+          final uniqueDepts = <String>{};
+          for (final row in allCourses) {
+            final dept = (row['department'] ?? '').toString();
+            debugPrint('GPA Sync: Found department in table: "$dept" (length: ${dept.length})');
+            if (dept.isNotEmpty) uniqueDepts.add(dept);
+          }
+          _setError('No courses found for department: "$department".');
+          return SyncCoursesResult.error(SyncError(
+            type: SyncErrorType.noCoursesFound,
+            message: 'No courses found for department: "$department".',
+            department: department,
+          ));
+        } catch (e) {
+          _setError('No courses found for department: "$department". Could not fetch available departments: $e');
+          return SyncCoursesResult.error(SyncError(
+            type: SyncErrorType.noCoursesFound,
+            message: 'No courses found for department: "$department". Could not fetch available departments: $e',
+            department: department,
+          ));
+        }
+      }
+
+      // 3. Group courses by semester
+      final Map<int, List<Map<String, dynamic>>> semesterMap = {};
+      for (final row in coursesData) {
+        final sem = _asInt(row['semester']) ?? 0;
+        semesterMap.putIfAbsent(sem, () => []).add(row);
+      }
+
+      // 4. Build SemesterModel list with color indices
+      final List<SemesterModel> newSemesters = [];
+      final sortedSemesters = semesterMap.keys.toList()..sort();
+
+      for (var i = 0; i < sortedSemesters.length; i++) {
+        final semNum = sortedSemesters[i];
+        final courses = semesterMap[semNum]!.map<Course>((c) {
+          final courseCode = (c['course_code'] ?? '').toString();
+          final credits = _asInt(c['credits']) ?? 0;
+          return Course(
+            nameCtrl: TextEditingController(text: courseCode),
+            creditCtrl: TextEditingController(text: '$credits'),
+            grade: null, // User will fill grade
+            credits: credits,
+          );
+        }).toList();
+
+        newSemesters.add(SemesterModel(
+          courses: courses,
+          name: 'Semester $semNum',
+          colorIndex: i, // Assign sequential color index
+        ));
+      }
+
+      _clearError();
+      return SyncCoursesResult.success(newSemesters);
+    } catch (e) {
+      _setError(e.toString());
+      return SyncCoursesResult.error(SyncError(
+        type: SyncErrorType.unknown,
+        message: e.toString(),
+      ));
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   // ----------------- JSON helpers -----------------
 
   List<SemesterModel> _semestersFromRecord(Map<String, dynamic> record) {
   final list = (record['semesters'] as List? ?? const []);
-  return list.map((s) {
+  return list.asMap().entries.map((entry) {
+    final index = entry.key;
+    final s = entry.value;
     final sMap = (s as Map<String, dynamic>);
     final courseList = (sMap['courses'] as List? ?? const []);
     final courses = courseList.map<Course>((c) {
@@ -118,16 +257,22 @@ class GpaViewModel extends ChangeNotifier {
       final credits = _asInt(m['credits']) ?? 0;
       return Course(
         nameCtrl: TextEditingController(text: name),
-        creditCtrl: TextEditingController(text: credits == 0 ? '' : '$credits'),
+        creditCtrl: TextEditingController(text: '$credits'),
         grade: grade,
         credits: credits,
       );
     }).toList();
 
-    // NEW: pick semester name if present
+    // Pick semester name if present
     final semName = (sMap['name'] ?? '').toString();
+    // Pick colorIndex if present, otherwise use the current index
+    final colorIndex = _asInt(sMap['colorIndex']) ?? index;
 
-    return SemesterModel(courses: courses, name: semName);
+    return SemesterModel(
+      courses: courses,
+      name: semName,
+      colorIndex: colorIndex,
+    );
   }).toList();
 }
 
@@ -135,7 +280,8 @@ Map<String, dynamic> _semestersToRecordJson(List<SemesterModel> semesters) {
   return {
     'semesters': semesters.map((s) {
       return {
-        'name': s.name, // NEW
+        'name': s.name,
+        'colorIndex': s.colorIndex, // Persist color index
         'courses': s.courses.map((c) {
           return {
             'name': c.nameCtrl.text.trim(),
