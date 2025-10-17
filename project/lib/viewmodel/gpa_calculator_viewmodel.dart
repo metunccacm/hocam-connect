@@ -3,9 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Import your SemesterModel / Course definitions (from your view file)
-import '../view/gpa_calculator_view.dart' show SemesterModel, Course;
-import '../view/profile_view.dart';
+// Import models from separate file (no circular dependency)
+import '../models/gpa_models.dart';
 
 class GpaViewModel extends ChangeNotifier {
   GpaViewModel({
@@ -106,11 +105,16 @@ class GpaViewModel extends ChangeNotifier {
   }
 
   /// Sync courses from department_courses table based on user's department.
-  Future<List<SemesterModel>> syncFromDepartmentCourses(BuildContext context) async {
+  /// Returns SyncCoursesResult with either semesters or error information.
+  /// The View layer should handle displaying appropriate UI based on the result.
+  Future<SyncCoursesResult> syncFromDepartmentCourses() async {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) {
       _setError('Not authenticated');
-      return [];
+      return SyncCoursesResult.error(SyncError(
+        type: SyncErrorType.notAuthenticated,
+        message: 'Not authenticated',
+      ));
     }
 
     _setLoading(true);
@@ -124,17 +128,19 @@ class GpaViewModel extends ChangeNotifier {
 
       if (profileData == null) {
         _setError('Profile not found');
-        return [];
+        return SyncCoursesResult.error(SyncError(
+          type: SyncErrorType.profileNotFound,
+          message: 'Profile not found',
+        ));
       }
 
       final department = (profileData['department'] ?? '').toString().trim();
       if (department.isEmpty) {
         _setError('Department not set in profile');
-        // Show dialog prompting user to update department
-        if (context.mounted) {
-          await _showDepartmentNotSetDialog(context);
-        }
-        return [];
+        return SyncCoursesResult.error(SyncError(
+          type: SyncErrorType.departmentNotSet,
+          message: 'Department not set in profile',
+        ));
       }
 
       // Debug: print what we're searching for
@@ -161,8 +167,12 @@ class GpaViewModel extends ChangeNotifier {
           debugPrint('GPA Sync: Total rows in sample: ${allCourses.length}');
           
           if (allCourses.isEmpty) {
-            _setError('The department_courses table is empty. Please contact support.');
-            return [];
+            _setError('No courses found in department_courses table. Please contact support if this is unexpected.');
+            return SyncCoursesResult.error(SyncError(
+              type: SyncErrorType.noCoursesFound,
+              message: 'No courses found in department_courses table. Please contact support if this is unexpected.',
+              department: department,
+            ));
           }
           
           final uniqueDepts = <String>{};
@@ -172,10 +182,19 @@ class GpaViewModel extends ChangeNotifier {
             if (dept.isNotEmpty) uniqueDepts.add(dept);
           }
           _setError('No courses found for department: "$department".');
+          return SyncCoursesResult.error(SyncError(
+            type: SyncErrorType.noCoursesFound,
+            message: 'No courses found for department: "$department".',
+            department: department,
+          ));
         } catch (e) {
           _setError('No courses found for department: "$department". Could not fetch available departments: $e');
+          return SyncCoursesResult.error(SyncError(
+            type: SyncErrorType.noCoursesFound,
+            message: 'No courses found for department: "$department". Could not fetch available departments: $e',
+            department: department,
+          ));
         }
-        return [];
       }
 
       // 3. Group courses by semester
@@ -185,11 +204,12 @@ class GpaViewModel extends ChangeNotifier {
         semesterMap.putIfAbsent(sem, () => []).add(row);
       }
 
-      // 4. Build SemesterModel list
+      // 4. Build SemesterModel list with color indices
       final List<SemesterModel> newSemesters = [];
       final sortedSemesters = semesterMap.keys.toList()..sort();
 
-      for (final semNum in sortedSemesters) {
+      for (var i = 0; i < sortedSemesters.length; i++) {
+        final semNum = sortedSemesters[i];
         final courses = semesterMap[semNum]!.map<Course>((c) {
           final courseCode = (c['course_code'] ?? '').toString();
           final credits = _asInt(c['credits']) ?? 0;
@@ -204,14 +224,18 @@ class GpaViewModel extends ChangeNotifier {
         newSemesters.add(SemesterModel(
           courses: courses,
           name: 'Semester $semNum',
+          colorIndex: i, // Assign sequential color index
         ));
       }
 
       _clearError();
-      return newSemesters;
+      return SyncCoursesResult.success(newSemesters);
     } catch (e) {
       _setError(e.toString());
-      return [];
+      return SyncCoursesResult.error(SyncError(
+        type: SyncErrorType.unknown,
+        message: e.toString(),
+      ));
     } finally {
       _setLoading(false);
     }
@@ -221,7 +245,9 @@ class GpaViewModel extends ChangeNotifier {
 
   List<SemesterModel> _semestersFromRecord(Map<String, dynamic> record) {
   final list = (record['semesters'] as List? ?? const []);
-  return list.map((s) {
+  return list.asMap().entries.map((entry) {
+    final index = entry.key;
+    final s = entry.value;
     final sMap = (s as Map<String, dynamic>);
     final courseList = (sMap['courses'] as List? ?? const []);
     final courses = courseList.map<Course>((c) {
@@ -237,10 +263,16 @@ class GpaViewModel extends ChangeNotifier {
       );
     }).toList();
 
-    // NEW: pick semester name if present
+    // Pick semester name if present
     final semName = (sMap['name'] ?? '').toString();
+    // Pick colorIndex if present, otherwise use the current index
+    final colorIndex = _asInt(sMap['colorIndex']) ?? index;
 
-    return SemesterModel(courses: courses, name: semName);
+    return SemesterModel(
+      courses: courses,
+      name: semName,
+      colorIndex: colorIndex,
+    );
   }).toList();
 }
 
@@ -248,7 +280,8 @@ Map<String, dynamic> _semestersToRecordJson(List<SemesterModel> semesters) {
   return {
     'semesters': semesters.map((s) {
       return {
-        'name': s.name, // NEW
+        'name': s.name,
+        'colorIndex': s.colorIndex, // Persist color index
         'courses': s.courses.map((c) {
           return {
             'name': c.nameCtrl.text.trim(),
@@ -260,39 +293,6 @@ Map<String, dynamic> _semestersToRecordJson(List<SemesterModel> semesters) {
     }).toList(),
   };
 }
-
-  // ----------------- Dialog utils -----------------
-  Future<void> _showDepartmentNotSetDialog(BuildContext context) async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Department Not Set'),
-          content: const Text(
-            'Please update your department in your profile to sync courses for your program.',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const ProfileView(),
-                  ),
-                );
-              },
-              child: const Text('Go to Profile'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   // ----------------- state utils -----------------
   void _setLoading(bool v) {

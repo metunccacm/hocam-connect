@@ -1,8 +1,11 @@
 // gpa_calculator_view.dart
+import 'dart:async'; // for unawaited
 import 'package:flutter/material.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:flutter/services.dart';
 import 'package:project/viewmodel/gpa_calculator_viewmodel.dart';
+import 'package:project/models/gpa_models.dart'; // Use shared models
+import 'package:project/view/profile_view.dart'; // For navigation to profile
 
 class GpaCalculatorView extends StatefulWidget {
   const GpaCalculatorView({super.key});
@@ -79,7 +82,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
         semesters
           ..clear()
           ..addAll(vm.semesters.isEmpty
-              ? [SemesterModel(courses: [Course.empty()])]
+              ? [SemesterModel(courses: [Course.empty()], colorIndex: 0)]
               : vm.semesters);
         _isLoading = false;
       });
@@ -98,10 +101,19 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
   }
 
   @override
+  void deactivate() {
+    // Save state when widget is about to be removed from the tree
+    // Using unawaited() to explicitly mark this as intentional fire-and-forget
+    unawaited(_autoSave().catchError((e) {
+      // Log error silently, don't show to user during deactivate
+      debugPrint('Auto-save error during deactivate: $e');
+      return; // Return void to satisfy catchError
+    }));
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
-    // Auto-save before disposing
-    _autoSave();
-    
     // dispose semester-name controllers used for inline editing
     for (final ctrl in _semNameCtrls.values) {
       ctrl.dispose();
@@ -130,11 +142,21 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
   };
 
   final List<SemesterModel> semesters = [
-    SemesterModel(courses: [Course.empty(), Course.empty()]),
-    SemesterModel(courses: [Course.empty()]),
+    SemesterModel(courses: [Course.empty(), Course.empty()], colorIndex: 0),
+    SemesterModel(courses: [Course.empty()], colorIndex: 1),
   ];
 
   // ---- helpers --------------------------------------------------------------
+
+  // Get the next available color index that's not currently used
+  int _getNextColorIndex() {
+    final usedIndices = semesters.map((s) => s.colorIndex).toSet();
+    // Find the first index (0-9) not in use, or use the count as fallback
+    for (var i = 0; i < 10; i++) {
+      if (!usedIndices.contains(i)) return i;
+    }
+    return semesters.length % 10; // Fallback if all 10 colors are used
+  }
 
   bool _isActive(Course c) =>
       c.nameCtrl.text.trim().isNotEmpty && c.grade != null && c.credits >= 0;
@@ -241,7 +263,11 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
   void _addSemester() {
     setState(() {
-      semesters.add(SemesterModel(courses: [Course.empty(), Course.empty()]));
+      final colorIndex = _getNextColorIndex();
+      semesters.add(SemesterModel(
+        courses: [Course.empty(), Course.empty()],
+        colorIndex: colorIndex,
+      ));
     });
   }
 
@@ -347,13 +373,10 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
   // ---- Auto-save (silent, no UI feedback) ------------------------------------
   
-  void _autoSave() {
-    // Silent save without UI updates - fire and forget
+  Future<void> _autoSave() async {
+    // Silent save without UI updates
     vm.setSemestersFromUi(semesters);
-    vm.saveSnapshot().catchError((e) {
-      // Log error silently, don't show to user during dispose
-      debugPrint('Auto-save error: $e');
-    });
+    await vm.saveSnapshot();
   }
 
   // ---- Sync from department courses -----------------------------------------
@@ -367,7 +390,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
       builder: (ctx) => AlertDialog(
         title: const Text('Sync from Department Courses'),
         content: const Text(
-          'Your current record will be changed. This will load courses from your department\'s curriculum. You can still edit grades after syncing.',
+          'Your current record will be replaced. This will load courses from your department\'s curriculum. You can still edit grades after syncing.',
         ),
         actions: [
           TextButton(
@@ -387,18 +410,51 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     setState(() => _isSaving = true);
 
     try {
-      final newSemesters = await vm.syncFromDepartmentCourses(context);
+      final result = await vm.syncFromDepartmentCourses();
 
-      if (vm.error != null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sync failed: ${vm.error}')),
-        );
+      if (!mounted) return;
+
+      // Handle error cases
+      if (result.hasError) {
+        final error = result.error!;
+        
+        switch (error.type) {
+          case SyncErrorType.notAuthenticated:
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Not authenticated. Please log in.')),
+            );
+            break;
+            
+          case SyncErrorType.profileNotFound:
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Profile not found. Please contact support.')),
+            );
+            break;
+            
+          case SyncErrorType.departmentNotSet:
+            // Show dialog prompting user to set department in profile
+            await _showDepartmentNotSetDialog();
+            break;
+            
+          case SyncErrorType.noCoursesFound:
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(error.message)),
+            );
+            break;
+            
+          case SyncErrorType.unknown:
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Sync failed: ${error.message}')),
+            );
+            break;
+        }
         return;
       }
 
+      // Success case - we have semesters
+      final newSemesters = result.semesters!;
+      
       if (newSemesters.isEmpty) {
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No courses found to sync')),
         );
@@ -435,6 +491,39 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  /// Show dialog prompting user to set department in profile
+  Future<void> _showDepartmentNotSetDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Department Not Set'),
+          content: const Text(
+            'Please update your department in your profile to sync courses for your program.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ProfileView(),
+                  ),
+                );
+              },
+              child: const Text('Go to Profile'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // ---- UI -------------------------------------------------------------------
@@ -489,7 +578,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                   key: ObjectKey(semesters[sIdx]),
                   margin: EdgeInsets.zero,
                   elevation: 2,
-                  color: _getSemesterColor(sIdx, context),
+                  color: _getSemesterColor(s.colorIndex, context), // Use semester's colorIndex
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
@@ -677,38 +766,6 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
   }
 }
 
-// ====== models =================================================================
-
-class SemesterModel {
-  final List<Course> courses;
-  String name;
-  SemesterModel({required this.courses, this.name = ''});
-}
-
-class Course {
-  final TextEditingController nameCtrl;
-  final TextEditingController creditCtrl;
-  String? grade; // null until picked
-  int credits; // numeric shadow for calc
-
-  Course({
-    required this.nameCtrl,
-    required this.creditCtrl,
-    this.grade,
-    this.credits = 0,
-  });
-
-  factory Course.empty() => Course(
-        nameCtrl: TextEditingController(),
-        creditCtrl: TextEditingController(),
-      );
-
-  void dispose() {
-    nameCtrl.dispose();
-    creditCtrl.dispose();
-  }
-}
-
 // ====== replacement note (tiny widget) ========================================
 
 class _ReplacementNote extends StatelessWidget {
@@ -831,7 +888,7 @@ class _CourseRow extends StatelessWidget {
           child: SizedBox(
             height: kFieldHeight,
             child: DropdownButtonFormField<String>(
-              value: course.grade,
+              initialValue: course.grade,
               decoration: boxDeco().copyWith(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               ),
