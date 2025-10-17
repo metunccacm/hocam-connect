@@ -138,7 +138,13 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     'DD': 1.0,
     'FD': 0.5,
     'FF': 0.0,
+  };
+
+  // Non-Credit grade scale
+  static const Map<String, double> nonCreditGradeToPoint = {
     'EX': 0.0,
+    'S': 0.0,
+    'U': 0.0,
   };
 
   final List<SemesterModel> semesters = [
@@ -234,9 +240,13 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
   double _semesterGpa(int sIdx) {
     // semester GPA keeps all active courses that term
+    // Non-credit courses (credits = 0) are excluded from GPA calculation
     final active = semesters[sIdx].courses.where(_isActive);
     double qp = 0, cr = 0;
     for (final c in active) {
+      // Skip non-credit courses in GPA calculation
+      if (c.credits == 0) continue;
+      
       final pts = gradeToPoint[c.grade] ?? 0.0;
       qp += pts * c.credits;
       cr += c.credits;
@@ -253,6 +263,10 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
         final c = semesters[si].courses[ci];
         if (!_isActive(c)) continue;
         if (excluded.contains((si, ci))) continue;
+        
+        // Skip non-credit courses in CGPA calculation
+        if (c.credits == 0) continue;
+        
         final pts = gradeToPoint[c.grade] ?? 0.0;
         qp += pts * c.credits;
         cr += c.credits;
@@ -707,7 +721,8 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                           _CourseRow(
                             key: ObjectKey(semesters[sIdx].courses[cIdx]),
                             course: semesters[sIdx].courses[cIdx],
-                            grades: gradeToPoint.keys.toList(),
+                            creditGrades: gradeToPoint.keys.toList(),
+                            nonCreditGrades: nonCreditGradeToPoint.keys.toList(),
                             onChanged: () => setState(() {}),
                             onDelete: () => _removeCourse(sIdx, cIdx),
                           ),
@@ -832,13 +847,15 @@ class _CourseRow extends StatelessWidget {
   const _CourseRow({
     super.key,
     required this.course,
-    required this.grades,
+    required this.creditGrades,
+    required this.nonCreditGrades,
     required this.onChanged,
     required this.onDelete,
   });
 
   final Course course;
-  final List<String> grades;
+  final List<String> creditGrades;
+  final List<String> nonCreditGrades;
   final VoidCallback onChanged;
   final VoidCallback onDelete;
 
@@ -863,6 +880,10 @@ class _CourseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Determine which grade list to use based on credits
+    final isNonCredit = course.credits == 0;
+    final availableGrades = isNonCredit ? nonCreditGrades : creditGrades;
+    
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -888,14 +909,14 @@ class _CourseRow extends StatelessWidget {
           child: SizedBox(
             height: kFieldHeight,
             child: DropdownButtonFormField<String>(
-              initialValue: course.grade,
+              initialValue: availableGrades.contains(course.grade) ? course.grade : null,
               decoration: boxDeco().copyWith(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               ),
               hint: const Text('XX'),
               isExpanded: true,
               isDense: true,
-              items: grades
+              items: availableGrades
                   .map((g) => DropdownMenuItem(value: g, child: Text(g)))
                   .toList(),
               onChanged: (v) {
@@ -919,7 +940,15 @@ class _CourseRow extends StatelessWidget {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: boxDeco('4'),
               onChanged: (v) {
-                course.credits = int.tryParse(v) ?? 0;
+                final newCredits = int.tryParse(v) ?? 0;
+                final oldCredits = course.credits;
+                course.credits = newCredits;
+                
+                // If switching between credit/non-credit, reset grade
+                if ((oldCredits == 0) != (newCredits == 0)) {
+                  course.grade = null;
+                }
+                
                 onChanged();
               },
             ),
