@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
+import '../utils/network_error_handler.dart';
 
 enum SortOption { priceAsc, priceDesc, newest }
 
@@ -9,9 +10,11 @@ class MarketplaceService {
 
   /// Ürünleri getir (left join). Arama/filtre/sıralama client-side.
   Future<List<Product>> fetchProducts({int limit = 200}) async {
-    final rows = await supa
-        .from('marketplace_products')
-        .select(r'''
+    return NetworkErrorHandler.handleNetworkCall(
+      () async {
+        final rows = await supa
+            .from('marketplace_products')
+            .select(r'''
           id,
           title,
           price,
@@ -33,19 +36,24 @@ class MarketplaceService {
             avatar_url
           )
         ''')
-        .order('created_at', ascending: false)
-        .limit(limit);
+            .order('created_at', ascending: false)
+            .limit(limit);
 
-    return (rows as List)
-        .map((e) => Product.fromRow(Map<String, dynamic>.from(e as Map)))
-        .toList();
+        return (rows as List)
+            .map((e) => Product.fromRow(Map<String, dynamic>.from(e as Map)))
+            .toList();
+      },
+      context: 'Failed to load marketplace products',
+    );
   }
 
   /// Tek ürün (detay)
   Future<Product> fetchProductById(String id) async {
-    final row = await supa
-        .from('marketplace_products')
-        .select(r'''
+    return NetworkErrorHandler.handleNetworkCall(
+      () async {
+        final row = await supa
+            .from('marketplace_products')
+            .select(r'''
           id,
           title,
           price,
@@ -67,25 +75,33 @@ class MarketplaceService {
             avatar_url
           )
         ''')
-        .eq('id', id)
-        .single();
+            .eq('id', id)
+            .single();
 
-    return Product.fromRow(Map<String, dynamic>.from(row as Map));
+        return Product.fromRow(Map<String, dynamic>.from(row as Map));
+      },
+      context: 'Failed to load product details',
+    );
   }
 
   /// Kategorileri yalnızca tablodan oku.
   Future<List<String>> fetchCategories() async {
-    final rows = await supa
-        .from('marketplace_categories')
-        .select('name')
-        .order('name', ascending: true);
+    return NetworkErrorHandler.handleNetworkCall(
+      () async {
+        final rows = await supa
+            .from('marketplace_categories')
+            .select('name')
+            .order('name', ascending: true);
 
-    if (rows is! List || rows.isEmpty) return <String>[];
-    return rows
-        .map((e) => (e['name'] ?? '').toString())
-        .where((s) => s.trim().isNotEmpty)
-        .cast<String>()
-        .toList();
+        if (rows.isEmpty) return <String>[];
+        return (rows as List)
+            .map((e) => (e['name'] ?? '').toString())
+            .where((s) => s.trim().isNotEmpty)
+            .cast<String>()
+            .toList();
+      },
+      context: 'Failed to load categories',
+    );
   }
 
   /// Ürün ekle + resimleri yükle + images tablosuna yaz.

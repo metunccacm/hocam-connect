@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import '../models/product.dart';
 import '../services/marketplace_service.dart';
+import '../utils/network_error_handler.dart';
 
 enum SortOption { priceAsc, priceDesc, newest }
 
@@ -14,6 +15,8 @@ class MarketplaceViewModel extends ChangeNotifier {
   Set<String> _activeFilters = {};
   String _searchQuery = '';
   bool _loading = false;
+  String? _errorMessage;
+  bool _hasNetworkError = false;
 
   // Dinamik kategoriler
   List<String> _allCategories = [];
@@ -29,21 +32,38 @@ class MarketplaceViewModel extends ChangeNotifier {
   SortOption get currentSortOption => _currentSortOption;
   Set<String> get activeFilters => _activeFilters;
   bool get isLoading => _loading;
+  String? get errorMessage => _errorMessage;
+  bool get hasNetworkError => _hasNetworkError;
 
   Future<void> refresh() async {
     _loading = true;
+    _errorMessage = null;
+    _hasNetworkError = false;
     notifyListeners();
 
-    final products = await _svc.fetchProducts(limit: 200);
-    _allProducts
-      ..clear()
-      ..addAll(products);
+    try {
+      final products = await _svc.fetchProducts(limit: 200);
+      _allProducts
+        ..clear()
+        ..addAll(products);
 
-    _allCategories = await _svc.fetchCategories();
+      _allCategories = await _svc.fetchCategories();
 
-    _recompute();
-    _loading = false;
-    notifyListeners();
+      _recompute();
+    } on HC50Exception catch (e) {
+      _errorMessage = e.message;
+      _hasNetworkError = true;
+      _allProducts.clear();
+      _groupedProducts.clear();
+    } catch (e) {
+      _errorMessage = 'An unexpected error occurred';
+      _hasNetworkError = false;
+      _allProducts.clear();
+      _groupedProducts.clear();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 
   void _recompute() {

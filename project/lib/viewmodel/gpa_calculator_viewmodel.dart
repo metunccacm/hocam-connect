@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/network_error_handler.dart';
 
 // Import your SemesterModel / Course definitions (from your view file)
 import '../view/gpa_calculator_view.dart' show SemesterModel, Course;
@@ -18,10 +19,12 @@ class GpaViewModel extends ChangeNotifier {
   // ---- state
   bool _isLoading = false;
   String? _error;
+  bool _hasNetworkError = false;
   List<SemesterModel> _semesters = [];
 
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get hasNetworkError => _hasNetworkError;
   List<SemesterModel> get semesters => _semesters;
 
   // ----------------- Public API -----------------
@@ -35,11 +38,16 @@ class GpaViewModel extends ChangeNotifier {
     }
     _setLoading(true);
     try {
-      final rows = await _client
-          .from(tableName)
-          .select()
-          .eq('user_id', uid)
-          .limit(1);
+      final rows = await NetworkErrorHandler.handleNetworkCall(
+        () async {
+          return await _client
+              .from(tableName)
+              .select()
+              .eq('user_id', uid)
+              .limit(1);
+        },
+        context: 'Failed to load GPA data',
+      );
 
       if (rows.isEmpty) {
         _semesters = [SemesterModel(courses: [Course.empty()])];
@@ -61,8 +69,12 @@ class GpaViewModel extends ChangeNotifier {
         }
         _clearError();
       }
+    } on HC50Exception catch (e) {
+      _setError(e.message);
+      _hasNetworkError = true;
     } catch (e) {
       _setError(e.toString());
+      _hasNetworkError = false;
     } finally {
       _setLoading(false);
     }
@@ -89,14 +101,22 @@ class GpaViewModel extends ChangeNotifier {
         'record': _semestersToRecordJson(_semesters),
       };
 
-      // onConflict by 'user_id' ensures single row per user
-      await _client
-          .from(tableName)
-          .upsert(payload, onConflict: 'user_id')
-          .select() // return the row for sanity
-          .single();
+      await NetworkErrorHandler.handleNetworkCall(
+        () async {
+          // onConflict by 'user_id' ensures single row per user
+          await _client
+              .from(tableName)
+              .upsert(payload, onConflict: 'user_id')
+              .select() // return the row for sanity
+              .single();
+        },
+        context: 'Failed to save GPA data',
+      );
 
       _clearError();
+    } on HC50Exception catch (e) {
+      _setError(e.message);
+      _hasNetworkError = true;
     } catch (e) {
       _setError(e.toString());
     } finally {

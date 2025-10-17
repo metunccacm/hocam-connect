@@ -33,6 +33,7 @@ import 'models/social_models.dart';
 import 'services/social_repository.dart';
 import 'view/social_view.dart';
 import 'view/user_profile_view.dart';
+import 'view/splash_view.dart';
 
 // NEW: connectivity wrapper
 import 'widgets/connectivity_gate.dart';
@@ -230,17 +231,18 @@ class MyApp extends StatelessWidget {
           theme: _lightTheme(),
           darkTheme: _darkTheme(),
           themeMode: c.mode,
-          // <<< Wrap everything with connectivity gate
-          builder: (context, child) => ConnectivityGate(
+          // Splash screen with initial connectivity check
+          home: SplashView(
             funnyMessages: const [
               'Polishing the antenna…',
               'Waving at the router 👋',
               'Asking packets to hurry up…',
               'Consulting the fiber oracle…',
             ],
-            child: child ?? const SizedBox.shrink(),
+            child: const ConnectivityGate(
+              child: AuthGate(),
+            ),
           ),
-          home: const AuthGate(),
           routes: {
             '/login': (_) => const LoginView(),
             '/welcome': (_) => const WelcomeView(),

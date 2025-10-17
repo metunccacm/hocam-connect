@@ -1,5 +1,6 @@
 // lib/services/hitchhike_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/network_error_handler.dart';
 
 class HitchikeService {
   final _supa = Supabase.instance.client;
@@ -11,23 +12,28 @@ class HitchikeService {
     required int seats,
     required int fuelShared, // 0 or 1
   }) async {
-    final user = _supa.auth.currentUser;
-    if (user == null) {
-      throw Exception('Not authenticated');
-    }
+    return NetworkErrorHandler.handleNetworkCall(
+      () async {
+        final user = _supa.auth.currentUser;
+        if (user == null) {
+          throw Exception('Not authenticated');
+        }
 
-    // owner_id = the post owner (driver).
-    final insert = {
-      'owner_id': user.id,
-      'from_location': fromLocation,
-      'to_location': toLocation,
-      'date_time': dateTime.toUtc().toIso8601String(), // store UTC
-      'seats': seats,
-      'fuel_shared': fuelShared,
-      'created_at': DateTime.now().toUtc().toIso8601String(),
-    };
+        // owner_id = the post owner (driver).
+        final insert = {
+          'owner_id': user.id,
+          'from_location': fromLocation,
+          'to_location': toLocation,
+          'date_time': dateTime.toUtc().toIso8601String(), // store UTC
+          'seats': seats,
+          'fuel_shared': fuelShared,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        };
 
-    await _supa.from('hitchike_posts').insert(insert);
+        await _supa.from('hitchike_posts').insert(insert);
+      },
+      context: 'Failed to create hitchhike post',
+    );
   }
 
   /// Optional: returns only non-expired rides
