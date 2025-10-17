@@ -33,6 +33,8 @@ class _SocialViewBody extends StatefulWidget {
 
 class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  final ScrollController _scrollController = ScrollController();
+  bool _showQuickCompose = false;
 
   @override
   void initState() {
@@ -41,10 +43,14 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
       vsync: this,
       duration: const Duration(milliseconds: 250),
     );
+    _scrollController.addListener(_updateQuickComposeVisibility);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateQuickComposeVisibility());
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_updateQuickComposeVisibility);
+    _scrollController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -55,6 +61,31 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
     } else {
       _animationController.forward();
     }
+  }
+
+  void _updateQuickComposeVisibility() {
+    // Show when scrolled some distance and menu is closed
+    final shouldShow = _scrollController.hasClients &&
+        _scrollController.offset > 200 &&
+        _animationController.isDismissed;
+    if (shouldShow != _showQuickCompose) {
+      setState(() {
+        _showQuickCompose = shouldShow;
+      });
+    }
+  }
+
+  void _openFullCompose() {
+    final vm = context.read<SocialViewModel>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _FullScreenComposer(vm: vm);
+      },
+    );
   }
 
   @override
@@ -71,6 +102,7 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
               onRefresh: () => vm.load(),
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
+                controller: _scrollController,
                 slivers: [
             SliverAppBar(
               toolbarHeight: 48,
@@ -159,8 +191,7 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                 ),
               )
             else ...[
-              SliverToBoxAdapter(child: _Composer(vm: vm)),
-              SliverToBoxAdapter(child: const Divider(height: 1)),
+              // Inline composer removed; posts start immediately
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => _PostTile(post: vm.feed[i]),
@@ -172,6 +203,18 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
               ),
             ),
             _buildMenuOverlay(),
+
+            // Quick compose button (bottom-right), always visible above bottom bar
+            Positioned(
+              right: 16,
+              bottom: 88, // above BottomAppBar (~60) with margin
+              child: FloatingActionButton(
+                heroTag: 'quick_compose_fab',
+                backgroundColor: const Color(0xFF007BFF),
+                onPressed: _openFullCompose,
+                child: const Icon(Icons.edit, color: Colors.white),
+              ),
+            ),
           ],
         ),
         floatingActionButton: FloatingActionButton(
@@ -1059,6 +1102,146 @@ class _PostTileState extends State<_PostTile> {
             const SizedBox(height: 6),
             _FirstCommentOrMore(post: post),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FullScreenComposer extends StatefulWidget {
+  final SocialViewModel vm;
+  const _FullScreenComposer({required this.vm});
+  @override
+  State<_FullScreenComposer> createState() => _FullScreenComposerState();
+}
+
+class _FullScreenComposerState extends State<_FullScreenComposer> {
+  final ImagePicker _picker = ImagePicker();
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  List<String> _images = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Seed from existing vm state if any (for edit continuity in future)
+    _controller.text = widget.vm.composerController.text;
+    _images = List.from(widget.vm.pendingImagePaths);
+    // Autofocus after open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImages() async {
+    final images = await _picker.pickMultiImage(imageQuality: 85);
+    if (images.isEmpty) return;
+    setState(() {
+      _images.addAll(images.map((x) => x.path));
+    });
+  }
+
+  Future<void> _submit() async {
+    final vm = widget.vm;
+    final text = _controller.text.trim();
+    if (text.isEmpty && _images.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+    vm.composerController.text = _controller.text;
+    vm.pendingImagePaths
+      ..clear()
+      ..addAll(_images);
+    if (vm.isEditing) {
+      await vm.updatePost();
+    } else {
+      await vm.postNow();
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = widget.vm;
+    final canPost = _controller.text.trim().isNotEmpty || _images.isNotEmpty;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Material(
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.98,
+            child: Column(
+              children: [
+                // Header
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('İptal et'),
+                    ),
+                  ],
+                ),
+                const Divider(height: 1),
+                // Composer content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          minLines: 5,
+                          maxLines: null,
+                          decoration: const InputDecoration(
+                            hintText: 'Ne oluyor?',
+                            border: InputBorder.none,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        if (_images.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _ImagesGrid(paths: _images),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                // Actions bar
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.photo_outlined),
+                          onPressed: _pickImages,
+                        ),
+                        const Spacer(),
+                        FilledButton(
+                          onPressed: canPost && !vm.isPosting ? _submit : null,
+                          child: vm.isPosting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Paylaş'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              ],
+            ),
+          ),
         ),
       ),
     );
