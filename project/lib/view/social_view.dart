@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,8 +24,69 @@ class SocialView extends StatelessWidget {
   }
 }
 
-class _SocialViewBody extends StatelessWidget {
+class _SocialViewBody extends StatefulWidget {
   const _SocialViewBody();
+
+  @override
+  State<_SocialViewBody> createState() => _SocialViewBodyState();
+}
+
+class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  final ScrollController _scrollController = ScrollController();
+  bool _showQuickCompose = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _scrollController.addListener(_updateQuickComposeVisibility);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateQuickComposeVisibility());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_updateQuickComposeVisibility);
+    _scrollController.dispose();
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _toggleMenu() {
+    if (_animationController.isCompleted) {
+      _animationController.reverse();
+    } else {
+      _animationController.forward();
+    }
+  }
+
+  void _updateQuickComposeVisibility() {
+    // Show when scrolled some distance and menu is closed
+    final shouldShow = _scrollController.hasClients &&
+        _scrollController.offset > 200 &&
+        _animationController.isDismissed;
+    if (shouldShow != _showQuickCompose) {
+      setState(() {
+        _showQuickCompose = shouldShow;
+      });
+    }
+  }
+
+  void _openFullCompose() {
+    final vm = context.read<SocialViewModel>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _FullScreenComposer(vm: vm);
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,8 +96,14 @@ class _SocialViewBody extends StatelessWidget {
       initialIndex: vm.currentTab == SocialTab.explore ? 0 : 1,
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
-        body: CustomScrollView(
-          slivers: [
+        body: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: () => vm.load(),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                controller: _scrollController,
+                slivers: [
             SliverAppBar(
               toolbarHeight: 48,
               elevation: 0,
@@ -52,7 +120,7 @@ class _SocialViewBody extends StatelessWidget {
                   child: const SizedBox.expand(),
                 ),
               ),
-              title: const Text('Hocam Connect', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22)),
+              title: const Text('Hocam Connect', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
               centerTitle: true,
               actions: [
                 IconButton(
@@ -71,10 +139,11 @@ class _SocialViewBody extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Container(
-                    height: 36,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: TabBar(
                       indicatorSize: TabBarIndicatorSize.tab,
@@ -87,8 +156,8 @@ class _SocialViewBody extends StatelessWidget {
                       ),
                       onTap: (i) => vm.switchTab(i == 0 ? SocialTab.explore : SocialTab.friends),
                       tabs: const [
-                        Tab(text: 'Explore'),
-                        Tab(text: 'Friends'),
+                        Tab(child: Text('Explore', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+                        Tab(child: Text('Friends', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
                       ],
                     ),
                   ),
@@ -122,8 +191,7 @@ class _SocialViewBody extends StatelessWidget {
                 ),
               )
             else ...[
-              SliverToBoxAdapter(child: _Composer(vm: vm)),
-              SliverToBoxAdapter(child: const Divider(height: 1)),
+              // Inline composer removed; posts start immediately
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => _PostTile(post: vm.feed[i]),
@@ -132,78 +200,189 @@ class _SocialViewBody extends StatelessWidget {
               ),
             ],
           ],
+              ),
+            ),
+            _buildMenuOverlay(),
+
+            // Quick compose button (bottom-right), always visible above bottom bar
+            Positioned(
+              right: 16,
+              bottom: 88, // above BottomAppBar (~60) with margin
+              child: FloatingActionButton(
+                heroTag: 'quick_compose_fab',
+                backgroundColor: const Color(0xFF007BFF),
+                onPressed: _openFullCompose,
+                child: const Icon(Icons.edit, color: Colors.white),
+              ),
+            ),
+          ],
         ),
         floatingActionButton: FloatingActionButton(
           heroTag: 'social_menu_fab',
           shape: const CircleBorder(),
           backgroundColor: Colors.white,
           elevation: 4.0,
-          onPressed: () {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              builder: (_) => _SocialQuickMenu(),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Image.asset('assets/logo/hc_logo.png'),
+          onPressed: _toggleMenu,
+          child: AnimatedBuilder(
+            animation: _animationController,
+            builder: (context, child) {
+              // When menu is open, show a close icon
+              if (_animationController.isCompleted) {
+                return const Icon(Icons.close, color: Colors.black);
+              }
+              // Otherwise, show the logo
+              return Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Image.asset('assets/logo/hc_logo.png'),
+              );
+            },
           ),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        bottomNavigationBar: BottomAppBar(
-          shape: const CircularNotchedRectangle(),
-          notchMargin: 8.0,
-          child: SizedBox(
-            height: 60,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    _SocialBottomItem(icon: Icons.home, label: 'Home', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
-                    _SocialBottomItem(icon: Icons.storefront, label: 'Marketplace', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
-                  ],
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    _SocialBottomItem(icon: Icons.chat_bubble_outline, label: 'Chats', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
-                    _SocialBottomItem(icon: Icons.star_border, label: 'TWOC', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
-                  ],
-                )
-              ],
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50, // Light grey background
+            border: Border(
+              top: BorderSide(
+                color: Colors.grey.shade200, // Subtle top border
+                width: 0.5,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05), // Very subtle shadow
+                blurRadius: 8.0,
+                offset: const Offset(0, -2), // Shadow above the bar
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: BottomAppBar(
+            color: Colors.grey.shade50, // Match container color
+            elevation: 0, // Remove default elevation
+            shape: const CircularNotchedRectangle(),
+            notchMargin: 8.0,
+            child: SizedBox(
+              height: 60,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _SocialBottomItem(icon: Icons.home, label: 'Home', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
+                      _SocialBottomItem(icon: Icons.storefront, label: 'Marketplace', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
+                    ],
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _SocialBottomItem(icon: Icons.chat_bubble_outline, label: 'Chats', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
+                      _SocialBottomItem(icon: Icons.star_border, label: 'TWOC', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
+                    ],
+                  )
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
-}
 
-class _FeedShimmer extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      itemCount: 6,
-      separatorBuilder: (_, __) => const Divider(height: 1, thickness: 0.6),
-      itemBuilder: (_, __) => Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            _ShimmerBox(width: 160, height: 16),
-            SizedBox(height: 12),
-            _ShimmerBox(width: double.infinity, height: 12),
-            SizedBox(height: 8),
-            _ShimmerBox(width: double.infinity, height: 120),
-          ],
+  // This widget builds the arc menu.
+  Widget _buildMenuOverlay() {
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        final animationValue =
+            CurvedAnimation(parent: _animationController, curve: Curves.easeOut)
+                .value;
+        // The menu is only visible when the animation is running or completed
+        if (animationValue == 0) return const SizedBox.shrink();
+
+        return Positioned.fill(
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.hardEdge,
+            children: [
+              // Full-screen GestureDetector to close the menu
+              GestureDetector(
+                onTap: _toggleMenu,
+                child: Container(
+                  color: Colors.black.withOpacity(0.3 * animationValue),
+                ),
+              ),
+              // GPA Calculator
+              _buildMenuItem(
+                icon: Icons.calculate_outlined,
+                heroTag: 'menu_calc',
+                angle: -135, // Top-left
+                animationValue: animationValue,
+                onPressed: () {
+                  _toggleMenu();
+                  Navigator.pushNamed(context, '/gpa_calculator');
+                },
+              ),
+              // Settings
+              _buildMenuItem(
+                icon: Icons.settings,
+                heroTag: 'menu_settings',
+                angle: -90, // Top-center
+                animationValue: animationValue,
+                onPressed: () {
+                  _toggleMenu();
+                  Navigator.pushNamed(context, '/settings');
+                },
+              ),
+              // Hitchhike
+              _buildMenuItem(
+                icon: Icons.directions_car_outlined,
+                heroTag: 'menu_hitch',
+                angle: -45, // Top-right
+                animationValue: animationValue,
+                onPressed: () {
+                  _toggleMenu();
+                  Navigator.pushNamed(context, '/hitchike');
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper to build and position each individual menu button
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String heroTag,
+    required double angle,
+    required double animationValue,
+    required VoidCallback onPressed,
+  }) {
+    final radius = 80.0; // Same radius as bottombar_view.dart
+    final x = radius * math.cos(angle * math.pi / 180);
+    final y = radius * math.sin(angle * math.pi / 180);
+
+    return Positioned(
+      bottom: - y, // Position above the FAB - same as bottombar_view.dart
+      left: MediaQuery.of(context).size.width / 2 - 20 + x, // Center horizontally - same as bottombar_view.dart
+      child: Transform.scale(
+        scale: animationValue,
+        child: FloatingActionButton(
+          heroTag: heroTag,
+          mini: true,
+          onPressed: onPressed,
+          backgroundColor: Colors.white,
+          child: Icon(icon, color: Colors.grey.shade700),
         ),
       ),
     );
   }
 }
+
+// _FeedShimmer removed (unused)
 
 class _ShimmerBox extends StatelessWidget {
   final double width;
@@ -231,23 +410,36 @@ class _MentionText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spans = <InlineSpan>[];
-    final regex = RegExp(r'@([A-Za-z0-9_ğüşöçıİĞÜŞÖÇ]+)');
+    final combined = RegExp(r'(@|#)([A-Za-z0-9_ğüşöçıİĞÜŞÖÇ]+)');
     int last = 0;
-    for (final m in regex.allMatches(text)) {
+    for (final m in combined.allMatches(text)) {
       if (m.start > last) {
         spans.add(TextSpan(text: text.substring(last, m.start)));
       }
-      final name = m.group(1)!;
-      final id = vm.friendNameToId[name] ?? ''; // profil her zaman açılabilir
-      final isFriend = vm.isFriendName(name);
-      spans.add(TextSpan(
-        text: '@$name',
-        style: TextStyle(color: isFriend ? Theme.of(context).colorScheme.primary : Colors.grey),
-        recognizer: (TapGestureRecognizer()
-          ..onTap = () {
-            Navigator.pushNamed(context, '/user-profile', arguments: {'userId': id.isEmpty ? name : id, 'repo': vm.repository});
-          }),
-      ));
+      final symbol = m.group(1)!; // @ or #
+      final value = m.group(2)!;
+      if (symbol == '@') {
+        final id = vm.friendNameToId[value] ?? '';
+        final isFriend = vm.isFriendName(value);
+        spans.add(TextSpan(
+          text: '@$value',
+          style: TextStyle(color: isFriend ? Theme.of(context).colorScheme.primary : Colors.grey),
+          recognizer: (TapGestureRecognizer()
+            ..onTap = () {
+              Navigator.pushNamed(context, '/user-profile', arguments: {'userId': id.isEmpty ? value : id, 'repo': vm.repository});
+            }),
+        ));
+      } else {
+        // hashtag
+        spans.add(TextSpan(
+          text: '#$value',
+          style: TextStyle(color: Theme.of(context).colorScheme.primary),
+          recognizer: (TapGestureRecognizer()
+            ..onTap = () {
+              Navigator.pushNamed(context, '/search', arguments: {'q': '#$value'});
+            }),
+        ));
+      }
       last = m.end;
     }
     if (last < text.length) {
@@ -269,6 +461,8 @@ class _ComposerState extends State<_Composer> {
   OverlayEntry? _mentionOverlay;
   final LayerLink _layerLink = LayerLink();
   List<SocialUser> _suggestions = const [];
+  List<String> _hashtagSuggestions = const [];
+  String? _linkPreviewUrl;
 
   Future<void> _pickImages() async {
     final images = await _picker.pickMultiImage(imageQuality: 85);
@@ -311,32 +505,34 @@ class _ComposerState extends State<_Composer> {
           ],
           Card(
             elevation: 3,
+            color: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: CompositedTransformTarget(
                 link: _layerLink,
                 child: Stack(
                   alignment: Alignment.centerRight,
                   children: [
-                    FutureBuilder<SocialUser?>(
-                      future: context.read<SocialViewModel>().repository.getUser(vm.meId),
-                      builder: (context, snapshot) {
-                        final displayName = snapshot.data?.displayName;
+                    Builder(
+                      builder: (context) {
+                        final displayName = vm.userName(vm.meId);
                         final hint = vm.isEditing
                             ? 'Gönderiyi düzenle...'
-                            : (displayName == null || displayName.isEmpty
+                            : (displayName == 'Kullanıcı' || displayName.isEmpty
                                 ? 'Ne düşünüyorsun?'
                                 : 'Ne düşünüyorsun, $displayName...');
                         return TextField(
                           controller: vm.composerController,
-                          minLines: 2,
-                          maxLines: 6,
+                          minLines: 3,
+                          maxLines: 8,
                           decoration: InputDecoration(
                             hintText: hint,
+                            hintStyle: TextStyle(color: Colors.grey.shade700, fontSize: 16),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             filled: true,
                             fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           ),
                           onChanged: (t) async {
                             setState(() {});
@@ -352,19 +548,39 @@ class _ComposerState extends State<_Composer> {
                             } else {
                               _hideMentions();
                             }
+
+                            // hashtag suggestions
+                            final hash = t.lastIndexOf('#');
+                            if (hash >= 0) {
+                              final q = t.substring(hash + 1).split(RegExp(r'\s')).first;
+                              if (q.isNotEmpty) {
+                                _hashtagSuggestions = context.read<SocialViewModel>().hashtagSuggestions(q);
+                              } else {
+                                _hashtagSuggestions = const [];
+                              }
+                            } else {
+                              _hashtagSuggestions = const [];
+                            }
+
+                            // link preview detection (simple)
+                            final urlMatch = RegExp(r'(https?:\/\/[^\s]+)').firstMatch(t);
+                            _linkPreviewUrl = urlMatch?.group(0);
                           },
                         );
                       },
                     ),
                     Padding(
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(right: 12),
                       child: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: Colors.grey.shade200,
+                        radius: 20,
+                        backgroundColor: vm.isPosting || !canPost ? Colors.grey.shade300 : Colors.blue.shade100,
                         child: IconButton(
-                          icon: const Icon(Icons.send),
-                          color: Colors.grey.shade700,
-                          onPressed: vm.isPosting
+                          icon: Icon(
+                            Icons.send,
+                            color: vm.isPosting || !canPost ? Colors.grey.shade500 : Colors.blue.shade700,
+                            size: 20,
+                          ),
+                          onPressed: vm.isPosting || !canPost
                               ? null
                               : () async {
                                   final names = context.read<SocialViewModel>().extractMentionNames(vm.composerController.text);
@@ -381,6 +597,11 @@ class _ComposerState extends State<_Composer> {
                         ),
                       ),
                     ),
+                    if (vm.isPosting)
+                      const Positioned(
+                        right: 12,
+                        child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                      ),
                   ],
                 ),
               ),
@@ -390,12 +611,52 @@ class _ComposerState extends State<_Composer> {
             const SizedBox(height: 8),
             _ImagesGrid(paths: vm.pendingImagePaths),
           ],
+          if (_linkPreviewUrl != null) ...[
+            const SizedBox(height: 8),
+            _LinkPreviewCard(url: _linkPreviewUrl!),
+          ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4, right: 4),
+              child: Text('${vm.composerController.text.length}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ),
+          ),
           Row(
             children: [
               _MediaAction(icon: Icons.photo_outlined, label: 'Gallery', onTap: _pickImages),
               // Only the inline send icon is kept; removed duplicate bottom share button
             ],
           ),
+
+          if (_hashtagSuggestions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 6,
+                children: [
+                  for (final tag in _hashtagSuggestions)
+                    ActionChip(
+                      label: Text('#$tag'),
+                      onPressed: () {
+                        final ctrl = widget.vm.composerController;
+                        final text = ctrl.text;
+                        final hash = text.lastIndexOf('#');
+                        final before = text.substring(0, hash + 1);
+                        final after = text.substring(hash + 1);
+                        final rest = after.contains(' ')
+                            ? after.substring(after.indexOf(' '))
+                            : '';
+                        ctrl.text = '$before$tag$rest ';
+                        ctrl.selection = TextSelection.fromPosition(TextPosition(offset: ctrl.text.length));
+                        setState(() { _hashtagSuggestions = const []; });
+                      },
+                    )
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -486,7 +747,23 @@ class _ImagesGrid extends StatelessWidget {
         borderRadius: br ?? BorderRadius.circular(radius),
         child: RepaintBoundary(child: image),
       );
-      return GestureDetector(onTap: () => openViewer(index), child: child);
+      final tile = GestureDetector(onTap: () => openViewer(index), child: child);
+      final reorderable = LongPressDraggable<int>(
+        data: index,
+        feedback: Material(color: Colors.transparent, child: SizedBox(width: targetWidth, height: targetHeight, child: child)),
+        childWhenDragging: Opacity(opacity: 0.6, child: tile),
+        child: DragTarget<int>(
+          builder: (context, candidate, rejected) => tile,
+          onAccept: (from) {
+            // Reorder within composer list if enabled via vm
+            final vm = context.read<SocialViewModel>();
+            if (!enableViewer && vm.pendingImagePaths.length >= index + 1 && vm.pendingImagePaths.length >= from + 1) {
+              vm.reorderPendingImages(from, index);
+            }
+          },
+        ),
+      );
+      return enableViewer ? tile : reorderable;
     }
 
     if (show.length == 1) {
@@ -595,6 +872,48 @@ class _ImagesGrid extends StatelessWidget {
   }
 }
 
+class _LinkPreviewCard extends StatelessWidget {
+  final String url;
+  const _LinkPreviewCard({required this.url});
+  @override
+  Widget build(BuildContext context) {
+    // Placeholder UI; integrate real metadata fetch later
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(10),
+        color: Colors.white,
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.link, color: Colors.grey),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(url, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                const Text('Bağlantı önizlemesi', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MediaAction extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -675,17 +994,20 @@ class _ImageViewerState extends State<_ImageViewer> {
   }
 }
 
-class _PostTile extends StatelessWidget {
+class _PostTile extends StatefulWidget {
   final Post post;
   const _PostTile({required this.post});
   @override
+  State<_PostTile> createState() => _PostTileState();
+}
+
+class _PostTileState extends State<_PostTile> {
+  @override
   Widget build(BuildContext context) {
     final vm = context.watch<SocialViewModel>();
+    final post = widget.post;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
@@ -701,17 +1023,33 @@ class _PostTile extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const CircleAvatar(radius: 14, child: Icon(Icons.person, size: 16)),
-                      const SizedBox(width: 8),
+                      FutureBuilder<SocialUser?>(
+                        future: vm.repository.getUser(post.authorId),
+                        builder: (context, snapshot) {
+                          final user = snapshot.data;
+                          final avatarUrl = user?.avatarUrl;
+                          return CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Colors.blue.shade100,
+                            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                ? NetworkImage(avatarUrl)
+                                : null,
+                            child: (avatarUrl == null || avatarUrl.isEmpty)
+                                ? Icon(Icons.person, size: 18, color: Colors.blue.shade700)
+                                : null,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
                       Text(
                         context.read<SocialViewModel>().userName(post.authorId),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(context.read<SocialViewModel>().timeAgo(post.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(context.read<SocialViewModel>().timeAgo(post.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 11)),
                 const Spacer(),
                 Builder(
                   builder: (ctx) {
@@ -740,10 +1078,9 @@ class _PostTile extends StatelessWidget {
             _MentionText(text: post.content, vm: context.read<SocialViewModel>()),
             if (post.imagePaths.isNotEmpty) ...[
               const SizedBox(height: 8),
-            _ImagesGrid(paths: post.imagePaths, enableViewer: true),
+              _ImagesGrid(paths: post.imagePaths, enableViewer: true),
             ],
             const SizedBox(height: 8),
-            const Divider(height: 16, thickness: 0.6),
             Row(
               children: [
                 IconButton(
@@ -771,6 +1108,147 @@ class _PostTile extends StatelessWidget {
   }
 }
 
+class _FullScreenComposer extends StatefulWidget {
+  final SocialViewModel vm;
+  const _FullScreenComposer({required this.vm});
+  @override
+  State<_FullScreenComposer> createState() => _FullScreenComposerState();
+}
+
+class _FullScreenComposerState extends State<_FullScreenComposer> {
+  final ImagePicker _picker = ImagePicker();
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  List<String> _images = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Seed from existing vm state if any (for edit continuity in future)
+    _controller.text = widget.vm.composerController.text;
+    _images = List.from(widget.vm.pendingImagePaths);
+    // Autofocus after open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImages() async {
+    final images = await _picker.pickMultiImage(imageQuality: 85);
+    if (images.isEmpty) return;
+    setState(() {
+      _images.addAll(images.map((x) => x.path));
+    });
+  }
+
+  Future<void> _submit() async {
+    final vm = widget.vm;
+    final text = _controller.text.trim();
+    if (text.isEmpty && _images.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+    vm.composerController.text = _controller.text;
+    vm.pendingImagePaths
+      ..clear()
+      ..addAll(_images);
+    if (vm.isEditing) {
+      await vm.updatePost();
+    } else {
+      await vm.postNow();
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = widget.vm;
+    final canPost = _controller.text.trim().isNotEmpty || _images.isNotEmpty;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Material(
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.98,
+            child: Column(
+              children: [
+                // Header
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('İptal et'),
+                    ),
+                  ],
+                ),
+                const Divider(height: 1),
+                // Composer content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          minLines: 5,
+                          maxLines: null,
+                          decoration: const InputDecoration(
+                            hintText: 'Ne oluyor?',
+                            border: InputBorder.none,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        if (_images.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _ImagesGrid(paths: _images),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                // Actions bar
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.photo_outlined),
+                          onPressed: _pickImages,
+                        ),
+                        const Spacer(),
+                        FilledButton(
+                          onPressed: canPost && !vm.isPosting ? _submit : null,
+                          child: vm.isPosting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Paylaş'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
 class _SocialBottomItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -793,53 +1271,6 @@ class _SocialBottomItem extends StatelessWidget {
   }
 }
 
-class _SocialQuickMenu extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black.withOpacity(0.3),
-      child: SafeArea(
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 80.0),
-            child: Wrap(
-              spacing: 16,
-              children: [
-                _QuickAction(icon: Icons.calculate_outlined, label: 'GPA', onTap: () => Navigator.pushNamed(context, '/gpa_calculator')),
-                _QuickAction(icon: Icons.settings, label: 'Ayarlar', onTap: () => Navigator.pushNamed(context, '/settings')),
-                _QuickAction(icon: Icons.directions_car_outlined, label: 'Hitchhike', onTap: () => Navigator.pushNamed(context, '/hitchike')),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _QuickAction({required this.icon, required this.label, required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return FloatingActionButton(
-      mini: true,
-      onPressed: onTap,
-      backgroundColor: Colors.white,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: Colors.grey.shade700),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(color: Colors.grey.shade700, fontSize: 10)),
-        ],
-      ),
-    );
-  }
-}
 class _FirstCommentOrMore extends StatelessWidget {
   final Post post;
   const _FirstCommentOrMore({required this.post});
@@ -876,7 +1307,23 @@ class _FirstCommentOrMore extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const CircleAvatar(radius: 12, child: Icon(Icons.person, size: 14)),
+                      FutureBuilder<SocialUser?>(
+                        future: context.read<SocialViewModel>().repository.getUser(first.authorId),
+                        builder: (context, snapshot) {
+                          final user = snapshot.data;
+                          final avatarUrl = user?.avatarUrl;
+                          return CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.blue.shade100,
+                            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                ? NetworkImage(avatarUrl)
+                                : null,
+                            child: (avatarUrl == null || avatarUrl.isEmpty)
+                                ? Icon(Icons.person, size: 14, color: Colors.blue.shade700)
+                                : null,
+                          );
+                        },
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         context.read<SocialViewModel>().userName(first.authorId),
@@ -940,7 +1387,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       builder: (context, scrollController) {
         return Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 4,
           ),
           child: Column(
             children: [
@@ -959,18 +1406,26 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             children: [
                               const ListTile(title: Text('Beğenenler')),
                               for (final u in users)
-                                ListTile(
-                                  leading: const CircleAvatar(child: Icon(Icons.person)),
-                                  title: Text(u.displayName),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/user-profile',
-                                      arguments: {'userId': u.id, 'repo': context.read<SocialViewModel>().repository},
-                                    );
-                                  },
-                                ),
+                                  ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: Colors.blue.shade100,
+                                      backgroundImage: u.avatarUrl != null && u.avatarUrl!.isNotEmpty
+                                          ? NetworkImage(u.avatarUrl!)
+                                          : null,
+                                      child: (u.avatarUrl == null || u.avatarUrl!.isEmpty)
+                                          ? Icon(Icons.person, color: Colors.blue.shade700)
+                                          : null,
+                                    ),
+                                    title: Text(u.displayName),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/user-profile',
+                                        arguments: {'userId': u.id, 'repo': context.read<SocialViewModel>().repository},
+                                      );
+                                    },
+                                  ),
                             ],
                           ),
                         );
@@ -1008,7 +1463,22 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               children: [
                                 Expanded(
                                   child: ListTile(
-                                    leading: const CircleAvatar(child: Icon(Icons.person)),
+                                    leading: FutureBuilder<SocialUser?>(
+                                      future: vm.repository.getUser(c.authorId),
+                                      builder: (context, snapshot) {
+                                        final user = snapshot.data;
+                                        final avatarUrl = user?.avatarUrl;
+                                        return CircleAvatar(
+                                          backgroundColor: Colors.blue.shade100,
+                                          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                              ? NetworkImage(avatarUrl)
+                                              : null,
+                                          child: (avatarUrl == null || avatarUrl.isEmpty)
+                                              ? Icon(Icons.person, color: Colors.blue.shade700)
+                                              : null,
+                                        );
+                                      },
+                                    ),
                                     title: Text(vm.userName(c.authorId), style: const TextStyle(fontWeight: FontWeight.w600)),
                                     subtitle: _MentionText(text: c.content, vm: vm),
                                     trailing: Text(vm.timeAgo(c.createdAt), style: const TextStyle(fontSize: 11, color: Colors.grey)),
@@ -1065,7 +1535,23 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                           children: [
                                             Expanded(
                                               child: ListTile(
-                                                leading: const CircleAvatar(child: Icon(Icons.person, size: 16)),
+                                                leading: FutureBuilder<SocialUser?>(
+                                                  future: vm.repository.getUser(r.authorId),
+                                                  builder: (context, snapshot) {
+                                                    final user = snapshot.data;
+                                                    final avatarUrl = user?.avatarUrl;
+                                                    return CircleAvatar(
+                                                      radius: 12,
+                                                      backgroundColor: Colors.blue.shade100,
+                                                      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                                          ? NetworkImage(avatarUrl)
+                                                          : null,
+                                                      child: (avatarUrl == null || avatarUrl.isEmpty)
+                                                          ? Icon(Icons.person, size: 16, color: Colors.blue.shade700)
+                                                          : null,
+                                                    );
+                                                  },
+                                                ),
                                                 title: Text(vm.userName(r.authorId), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                                                 subtitle: _MentionText(text: r.content, vm: vm),
                                                 dense: true,
@@ -1115,17 +1601,18 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                   },
                 ),
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
                       child: (_replyToCommentId == null)
                           ? TextField(
                               controller: _controller,
                               decoration: const InputDecoration(
                                 hintText: 'Yorum yaz',
                                 border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                             )
                           : TextField(
@@ -1133,6 +1620,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               decoration: InputDecoration(
                                 hintText: 'Yanıt yaz',
                                 border: const OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 suffixIcon: IconButton(
                                   icon: const Icon(Icons.close),
                                   onPressed: () => setState(() { _replyToCommentId = null; _replyCtrl.clear(); }),
@@ -1140,36 +1628,36 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               ),
                             ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.send),
-                    onPressed: () async {
-                      if (_replyToCommentId == null) {
-                        final text = _controller.text.trim();
-                        if (text.isEmpty) return;
-                        final names = vm.extractMentionNames(text);
-                        if (!vm.canMentionAllNames(names)) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
-                          return;
+                    IconButton(
+                      icon: const Icon(Icons.send),
+                      onPressed: () async {
+                        if (_replyToCommentId == null) {
+                          final text = _controller.text.trim();
+                          if (text.isEmpty) return;
+                          final names = vm.extractMentionNames(text);
+                          if (!vm.canMentionAllNames(names)) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
+                            return;
+                          }
+                          await vm.addComment(widget.post, text);
+                          _controller.clear();
+                        } else {
+                          final text = _replyCtrl.text.trim();
+                          if (text.isEmpty) return;
+                          final names = vm.extractMentionNames(text);
+                          if (!vm.canMentionAllNames(names)) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
+                            return;
+                          }
+                          await vm.addReply(Comment(id: _replyToCommentId!, postId: widget.post.id, authorId: vm.meId, content: '', createdAt: DateTime.now()), text);
+                          _replyCtrl.clear();
+                          _replyToCommentId = null;
                         }
-                        await vm.addComment(widget.post, text);
-                        _controller.clear();
-                      } else {
-                        final text = _replyCtrl.text.trim();
-                        if (text.isEmpty) return;
-                        final names = vm.extractMentionNames(text);
-                        if (!vm.canMentionAllNames(names)) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
-                          return;
-                        }
-                        await vm.addReply(Comment(id: _replyToCommentId!, postId: widget.post.id, authorId: vm.meId, content: '', createdAt: DateTime.now()), text);
-                        _replyCtrl.clear();
-                        _replyToCommentId = null;
-                      }
-                      setState(() {}); // refresh list
-                    },
-                  )
-                ],
+                        setState(() {}); // refresh list
+                      },
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
