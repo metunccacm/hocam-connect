@@ -7,6 +7,7 @@ import 'package:project/view/marketplace_view.dart';
 import 'package:project/view/settings_view.dart';
 import 'package:project/view/this_week_view.dart';
 import 'package:project/view/hitchike_view.dart';
+import 'package:project/view/external_links_view.dart';
 
 import 'dart:math' as math;
 
@@ -42,7 +43,7 @@ class _MainTabViewState extends State<MainTabView>
     HomeView(),
     MarketplaceView(),
     ChatListView(),
-    ThisWeekView(),
+    ExternalLinksView(),
   ];
 
   void _onItemTapped(int index) {
@@ -118,7 +119,7 @@ class _MainTabViewState extends State<MainTabView>
                   _buildTabItem(
                       icon: Icons.chat_bubble_outline, label: 'Chats', index: 2),
                   _buildTabItem(
-                      icon: Icons.star_border, label: 'TWOC', index: 3),
+                      icon: Icons.link, label: 'Links', index: 3),
                 ],
               )
             ],

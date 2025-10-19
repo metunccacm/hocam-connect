@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project/view/bottombar_view.dart';
+import 'package:project/view/external_links_view.dart';
 import 'package:project/view/forgot_password_view.dart';
 import 'package:project/view/recovery_code_view.dart';
 import 'package:project/view/reset_password_view.dart';
@@ -241,6 +242,7 @@ class MyApp extends StatelessWidget {
             '/register': (_) => const RegistrationView(),
             '/cafeteria-menu': (_) => const CafeteriaMenuView(),
             '/gpa_calculator': (_) => const GpaCalculatorView(),
+            '/external-links': (_) => const ExternalLinksView(),
             '/forgot-password': (_) => const ForgotPasswordView(),
             '/twoc': (_) => const ThisWeekView(),
             '/home': (_) => const MainTabView(),

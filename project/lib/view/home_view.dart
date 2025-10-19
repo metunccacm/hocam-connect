@@ -5,7 +5,6 @@ import 'package:project/view/marketplace_view.dart';
 import 'package:project/view/student_handbook_eng_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:project/widgets/custom_appbar.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../services/chat_service.dart';
 // import 'chat_view.dart';
@@ -172,105 +171,15 @@ class _HomeViewState extends State<HomeView> {
         gradient: const [Color(0xFFFF512F), Color(0xFFF09819)],
         onTap: () => _openOrSnack('/cafeteria-menu'),
       ),
+      // --- NEW BUTTON FOR EXTERNAL LINKS ---
       tile(
-        icon: Icons.campaign_rounded,
-        label: 'TWOC',
-        gradient: const [Color(0xFFee0979), Color(0xFFff6a00)],
-        onTap: () => _openOrSnack('/twoc'),
-      ),
-      tile(
-        icon: Icons.calendar_today_rounded,
-        label: 'CET',
+        icon: Icons.link,
+        label: 'Student Links',
         gradient: const [Color(0xFF614385), Color(0xFF516395)],
-        onTap: () async {
-          const url = 'https://cet.ncc.metu.edu.tr/';
-          final uri = Uri.parse(url);
-          try {
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(
-                uri,
-                mode: LaunchMode.externalApplication,
-                webViewConfiguration: const WebViewConfiguration(
-                  enableJavaScript: true,
-                  enableDomStorage: true,
-                ),
-              );
-            } else {
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not open CET website')),
-              );
-            }
-          } catch (e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error opening CET: $e')),
-            );
-          }
-        },
+        onTap: () => _openOrSnack('/external-links'),
       ),
-      tile(
-        icon: Icons.private_connectivity_outlined,
-        label: 'Intranet',
-        gradient: const [Color(0xFFFC5C7D), Color(0xFF6A82FB)],
-        onTap: () async {
-          const url = 'https://intranet.ncc.metu.edu.tr/';
-          final uri = Uri.parse(url);
-          try {
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(
-                uri,
-                mode: LaunchMode.externalApplication,
-                webViewConfiguration: const WebViewConfiguration(
-                  enableJavaScript: true,
-                  enableDomStorage: true,
-                ),
-              );
-            } else {
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not open Intranet website')),
-              );
-            }
-          } catch (e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error opening Intranet: $e')),
-            );
-          }
-        },
-      ),
-      tile(
-        icon: Icons.school,
-        label: 'ODTUCLASS',
-        gradient: const [Color(0xFF00C6FF), Color(0xFF0072FF)],
-        onTap: () async {
-          const url = 'https://odtuclass2025f.metu.edu.tr/';
-          final uri = Uri.parse(url);
-          try {
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(
-                uri,
-                mode: LaunchMode.externalApplication,
-                webViewConfiguration: const WebViewConfiguration(
-                  enableJavaScript: true,
-                  enableDomStorage: true,
-                ),
-              );
-            } else {
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not open ODTUCLASS website')),
-              );
-            }
-          } catch (e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error opening ODTUCLASS: $e')),
-            );
-          }
-        },
-      ),
+      // --- REMOVED BUTTONS ---
+      // The tiles for TWOC, CET, Intranet, and ODTUCLASS have been removed from here.
       tile(
         icon: Icons.chat_bubble_outline,
         label: 'Sosyal',
