@@ -1,6 +1,7 @@
+import 'dart:ui'; 
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:project/widgets/custom_appbar.dart'; // Assuming you have this custom app bar
 
 class ExternalLinksView extends StatelessWidget {
   const ExternalLinksView({super.key});
@@ -8,130 +9,151 @@ class ExternalLinksView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const HCAppBar(
-        title: 'External Links',
+      appBar: AppBar(
+        title: const Text('Student Links & Resources'),
+        automaticallyImplyLeading: false, 
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Center(
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: _externalLinkActions(context),
-          ),
+        // CHANGE 1: Use a Column for single-row display
+        child: Column( 
+          crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch children to full width
+          children: _linkActions(context),
         ),
       ),
     );
   }
 
-  // Helper function to build the tiles, adapted from your HomeView
-  Widget _tile({
+  // New larger tile widget using a background image and blur
+  Widget _imageTile({
     required BuildContext context,
-    required IconData icon,
     required String label,
-    required List<Color> gradient,
+    required String imagePath, // Path to the asset image
     required VoidCallback onTap,
   }) {
-    const double tileSize = 96;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          width: tileSize,
-          height: tileSize,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: gradient,
-            ),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: gradient.last.withOpacity(0.25),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white, size: 28),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  height: 1.1,
+    // CHANGE 2: Set tile width to null to use the parent's full width (via Column/stretch)
+    const double tileHeight = 150; // Increased height for better visual impact
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0), // Add vertical space between buttons
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            // Removed width constraint: will stretch
+            height: tileHeight,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 1. Background Image
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.asset(
+                    imagePath,
+                    fit: BoxFit.cover,
+                    errorBuilder: (ctx, obj, trace) {
+                      return Container(color: Theme.of(context).colorScheme.primary.withOpacity(0.8));
+                    },
+                  ),
+                ),
+
+                // 2. Blurred/Dark Overlay for text readability
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5), 
+                    child: Container(
+                      color: Colors.black.withOpacity(0.35), 
+                    ),
+                  ),
+                ),
+
+                // 3. Label Text
+                Center(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22, // Slightly increased font size
+                      fontWeight: FontWeight.w800, 
+                      letterSpacing: 0.8,
+                      shadows: [
+                        Shadow(
+                          blurRadius: 3.0,
+                          color: Colors.black87,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // Helper function to launch URLs safely
+  // Helper to launch URLs safely (unchanged)
   Future<void> _launchURL(BuildContext context, String url) async {
     final uri = Uri.parse(url);
     try {
       if (await canLaunchUrl(uri)) {
-        await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not open the website: $url')),
         );
       }
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error opening link: $e')),
       );
     }
   }
 
-  // List of the action buttons
-  List<Widget> _externalLinkActions(BuildContext context) {
+  // List of the action buttons using the new _imageTile
+  List<Widget> _linkActions(BuildContext context) {
     return [
-       _tile(
+      _imageTile(
         context: context,
-        icon: Icons.calendar_today_rounded,
-        label: 'CET',
-        gradient: const [Color(0xFF614385), Color(0xFF516395)],
-        onTap: () => _launchURL(context, 'https://cet.ncc.metu.edu.tr/'),
-      ),
-      _tile(
-        context: context,
-        icon: Icons.private_connectivity_outlined,
-        label: 'Intranet',
-        gradient: const [Color(0xFFFC5C7D), Color(0xFF6A82FB)],
-        onTap: () => _launchURL(context, 'https://intranet.ncc.metu.edu.tr/'),
-      ),
-      _tile(
-        context: context,
-        icon: Icons.school,
-        label: 'ODTUCLASS',
-        gradient: const [Color(0xFF00C6FF), Color(0xFF0072FF)],
+        label: 'ODTÜCLASS',
+        imagePath: 'assets/images/odtuclass_bg.png',
         onTap: () => _launchURL(context, 'https://odtuclass2025f.metu.edu.tr/'),
       ),
-       _tile(
+      _imageTile(
         context: context,
-        icon: Icons.campaign_rounded,
-        label: 'TWOC',
-        gradient: const [Color(0xFFee0979), Color(0xFFff6a00)],
-        onTap: () {
-            // TWOC navigates to a route, not an external URL
-            Navigator.pushNamed(context, '/twoc');
-        },
+        label: 'INTRANET',
+        imagePath: 'assets/images/intranet_bg.png',
+        onTap: () => _launchURL(context, 'https://intranet.ncc.metu.edu.tr/'),
+      ),
+      _imageTile(
+        context: context,
+        label: 'CET (Course Timetable)',
+        imagePath: 'assets/images/cet_bg.png',
+        onTap: () => _launchURL(context, 'https://cet.ncc.metu.edu.tr/'),
+      ),
+      _imageTile(
+        context: context,
+        label: 'This Week On Campus',
+        imagePath: 'assets/images/twoc_bg.png',
+        onTap: () => Navigator.pushNamed(context, '/twoc'),
       ),
     ];
   }
