@@ -119,9 +119,9 @@ class _HomeViewState extends State<HomeView> {
   }
 
   // Logic for the confirmation dialog and launch
-  Future<void> _showConfirmationDialogAndLaunch(String url) async {
+  Future<void> _showConfirmationDialogAndLaunch(String url, {String? displayName}) async {
     final bool isInternalRoute = url.startsWith('/');
-    final String displayUrl = isInternalRoute ? 'the TWOC page' : url;
+    final String displayUrl = displayName ?? (isInternalRoute ? url : url);
     
     final bool? shouldLaunch = await showDialog<bool>(
       context: context,
