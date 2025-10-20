@@ -236,16 +236,16 @@ class _HomeViewState extends State<HomeView> {
         gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
         onTap: () => _openOrSnack('/social'),
       ),
-    ];
-
-    // --- 2. EXTERNAL LINK ACTIONS (Using confirmation dialog) ---
-    List<Widget> externalActions = [
       tile(
         icon: Icons.campaign_rounded,
         label: 'TWOC',
         gradient: const [Color(0xFFee0979), Color(0xFFff6a00)],
         onTap: () => _openOrSnack('/twoc'),
       ),
+    ];
+
+    // --- 2. EXTERNAL LINK ACTIONS (Using confirmation dialog) ---
+    List<Widget> externalActions = [
       tile(
         icon: Icons.calendar_today_rounded,
         label: 'CET',
