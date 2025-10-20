@@ -35,6 +35,138 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  // The tile widget helper
+  Widget tile({
+    required IconData icon,
+    required String label,
+    required List<Color> gradient,
+    required VoidCallback onTap,
+  }) {
+    // Fixed size so they pack like a flexbox
+    const double tileSize = 96; 
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          width: tileSize,
+          height: tileSize,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradient,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: gradient.last.withOpacity(0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 28),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  // The route opening helper
+  Object? _openOrSnack(String routeName) {
+    // Avoid crashing if the route doesn't exist yet
+    if (Navigator.canPop(context) || ModalRoute.of(context) != null) {
+      return Navigator.pushNamed(context, routeName).catchError((error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Route not found: $routeName')),
+        );
+        return error;
+      });
+    }
+    return null;
+  }
+
+  //  Widget for the section header
+  Widget _buildHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24.0, bottom: 8.0, left: 4.0),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.onBackground,
+        ),
+      ),
+    );
+  }
+
+  // Logic for the confirmation dialog and launch
+  Future<void> _showConfirmationDialogAndLaunch(String url) async {
+    final bool isInternalRoute = url.startsWith('/');
+    final String displayUrl = isInternalRoute ? 'the TWOC page' : url;
+    
+    final bool? shouldLaunch = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Leave Hocam Connect?'),
+          content: Text('You are about to navigate to $displayUrl. Do you want to continue?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false), // Cancel
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true), // Continue
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLaunch == true) {
+      if (isInternalRoute) {
+         _openOrSnack(url);
+      } else {
+        final uri = Uri.parse(url);
+        try {
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } else {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not open the website: $url')),
+            );
+          }
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error opening link: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,93 +183,19 @@ class _HomeViewState extends State<HomeView> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ---- Quick actions (8 little buttons) ----
-            Center(
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: _quickActions(context),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-          ],
+          crossAxisAlignment: CrossAxisAlignment.start,
+          // Use the spread operator to flatten the list returned by _quickActions
+          children: _quickActions(context),
         ),
       ),
     );
   }
 
+  // The _quickActions function now only focuses on building the layout
   List<Widget> _quickActions(BuildContext context) {
-    // Fixed size so they pack like a flexbox; tweak 96→100 if you want larger.
-    const double tileSize = 96;
-
-    Widget tile({
-      required IconData icon,
-      required String label,
-      required List<Color> gradient,
-      required VoidCallback onTap,
-    }) {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Ink(
-            width: tileSize,
-            height: tileSize,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: gradient,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: gradient.last.withOpacity(0.25),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: Colors.white, size: 28),
-                const SizedBox(height: 8),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    Object? _openOrSnack(String routeName) {
-      // Avoid crashing if the route doesn't exist yet
-      if (Navigator.canPop(context) || ModalRoute.of(context) != null) {
-        return Navigator.pushNamed(context, routeName).catchError((error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Route not found: $routeName')),
-          );
-          return error;
-        });
-      }
-      return null;
-    }
-
-    return [
+    
+    // --- 1. INTERNAL APP FEATURES ---
+    List<Widget> internalActions = [
       tile(
         icon: Icons.book,
         label: 'Handbook',
@@ -173,6 +231,16 @@ class _HomeViewState extends State<HomeView> {
         onTap: () => _openOrSnack('/cafeteria-menu'),
       ),
       tile(
+        icon: Icons.chat_bubble_outline,
+        label: 'Sosyal',
+        gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+        onTap: () => _openOrSnack('/social'),
+      ),
+    ];
+
+    // --- 2. EXTERNAL LINK ACTIONS (Using confirmation dialog) ---
+    List<Widget> externalActions = [
+      tile(
         icon: Icons.campaign_rounded,
         label: 'TWOC',
         gradient: const [Color(0xFFee0979), Color(0xFFff6a00)],
@@ -182,100 +250,43 @@ class _HomeViewState extends State<HomeView> {
         icon: Icons.calendar_today_rounded,
         label: 'CET',
         gradient: const [Color(0xFF614385), Color(0xFF516395)],
-        onTap: () async {
-          const url = 'https://cet.ncc.metu.edu.tr/';
-          final uri = Uri.parse(url);
-          try {
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(
-                uri,
-                mode: LaunchMode.externalApplication,
-                webViewConfiguration: const WebViewConfiguration(
-                  enableJavaScript: true,
-                  enableDomStorage: true,
-                ),
-              );
-            } else {
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not open CET website')),
-              );
-            }
-          } catch (e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error opening CET: $e')),
-            );
-          }
-        },
+        onTap: () => _showConfirmationDialogAndLaunch('https://cet.ncc.metu.edu.tr/'),
       ),
       tile(
         icon: Icons.private_connectivity_outlined,
         label: 'Intranet',
         gradient: const [Color(0xFFFC5C7D), Color(0xFF6A82FB)],
-        onTap: () async {
-          const url = 'https://intranet.ncc.metu.edu.tr/';
-          final uri = Uri.parse(url);
-          try {
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(
-                uri,
-                mode: LaunchMode.externalApplication,
-                webViewConfiguration: const WebViewConfiguration(
-                  enableJavaScript: true,
-                  enableDomStorage: true,
-                ),
-              );
-            } else {
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not open Intranet website')),
-              );
-            }
-          } catch (e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error opening Intranet: $e')),
-            );
-          }
-        },
+        onTap: () => _showConfirmationDialogAndLaunch('https://intranet.ncc.metu.edu.tr/'),
       ),
       tile(
         icon: Icons.school,
         label: 'ODTUCLASS',
         gradient: const [Color(0xFF00C6FF), Color(0xFF0072FF)],
-        onTap: () async {
-          const url = 'https://odtuclass2025f.metu.edu.tr/';
-          final uri = Uri.parse(url);
-          try {
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(
-                uri,
-                mode: LaunchMode.externalApplication,
-                webViewConfiguration: const WebViewConfiguration(
-                  enableJavaScript: true,
-                  enableDomStorage: true,
-                ),
-              );
-            } else {
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not open ODTUCLASS website')),
-              );
-            }
-          } catch (e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error opening ODTUCLASS: $e')),
-            );
-          }
-        },
+        onTap: () => _showConfirmationDialogAndLaunch('https://odtuclass2025f.metu.edu.tr/'),
       ),
-      tile(
-        icon: Icons.chat_bubble_outline,
-        label: 'Sosyal',
-        gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-        onTap: () => _openOrSnack('/social'),
+    ];
+
+    //--- 3. FINAL RETURN LIST ---
+    return [
+      // Internal actions: centered in a Wrap
+      Center(
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: internalActions,
+        ),
+      ),
+      
+      // Separator and Header
+      const SizedBox(height: 24),
+      _buildHeader('External Links'),
+      
+      Center( 
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: externalActions,
+        ), 
       ),
     ];
   }
