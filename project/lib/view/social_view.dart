@@ -1187,7 +1187,12 @@ class _FullScreenComposerState extends State<_FullScreenComposer> {
                 Row(
                   children: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        if (vm.isEditing) {
+                          vm.cancelEdit();
+                        }
+                        Navigator.pop(context);
+                      },
                       child: const Text('İptal et'),
                     ),
                   ],
@@ -1205,8 +1210,8 @@ class _FullScreenComposerState extends State<_FullScreenComposer> {
                           focusNode: _focusNode,
                           minLines: 5,
                           maxLines: null,
-                          decoration: const InputDecoration(
-                            hintText: 'Ne oluyor?',
+                          decoration: InputDecoration(
+                            hintText: vm.isEditing ? 'Gönderinizi düzenleyin...' : 'Ne oluyor?',
                             border: InputBorder.none,
                           ),
                           onChanged: (_) => setState(() {}),
@@ -1233,7 +1238,9 @@ class _FullScreenComposerState extends State<_FullScreenComposer> {
                         const Spacer(),
                         FilledButton(
                           onPressed: canPost && !vm.isPosting ? _submit : null,
-                          child: vm.isPosting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Paylaş'),
+                          child: vm.isPosting 
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                            : Text(vm.isEditing ? 'Güncelle' : 'Paylaş'),
                         ),
                       ],
                     ),
@@ -1724,7 +1731,19 @@ Future<void> _reportPost(BuildContext context, Post post) async {
 }
 
 Future<void> _editPost(BuildContext context, Post post) async {
-  context.read<SocialViewModel>().startEditPost(post);
+  final vm = context.read<SocialViewModel>();
+  vm.startEditPost(post);
+  
+  // Open the full-screen composer for editing
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) {
+      return _FullScreenComposer(vm: vm);
+    },
+  );
 }
 
 Future<void> _deletePost(BuildContext context, Post post) async {
