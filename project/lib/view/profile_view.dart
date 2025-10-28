@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'settings_view.dart';
 import 'package:project/widgets/custom_appbar.dart';
+import '../utils/network_error_handler.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -180,46 +181,72 @@ Future<Map<String, dynamic>> _collectBugMeta() async {
     final user = supa.auth.currentUser;
     if (user == null) return;
 
-    // Sadece ihtiyacımız olan kolonları çekiyoruz (dob, department, avatar_url)
-    final data = await supa
-        .from('profiles')
-        .select('dob, department, avatar_url')
-        .eq('id', user.id)
-        .maybeSingle();
+    try {
+      // Fetch name, surname from profiles table along with other data
+      final data = await NetworkErrorHandler.handleNetworkCall(
+        () => supa
+            .from('profiles')
+            .select('name, surname, dob, department, avatar_url')
+            .eq('id', user.id)
+            .maybeSingle(),
+        context: 'Failed to load profile',
+      );
 
-    if (data == null) {
-      return;
-    }
-
-    final meta = user.userMetadata ?? {};
-    final first = (meta['name'] ?? '').toString();
-    final last = (meta['surname'] ?? '').toString();
-    final fullName = '$first $last'.trim();
-
-    final parsedDob = _parseDob(data['dob']);
-
-    final dep = (data['department'] ?? '').toString().trim();
-    // Veritabanından gelen değer listedeyse onu seç, değilse null bırak (hint gözüksün)
-    final normalized = dep.isEmpty ? null : dep;
-    final inList = _departments.contains(normalized);
-    setState(() {
-      nameController.text = fullName;
-      emailController.text = user.email ?? '';
-      _dob = parsedDob;
-
-      // Parse başarılıysa formatlı göster; değilse ham stringi göster (boş kalmasın)
-      final dobRaw = data['dob'];
-      if (parsedDob != null) {
-        dobController.text = _fmtDateUI(parsedDob);
-      } else if (dobRaw != null && dobRaw.toString().trim().isNotEmpty) {
-        dobController.text = dobRaw.toString();
-      } else {
-        dobController.text = '';
+      if (data == null) {
+        return;
       }
 
-      _selectedDepartment = inList ? normalized : normalized; // listedeyse de değilse de gösterelim; dropdown'da yoksa "Other" seçebilirsin
-      profileImageUrl = (data['avatar_url'] ?? '').toString();
-    });
+      // Get name and surname from profiles table (preferred source)
+      final first = (data['name'] ?? '').toString().trim();
+      final last = (data['surname'] ?? '').toString().trim();
+      
+      // If profiles doesn't have name/surname, fallback to user metadata
+      String firstName = first;
+      String lastName = last;
+      
+      if (firstName.isEmpty || lastName.isEmpty) {
+        final meta = user.userMetadata ?? {};
+        firstName = firstName.isEmpty ? (meta['name'] ?? '').toString().trim() : firstName;
+        lastName = lastName.isEmpty ? (meta['surname'] ?? '').toString().trim() : lastName;
+      }
+      
+      final fullName = '$firstName $lastName'.trim();
+
+      final parsedDob = _parseDob(data['dob']);
+
+      final dep = (data['department'] ?? '').toString().trim();
+      // Veritabanından gelen değer listedeyse onu seç, değilse null bırak (hint gözüksün)
+      final normalized = dep.isEmpty ? null : dep;
+      final inList = _departments.contains(normalized);
+      
+      if (!mounted) return;
+      setState(() {
+        nameController.text = fullName;
+        emailController.text = user.email ?? '';
+        _dob = parsedDob;
+
+        // Parse başarılıysa formatlı göster; değilse ham stringi göster (boş kalmasın)
+        final dobRaw = data['dob'];
+        if (parsedDob != null) {
+          dobController.text = _fmtDateUI(parsedDob);
+        } else if (dobRaw != null && dobRaw.toString().trim().isNotEmpty) {
+          dobController.text = dobRaw.toString();
+        } else {
+          dobController.text = '';
+        }
+
+        _selectedDepartment = inList ? normalized : normalized; // listedeyse de değilse de gösterelim; dropdown'da yoksa "Other" seçebilirsin
+        profileImageUrl = (data['avatar_url'] ?? '').toString();
+      });
+    } on HC50Exception catch (e) {
+      if (!mounted) return;
+      NetworkErrorHandler.showErrorSnackBar(context, message: e.message);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load profile: $e')),
+      );
+    }
   }
 
 // Report a bug
@@ -302,16 +329,44 @@ Future<void> _reportBug() async {
     final user = supa.auth.currentUser;
     if (user == null) return;
 
+    try {
+
     // Kullanıcı metin kutusuna manuel yazdıysa ve _dob null ise, kaydetmeden parse et.
     if (_dob == null && dobController.text.trim().isNotEmpty) {
       _dob = _parseDob(dobController.text.trim());
     }
 
-    await supa.auth.updateUser(UserAttributes(data: {
-      'display_name': nameController.text,
-    }));
+    final fullName = nameController.text.trim();
+    final nameParts = fullName.split(' ');
+    final firstName = nameParts.isNotEmpty ? nameParts.first.trim() : '';
+    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ').trim() : '';
 
+    // Update Auth metadata (this updates raw_user_meta_data which is displayed as Display Name)
+    final authResponse = await NetworkErrorHandler.handleNetworkCall(
+      () async {
+        return await supa.auth.updateUser(
+          UserAttributes(
+            data: {
+              'full_name': fullName,
+              'name': firstName,
+              'surname': lastName,
+            },
+          ),
+        );
+      },
+      context: 'Failed to update authentication profile',
+    );
+    
+    // Log for debugging
+    debugPrint('Auth update response: ${authResponse.user?.userMetadata}');
+    
+    // Force refresh the session to get updated user data
+    await supa.auth.refreshSession();
+
+    // Update profiles table with separate name and surname
     final payload = <String, dynamic>{
+      'name': firstName,
+      'surname': lastName,
       'avatar_url': profileImageUrl,
       'department': (_selectedDepartment ?? '').trim(),
     };
@@ -320,14 +375,26 @@ Future<void> _reportBug() async {
     final dobIso = _fmtDateISO(_dob);
     if (dobIso != null) payload['dob'] = dobIso;
 
-    await supa.from('profiles').update(payload).eq('id', user.id);
+    await NetworkErrorHandler.handleNetworkCall(
+      () => supa.from('profiles').update(payload).eq('id', user.id),
+      context: 'Failed to update profile information',
+    );
 
     if (!mounted) return;
     setState(() => isEditing = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile updated')),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated')),
+      );
+    } on HC50Exception catch (e) {
+      if (!mounted) return;
+      NetworkErrorHandler.showErrorSnackBar(context, message: e.message);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile: $e')),
+      );
+    }
   }
 
   String _mimeFromPath(String path) {

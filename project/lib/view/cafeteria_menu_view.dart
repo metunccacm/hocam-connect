@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:project/viewmodel/cafeteria_menu_viewmodel.dart';
+import '../utils/network_error_handler.dart';
 
 class CafeteriaMenuView extends StatefulWidget {
   const CafeteriaMenuView({super.key});
@@ -223,14 +224,33 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
             const Expanded(
               child: Center(child: CircularProgressIndicator()),
             )
+          else if (vm.hasNetworkError)
+            Expanded(
+              child: NetworkErrorView(
+                message: vm.errorMessage ?? 'Unable to load cafeteria menu',
+                onRetry: () => vm.refresh(),
+              ),
+            )
           else if (vm.errorMessage != null)
             Expanded(
               child: Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
-                  child: Text(
-                    'Hata: ${vm.errorMessage}',
-                    textAlign: TextAlign.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Hata: ${vm.errorMessage}',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => vm.refresh(),
+                        child: const Text('Tekrar Dene'),
+                      ),
+                    ],
                   ),
                 ),
               ),

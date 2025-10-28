@@ -5,6 +5,7 @@ import 'package:project/widgets/custom_appbar.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
+import '../utils/network_error_handler.dart';
 import 'chat_view.dart';
 
 class ChatListView extends StatefulWidget {
@@ -35,6 +36,8 @@ class _ChatListViewState extends State<ChatListView> {
 
   // ui
   bool _loading = true;
+  bool _hasNetworkError = false;
+  String? _errorMessage;
   String _query = '';
   final _search = TextEditingController();
 
@@ -80,21 +83,33 @@ class _ChatListViewState extends State<ChatListView> {
   // ----------------------- LOADERS -----------------------
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _hasNetworkError = false;
+      _errorMessage = null;
+    });
+    
     try {
       // tüm konuşmalar
       List<String> convs = [];
       try {
-        final rows = await _svc.getConversationsBasic();
+        final rows = await NetworkErrorHandler.handleNetworkCall(
+          () => _svc.getConversationsBasic(),
+          context: 'Failed to load conversations',
+        );
         convs = rows
             .map((e) => (e['id'] ?? e['conversation_id']) as String)
             .toList();
       } catch (_) {
         final me = _supa.auth.currentUser!.id;
-        final rows = await _supa
-            .from('participants')
-            .select('conversation_id')
-            .eq('user_id', me);
+        final rows = await NetworkErrorHandler.handleNetworkCall(
+          () => _supa
+              .from('participants')
+              .select('conversation_id')
+              .eq('user_id', me),
+          context: 'Failed to load conversations',
+        );
         convs = (rows as List)
             .map(
                 (e) => (e as Map<String, dynamic>)['conversation_id'] as String)
@@ -106,13 +121,27 @@ class _ChatListViewState extends State<ChatListView> {
 
       _resort(convs);
 
+      if (!mounted) return;
       setState(() {
         _convIds = convs;
         _loading = false;
+        _hasNetworkError = false;
+        _errorMessage = null;
+      });
+    } on HC50Exception catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _hasNetworkError = true;
+        _errorMessage = e.message;
       });
     } catch (e) {
-      setState(() => _loading = false);
       if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _hasNetworkError = false;
+        _errorMessage = e.toString();
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not load chats: $e')),
       );
@@ -661,7 +690,32 @@ Future<void> _reportAfterBlock(String conversationId) async {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _buildBody(filtered),
+          : _hasNetworkError
+              ? NetworkErrorView(
+                  message: _errorMessage ?? 'Unable to load chats',
+                  onRetry: _load,
+                )
+              : _errorMessage != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline,
+                                size: 64, color: Colors.red),
+                            const SizedBox(height: 16),
+                            Text(_errorMessage!),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _load,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : _buildBody(filtered),
     );
   }
 

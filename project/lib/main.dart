@@ -20,8 +20,7 @@ import 'viewmodel/register_viewmodel.dart';
 import 'view/hitchike_view.dart';
 import 'view/create_hitchike_view.dart';
 import 'viewmodel/hitchike_viewmodel.dart';
-import 'viewmodel/create_hitchikepost_viewmodel.dart'; 
-
+import 'viewmodel/create_hitchikepost_viewmodel.dart';
 
 // Theme Controller
 import 'theme_controller.dart';
@@ -34,7 +33,10 @@ import 'models/social_models.dart';
 import 'services/social_repository.dart';
 import 'view/social_view.dart';
 import 'view/user_profile_view.dart';
-import 'view/notifications_view.dart';
+import 'view/splash_view.dart';
+
+// NEW: connectivity wrapper
+import 'widgets/connectivity_gate.dart';
 
 //SUPA CONNECTION
 const supabaseUrl = 'https://supa-api.hocamconnect.com.tr';
@@ -48,25 +50,22 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = Supabase.instance.client.auth;
 
-    // 1) Immediate check: if already logged in, jump to MainTabView
     if (auth.currentSession != null) {
       return const MainTabView();
     }
 
-    // 2) Otherwise, listen future auth changes
     return StreamBuilder<AuthState>(
       stream: auth.onAuthStateChange,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
-          ); //Scaffold
+          );
         }
 
         final signedIn = auth.currentSession != null ||
             snap.data?.event == AuthChangeEvent.signedIn;
 
-        // If you want to show a Welcome screen before Login, keep WelcomeView
         return signedIn ? const MainTabView() : const WelcomeView();
       },
     );
@@ -76,7 +75,7 @@ class AuthGate extends StatelessWidget {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
-  // Register manual adapters with error handling
+  // Register adapters
   try {
     if (!Hive.isAdapterRegistered(40)) Hive.registerAdapter(SocialUserAdapter());
     if (!Hive.isAdapterRegistered(41)) Hive.registerAdapter(PostAdapter());
@@ -88,7 +87,7 @@ void main() async {
   } catch (e) {
     print('Hive adapter registration error: $e');
   }
-  // Open boxes with error handling
+  // Open boxes
   try {
     await Hive.openBox<SocialUser>(LocalHiveSocialRepository.usersBox);
     await Hive.openBox<Post>(LocalHiveSocialRepository.postsBox);
@@ -99,24 +98,23 @@ void main() async {
   } catch (e) {
     print('Hive box opening error: $e');
   }
+
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
 
-
-  // Listen for password recovery events (for deep link handling)
+  // Global navigatorKey (used by password recovery)
   final navigatorKey = GlobalKey<NavigatorState>();
+
   Supabase.instance.client.auth.onAuthStateChange.listen((data) {
     if (data.event == AuthChangeEvent.passwordRecovery) {
       navigatorKey.currentState?.pushNamed('/reset-password');
     }
   });
 
-  // Theme tercihlerini yükle (kalıcı)
   await ThemeController.instance.load();
 
-  // Debug: auth transitions
   Supabase.instance.client.auth.onAuthStateChange.listen((s) =>
       debugPrint('Auth event: ${s.event}, session: ${s.session != null}'));
 
@@ -132,11 +130,9 @@ void main() async {
         ChangeNotifierProvider<MarketplaceViewModel>(
           create: (context) => MarketplaceViewModel(),
         ),
-        // ThemeController tekil instance'ı sağlayalım
         ChangeNotifierProvider<ThemeController>.value(
           value: ThemeController.instance,
         ),
-        // ThemeController tekil instance'ı sağlayalım
         ChangeNotifierProvider<ThemeController>.value(
           value: ThemeController.instance,
         ),
@@ -147,13 +143,14 @@ void main() async {
           create: (context) => CreateHitchikeViewModel(),
         ),
       ],
-      child: const MyApp(),
+      child: MyApp(navigatorKey: navigatorKey),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final GlobalKey<NavigatorState> navigatorKey;
+  const MyApp({super.key, required this.navigatorKey});
 
   ThemeData _lightTheme() {
     return ThemeData(
@@ -193,7 +190,6 @@ class MyApp extends StatelessWidget {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      // Dark color scheme aynı primary ile
       colorScheme: const ColorScheme.dark(
         primary: Color(0xFF007BFF),
         secondary: Color(0xFF1F1F1F),
@@ -229,12 +225,24 @@ class MyApp extends StatelessWidget {
     return Consumer<ThemeController>(
       builder: (_, c, __) {
         return MaterialApp(
+          navigatorKey: navigatorKey, // keep your password recovery flow working
           title: 'Hocam Connect',
           debugShowCheckedModeBanner: false,
           theme: _lightTheme(),
           darkTheme: _darkTheme(),
-          themeMode: c.mode, // <— KRİTİK
-          home: const AuthGate(),
+          themeMode: c.mode,
+          // Splash screen with initial connectivity check
+          home: SplashView(
+            funnyMessages: const [
+              'Polishing the antenna…',
+              'Waving at the router 👋',
+              'Asking packets to hurry up…',
+              'Consulting the fiber oracle…',
+            ],
+            child: const ConnectivityGate(
+              child: AuthGate(),
+            ),
+          ),
           routes: {
             '/login': (_) => const LoginView(),
             '/welcome': (_) => const WelcomeView(),
@@ -253,7 +261,6 @@ class MyApp extends StatelessWidget {
             '/hitchike': (_) => const HitchikeView(),
             '/hitchike/create': (_) => const CreateHitchikeView(),
             '/social': (_) => const SocialView(),
-            '/notifications': (_) => const NotificationsView(),
             '/user-profile': (ctx) {
               final args = ModalRoute.of(ctx)?.settings.arguments as Map<String, dynamic>?;
               final userId = args?['userId'] as String?;
@@ -261,7 +268,6 @@ class MyApp extends StatelessWidget {
               if (userId == null) {
                 return const Scaffold(body: Center(child: Text('Kullanıcı bulunamadı')));
               }
-              // Fallback: local repo instance if not provided
               final fallback = repo ?? LocalHiveSocialRepository();
               return UserProfileView(userId: userId, repository: fallback);
             },

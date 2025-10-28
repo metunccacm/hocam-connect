@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/network_error_handler.dart';
 
 class CafeteriaMenu {
   CafeteriaMenu({
@@ -81,6 +82,7 @@ class CafeteriaMenuViewModel extends ChangeNotifier {
 
   bool isLoading = false;
   String? errorMessage;
+  bool hasNetworkError = false;
 
   /// Optional pricing information text to show in UI (e.g., via a "?" button)
   String? _pricingInfo;
@@ -117,6 +119,7 @@ class CafeteriaMenuViewModel extends ChangeNotifier {
   Future<void> loadWeek(DateTime monday) async {
     isLoading = true;
     errorMessage = null;
+    hasNetworkError = false;
     notifyListeners();
 
     _weekStart = startOfWeekMonday(monday);
@@ -127,13 +130,17 @@ class CafeteriaMenuViewModel extends ChangeNotifier {
     print('Debug - Table name: $tableName');
 
     try {
-      
-      final rows = await _client
-          .from(tableName)
-          .select()
-          .gte('day', startStr)
-          .lte('day', endStr)
-          .order('day', ascending: true);
+      final rows = await NetworkErrorHandler.handleNetworkCall(
+        () async {
+          return await _client
+              .from(tableName)
+              .select()
+              .gte('day', startStr)
+              .lte('day', endStr)
+              .order('day', ascending: true);
+        },
+        context: 'Failed to load cafeteria menu',
+      );
       
       _byWeekday.clear();
       for (final r in rows as List) {
@@ -144,8 +151,12 @@ class CafeteriaMenuViewModel extends ChangeNotifier {
 
       // set up realtime once (or recreate for safety)
       await _setupRealtime();
+    } on HC50Exception catch (e) {
+      errorMessage = e.message;
+      hasNetworkError = true;
     } catch (e) {
       errorMessage = e.toString();
+      hasNetworkError = false;
     } finally {
       isLoading = false;
       notifyListeners();

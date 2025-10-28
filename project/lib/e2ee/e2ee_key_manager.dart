@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/network_error_handler.dart';
 
 class E2EEKeyManager {
   static const _privKeyKey = 'lt_priv_x25519_b64';
@@ -50,11 +51,14 @@ class E2EEKeyManager {
     }
 
     final uid = Supabase.instance.client.auth.currentUser!.id;
-    await Supabase.instance.client.from('user_keys').upsert({
-      'user_id': uid,
-      'public_key_base64': _myPubB64,
-      'updated_at': DateTime.now().toIso8601String(),
-    });
+    await NetworkErrorHandler.handleNetworkCall(
+      () => Supabase.instance.client.from('user_keys').upsert({
+        'user_id': uid,
+        'public_key_base64': _myPubB64,
+        'updated_at': DateTime.now().toIso8601String(),
+      }),
+      context: 'Failed to sync encryption keys',
+    );
   }
 
   Future<String> getUserPublicKey(String userId) async {
@@ -65,11 +69,14 @@ class E2EEKeyManager {
       }
       return _myPubB64!;
     }
-    final row = await Supabase.instance.client
-        .from('user_keys')
-        .select('public_key_base64')
-        .eq('user_id', userId)
-        .maybeSingle();
+    final row = await NetworkErrorHandler.handleNetworkCall(
+      () => Supabase.instance.client
+          .from('user_keys')
+          .select('public_key_base64')
+          .eq('user_id', userId)
+          .maybeSingle(),
+      context: 'Failed to fetch recipient encryption key',
+    );
 
     if (row == null || (row['public_key_base64'] as String?)?.isNotEmpty != true) {
       throw Exception('Public key not found for user $userId');
