@@ -1187,7 +1187,12 @@ class _FullScreenComposerState extends State<_FullScreenComposer> {
                 Row(
                   children: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        if (vm.isEditing) {
+                          vm.cancelEdit();
+                        }
+                        Navigator.pop(context);
+                      },
                       child: const Text('İptal et'),
                     ),
                   ],
@@ -1205,8 +1210,8 @@ class _FullScreenComposerState extends State<_FullScreenComposer> {
                           focusNode: _focusNode,
                           minLines: 5,
                           maxLines: null,
-                          decoration: const InputDecoration(
-                            hintText: 'Ne oluyor?',
+                          decoration: InputDecoration(
+                            hintText: vm.isEditing ? 'Gönderinizi düzenleyin...' : 'Ne oluyor?',
                             border: InputBorder.none,
                           ),
                           onChanged: (_) => setState(() {}),
@@ -1233,7 +1238,9 @@ class _FullScreenComposerState extends State<_FullScreenComposer> {
                         const Spacer(),
                         FilledButton(
                           onPressed: canPost && !vm.isPosting ? _submit : null,
-                          child: vm.isPosting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Paylaş'),
+                          child: vm.isPosting 
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                            : Text(vm.isEditing ? 'Güncelle' : 'Paylaş'),
                         ),
                       ],
                     ),
@@ -1484,41 +1491,72 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                     trailing: Text(vm.timeAgo(c.createdAt), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                   ),
                                 ),
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () async {
-                                    print('Comment like tapped: ${c.id}');
-                                    await vm.toggleCommentLike(c.id);
-                                    setState(() {}); // Force UI update
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          vm.isCommentLikedByMe(c.id) ? Icons.favorite : Icons.favorite_border,
-                                          size: 16,
-                                          color: vm.isCommentLikedByMe(c.id) ? Colors.red : Colors.grey,
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () async {
+                                        print('Comment like tapped: ${c.id}');
+                                        await vm.toggleCommentLike(c.id);
+                                        setState(() {}); // Force UI update
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              vm.isCommentLikedByMe(c.id) ? Icons.favorite : Icons.favorite_border,
+                                              size: 16,
+                                              color: vm.isCommentLikedByMe(c.id) ? Colors.red : Colors.grey,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              vm.compactCount(vm.commentLikeCount(c.id)),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: vm.isCommentLikedByMe(c.id) ? Colors.red : Colors.grey,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          vm.compactCount(vm.commentLikeCount(c.id)),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: vm.isCommentLikedByMe(c.id) ? Colors.red : Colors.grey,
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
+                                    Builder(
+                                      builder: (ctx) {
+                                        final isMine = vm.meId == c.authorId;
+                                        return PopupMenuButton<String>(
+                                          onSelected: (v) {
+                                            if (v == 'report' && !isMine) _reportComment(ctx, c);
+                                            if (v == 'delete' && isMine) _deleteComment(ctx, c);
+                                            if (v == 'edit' && isMine) _editComment(ctx, c);
+                                          },
+                                          itemBuilder: (_) => [
+                                            if (isMine)
+                                              const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                            if (isMine)
+                                              const PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                            if (!isMine)
+                                              const PopupMenuItem(value: 'report', child: Text('Bildir')),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                             Padding(
                               padding: const EdgeInsets.only(left: 16, bottom: 8),
                               child: TextButton(
-                                onPressed: () => setState(() { _replyToCommentId = c.id; }),
+                                onPressed: () async {
+                                  // Otomatik mention ekle
+                                  final authorName = vm.userName(c.authorId);
+                                  _replyCtrl.text = '@$authorName ';
+                                  _replyCtrl.text = '@$authorName ';
+                                  setState(() { _replyToCommentId = c.id; });
+                                },
                                 child: const Text('Yanıtla'),
                               ),
                             ),
@@ -1558,33 +1596,71 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                                 trailing: Text(vm.timeAgo(r.createdAt), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                               ),
                                             ),
-                                            GestureDetector(
-                                              behavior: HitTestBehavior.opaque,
-                                              onTap: () async {
-                                                print('Reply like tapped: ${r.id}');
-                                                await vm.toggleCommentLike(r.id);
-                                                setState(() {}); // Force UI update
-                                              },
-                                              child: Container(
-                                                padding: const EdgeInsets.all(6),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Icon(
-                                                      vm.isCommentLikedByMe(r.id) ? Icons.favorite : Icons.favorite_border,
-                                                      size: 14,
-                                                      color: vm.isCommentLikedByMe(r.id) ? Colors.red : Colors.grey,
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                GestureDetector(
+                                                  behavior: HitTestBehavior.opaque,
+                                                  onTap: () async {
+                                                    print('Reply like tapped: ${r.id}');
+                                                    await vm.toggleCommentLike(r.id);
+                                                    setState(() {}); // Force UI update
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(6),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          vm.isCommentLikedByMe(r.id) ? Icons.favorite : Icons.favorite_border,
+                                                          size: 14,
+                                                          color: vm.isCommentLikedByMe(r.id) ? Colors.red : Colors.grey,
+                                                        ),
+                                                        const SizedBox(width: 2),
+                                                        Text(
+                                                          vm.compactCount(vm.commentLikeCount(r.id)),
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            color: vm.isCommentLikedByMe(r.id) ? Colors.red : Colors.grey,
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
-                                                    const SizedBox(width: 2),
-                                                    Text(
-                                                      vm.compactCount(vm.commentLikeCount(r.id)),
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        color: vm.isCommentLikedByMe(r.id) ? Colors.red : Colors.grey,
-                                                      ),
-                                                    ),
-                                                  ],
+                                                  ),
                                                 ),
+                                                Builder(
+                                                  builder: (ctx) {
+                                                    final isMine = vm.meId == r.authorId;
+                                                    return PopupMenuButton<String>(
+                                                      onSelected: (v) {
+                                                        if (v == 'report' && !isMine) _reportComment(ctx, r);
+                                                        if (v == 'delete' && isMine) _deleteComment(ctx, r);
+                                                        if (v == 'edit' && isMine) _editComment(ctx, r);
+                                                      },
+                                                      itemBuilder: (_) => [
+                                                        if (isMine)
+                                                          const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                                        if (isMine)
+                                                          const PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                                        if (!isMine)
+                                                          const PopupMenuItem(value: 'report', child: Text('Bildir')),
+                                                      ],
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                            // Yanıt butonu - yanıtların altına da yanıt yazılabilmesi için
+                                            Padding(
+                                              padding: const EdgeInsets.only(left: 16, bottom: 8),
+                                              child: TextButton(
+                                                onPressed: () async {
+                                                  // Otomatik mention ekle
+                                                  final authorName = vm.userName(r.authorId);
+                                                  _replyCtrl.text = '@$authorName ';
+                                                  setState(() { _replyToCommentId = r.id; });
+                                                },
+                                                child: const Text('Yanıtla'),
                                               ),
                                             ),
                                           ],
@@ -1649,7 +1725,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
                             return;
                           }
-                          await vm.addReply(Comment(id: _replyToCommentId!, postId: widget.post.id, authorId: vm.meId, content: '', createdAt: DateTime.now()), text);
+                          // Yanıtlanacak yorumu bul ve yanıt ekle
+                          final parentComment = Comment(id: _replyToCommentId!, postId: widget.post.id, authorId: vm.meId, content: '', createdAt: DateTime.now());
+                          await vm.addReply(parentComment, text);
                           _replyCtrl.clear();
                           _replyToCommentId = null;
                         }
@@ -1724,7 +1802,19 @@ Future<void> _reportPost(BuildContext context, Post post) async {
 }
 
 Future<void> _editPost(BuildContext context, Post post) async {
-  context.read<SocialViewModel>().startEditPost(post);
+  final vm = context.read<SocialViewModel>();
+  vm.startEditPost(post);
+  
+  // Open the full-screen composer for editing
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) {
+      return _FullScreenComposer(vm: vm);
+    },
+  );
 }
 
 Future<void> _deletePost(BuildContext context, Post post) async {
@@ -1742,6 +1832,122 @@ Future<void> _deletePost(BuildContext context, Post post) async {
   if (ok != true) return;
   await context.read<SocialViewModel>().deletePostById(post.id);
   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gönderi silindi.')));
+}
+
+Future<void> _deleteComment(BuildContext context, Comment comment) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Yorumu sil'),
+      content: const Text('Bu yorumu silmek istediğine emin misin?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+      ],
+    ),
+  );
+  if (ok != true) return;
+  await context.read<SocialViewModel>().deleteCommentById(comment.id);
+  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum silindi.')));
+}
+
+Future<void> _editComment(BuildContext context, Comment comment) async {
+  final vm = context.read<SocialViewModel>();
+  final controller = TextEditingController(text: comment.content);
+  
+  final updatedContent = await showDialog<String>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Yorumu düzenle'),
+      content: TextField(
+        controller: controller,
+        maxLines: 4,
+        decoration: const InputDecoration(
+          hintText: 'Yorumunuzu düzenleyin...',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('İptal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, controller.text.trim()),
+          child: const Text('Kaydet'),
+        ),
+      ],
+    ),
+  );
+
+  if (updatedContent != null && updatedContent.isNotEmpty && updatedContent != comment.content) {
+    final updatedComment = Comment(
+      id: comment.id,
+      postId: comment.postId,
+      authorId: comment.authorId,
+      content: updatedContent,
+      createdAt: comment.createdAt,
+      parentCommentId: comment.parentCommentId,
+    );
+    await vm.updateComment(updatedComment);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum güncellendi.')));
+  }
+}
+
+Future<void> _reportComment(BuildContext context, Comment comment) async {
+  final vm = context.read<SocialViewModel>();
+  final me = vm.meId;
+  if (me == comment.authorId) return; // güvenlik
+
+  const reasons = [
+    'Spam',
+    'Taciz / Hakaret',
+    'Yanıltıcı içerik',
+    'Uygunsuz içerik',
+    'Diğer',
+  ];
+  String selected = reasons.first;
+  final detailsCtrl = TextEditingController();
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Yorumu bildir'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            value: selected,
+            items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+            onChanged: (v) => selected = v ?? selected,
+            decoration: const InputDecoration(labelText: 'Sebep'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: detailsCtrl,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'Detay (opsiyonel)',
+              hintText: 'Ek bilgi varsa yazın…',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Gönder')),
+      ],
+    ),
+  );
+
+  if (ok != true) return;
+
+  // Şimdilik local: sadece teşekkür mesajı gösterelim.
+  // Backend hazır olduğunda Supabase tablosuna insert edeceğiz (comments_abuse_reports).
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Bildiriminiz alındı. Teşekkürler.')),
+  );
 }
 
 

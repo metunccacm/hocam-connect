@@ -231,7 +231,12 @@ class SocialViewModel extends ChangeNotifier {
 
   bool canMentionAllNames(Iterable<String> names) {
     final friendNames = _friends.values.map((u) => u.displayName).toSet();
+    final myName = _userNames[meId] ?? 'Kullanıcı';
+    
     for (final n in names) {
+      // Kendinizi mention etmeye izin ver
+      if (n == myName) continue;
+      // Arkadaşları mention etmeye izin ver
       if (!friendNames.contains(n)) return false;
     }
     return true;
@@ -241,7 +246,7 @@ class SocialViewModel extends ChangeNotifier {
       {for (final e in _friends.entries) e.value.displayName: e.key};
 
   List<String> extractMentionNames(String text) {
-    final regex = RegExp(r'@([A-Za-z0-9_ğüşöçıİĞÜŞÖÇ]+)');
+    final regex = RegExp(r'@([A-Za-z0-9_ğüşöçıİĞÜŞÖÇ.]+)');
     return [for (final m in regex.allMatches(text)) m.group(1)!];
   }
 
@@ -398,6 +403,27 @@ class SocialViewModel extends ChangeNotifier {
       _likeCounts.remove(postId);
       _commentCounts.remove(postId);
       _likedByMe.remove(postId);
+      notifyListeners();
+    } catch (_) {
+      // swallow for now; could surface error snackbar via caller
+    }
+  }
+
+  Future<void> deleteCommentById(String commentId) async {
+    try {
+      await repository.deleteComment(commentId);
+      // Remove from comment like counts and liked by me
+      _commentLikeCounts.remove(commentId);
+      _commentLikedByMe.remove(commentId);
+      notifyListeners();
+    } catch (_) {
+      // swallow for now; could surface error snackbar via caller
+    }
+  }
+
+  Future<void> updateComment(Comment comment) async {
+    try {
+      await repository.updateComment(comment);
       notifyListeners();
     } catch (_) {
       // swallow for now; could surface error snackbar via caller
