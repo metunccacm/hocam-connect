@@ -64,7 +64,7 @@ class _HitchikeViewState extends State<HitchikeView> {
         elevation: 1,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
-          onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         titleWidget: _isSearching
             ? TextField(

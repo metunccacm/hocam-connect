@@ -1,8 +1,11 @@
 // gpa_calculator_view.dart
+import 'dart:async'; // for unawaited
 import 'package:flutter/material.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:flutter/services.dart';
 import 'package:project/viewmodel/gpa_calculator_viewmodel.dart';
+import 'package:project/models/gpa_models.dart'; // Use shared models
+import 'package:project/view/profile_view.dart'; // For navigation to profile
 
 class GpaCalculatorView extends StatefulWidget {
   const GpaCalculatorView({super.key});
@@ -20,6 +23,54 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
   final Map<int, TextEditingController> _semNameCtrls = {};
   final Set<int> _editingSemesters = {};
 
+  // Generate a light, faded color for each semester based on index
+  Color _getSemesterColor(int index, BuildContext context) {
+    // Predefined pastel/light colors that work well with both light and dark themes
+    final lightColors = [
+      const Color(0xFFBBDEFB), // Light blue (more vibrant)
+      const Color(0xFFE1BEE7), // Light purple (more vibrant)
+      const Color(0xFFC8E6C9), // Light green (more vibrant)
+      const Color(0xFFFFE0B2), // Light orange (more vibrant)
+      const Color(0xFFF8BBD0), // Light pink (more vibrant)
+      const Color(0xFFDCEDC8), // Light lime (more vibrant)
+      const Color(0xFFB2EBF2), // Light cyan (more vibrant)
+      const Color(0xFFFFF59D), // Light yellow (more vibrant)
+      const Color(0xFFD1C4E9), // Light deep purple (more vibrant)
+      const Color(0xFFFFE082), // Light amber (more vibrant)
+    ];
+
+    final darkColors = [
+      const Color(0xFF1E3A5F), // Dark blue
+      const Color(0xFF4A148C), // Dark purple
+      const Color(0xFF1B5E20), // Dark green
+      const Color(0xFFE65100), // Dark orange
+      const Color(0xFF880E4F), // Dark pink
+      const Color(0xFF33691E), // Dark lime
+      const Color(0xFF006064), // Dark cyan
+      const Color(0xFFF57F17), // Dark yellow
+      const Color(0xFF311B92), // Dark deep purple
+      const Color(0xFFFF6F00), // Dark amber
+    ];
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = isDark ? darkColors : lightColors;
+    final baseColor = colors[index % colors.length];
+
+    // Make it even more faded/lighter for light theme
+    if (!isDark) {
+      return Color.alphaBlend(
+        baseColor.withValues(alpha: 0.5),
+        Theme.of(context).colorScheme.surface,
+      );
+    } else {
+      // For dark theme, make it more subtle
+      return Color.alphaBlend(
+        baseColor.withValues(alpha: 0.15),
+        Theme.of(context).colorScheme.surface,
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -31,7 +82,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
         semesters
           ..clear()
           ..addAll(vm.semesters.isEmpty
-              ? [SemesterModel(courses: [Course.empty()])]
+              ? [SemesterModel(courses: [Course.empty()], colorIndex: 0)]
               : vm.semesters);
         _isLoading = false;
       });
@@ -47,6 +98,18 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
         SnackBar(content: Text('Error loading GPA data: $e')),
       );
     });
+  }
+
+  @override
+  void deactivate() {
+    // Save state when widget is about to be removed from the tree
+    // Using unawaited() to explicitly mark this as intentional fire-and-forget
+    unawaited(_autoSave().catchError((e) {
+      // Log error silently, don't show to user during deactivate
+      debugPrint('Auto-save error during deactivate: $e');
+      return; // Return void to satisfy catchError
+    }));
+    super.deactivate();
   }
 
   @override
@@ -75,18 +138,34 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     'DD': 1.0,
     'FD': 0.5,
     'FF': 0.0,
+  };
+
+  // Non-Credit grade scale
+  static const Map<String, double> nonCreditGradeToPoint = {
     'EX': 0.0,
+    'S': 0.0,
+    'U': 0.0,
   };
 
   final List<SemesterModel> semesters = [
-    SemesterModel(courses: [Course.empty(), Course.empty()]),
-    SemesterModel(courses: [Course.empty()]),
+    SemesterModel(courses: [Course.empty(), Course.empty()], colorIndex: 0),
+    SemesterModel(courses: [Course.empty()], colorIndex: 1),
   ];
 
   // ---- helpers --------------------------------------------------------------
 
+  // Get the next available color index that's not currently used
+  int _getNextColorIndex() {
+    final usedIndices = semesters.map((s) => s.colorIndex).toSet();
+    // Find the first index (0-9) not in use, or use the count as fallback
+    for (var i = 0; i < 10; i++) {
+      if (!usedIndices.contains(i)) return i;
+    }
+    return semesters.length % 10; // Fallback if all 10 colors are used
+  }
+
   bool _isActive(Course c) =>
-      c.nameCtrl.text.trim().isNotEmpty && c.grade != null && c.credits > 0;
+      c.nameCtrl.text.trim().isNotEmpty && c.grade != null && c.credits >= 0;
 
   // Normalize a course name for duplicate detection
   String _norm(String s) =>
@@ -161,9 +240,13 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
   double _semesterGpa(int sIdx) {
     // semester GPA keeps all active courses that term
+    // Non-credit courses (credits = 0) are excluded from GPA calculation
     final active = semesters[sIdx].courses.where(_isActive);
     double qp = 0, cr = 0;
     for (final c in active) {
+      // Skip non-credit courses in GPA calculation
+      if (c.credits == 0) continue;
+      
       final pts = gradeToPoint[c.grade] ?? 0.0;
       qp += pts * c.credits;
       cr += c.credits;
@@ -180,6 +263,10 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
         final c = semesters[si].courses[ci];
         if (!_isActive(c)) continue;
         if (excluded.contains((si, ci))) continue;
+        
+        // Skip non-credit courses in CGPA calculation
+        if (c.credits == 0) continue;
+        
         final pts = gradeToPoint[c.grade] ?? 0.0;
         qp += pts * c.credits;
         cr += c.credits;
@@ -190,7 +277,11 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
   void _addSemester() {
     setState(() {
-      semesters.add(SemesterModel(courses: [Course.empty(), Course.empty()]));
+      final colorIndex = _getNextColorIndex();
+      semesters.add(SemesterModel(
+        courses: [Course.empty(), Course.empty()],
+        colorIndex: colorIndex,
+      ));
     });
   }
 
@@ -275,38 +366,178 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     _semNameCtrls.remove(sIdx)?.dispose();
   }
 
-  // ---- explicit Save ---------------------------------------------------------
+  // ---- semester reordering ---------------------------------------------------
+  void _moveSemesterUp(int sIdx) {
+    if (sIdx == 0) return; // Already at top
+    setState(() {
+      final temp = semesters[sIdx];
+      semesters[sIdx] = semesters[sIdx - 1];
+      semesters[sIdx - 1] = temp;
+    });
+  }
 
-  Future<void> _save() async {
+  void _moveSemesterDown(int sIdx) {
+    if (sIdx >= semesters.length - 1) return; // Already at bottom
+    setState(() {
+      final temp = semesters[sIdx];
+      semesters[sIdx] = semesters[sIdx + 1];
+      semesters[sIdx + 1] = temp;
+    });
+  }
+
+  // ---- Auto-save (silent, no UI feedback) ------------------------------------
+  
+  Future<void> _autoSave() async {
+    // Silent save without UI updates
+    vm.setSemestersFromUi(semesters);
+    await vm.saveSnapshot();
+  }
+
+  // ---- Sync from department courses -----------------------------------------
+
+  Future<void> _syncFromDepartment() async {
     if (_isSaving) return;
+
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sync from Department Courses'),
+        content: const Text(
+          'Your current record will be replaced. This will load courses from your department\'s curriculum. You can still edit grades after syncing.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     setState(() => _isSaving = true);
 
     try {
-      vm.setSemestersFromUi(semesters);
-      await vm.saveSnapshot(); // <— upsert by user_id
+      final result = await vm.syncFromDepartmentCourses();
 
-      if (vm.error != null) {
-        if (!mounted) return;
+      if (!mounted) return;
+
+      // Handle error cases
+      if (result.hasError) {
+        final error = result.error!;
+        
+        switch (error.type) {
+          case SyncErrorType.notAuthenticated:
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Not authenticated. Please log in.')),
+            );
+            break;
+            
+          case SyncErrorType.profileNotFound:
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Profile not found. Please contact support.')),
+            );
+            break;
+            
+          case SyncErrorType.departmentNotSet:
+            // Show dialog prompting user to set department in profile
+            await _showDepartmentNotSetDialog();
+            break;
+            
+          case SyncErrorType.noCoursesFound:
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(error.message)),
+            );
+            break;
+            
+          case SyncErrorType.unknown:
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Sync failed: ${error.message}')),
+            );
+            break;
+        }
+        return;
+      }
+
+      // Success case - we have semesters
+      final newSemesters = result.semesters!;
+      
+      if (newSemesters.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: ${vm.error}')),
+          const SnackBar(content: Text('No courses found to sync')),
         );
         return;
       }
 
+      // Dispose old controllers
+      for (final s in semesters) {
+        for (final c in s.courses) {
+          c.dispose();
+        }
+      }
+
+      // Update UI with new semesters
+      setState(() {
+        semesters
+          ..clear()
+          ..addAll(newSemesters);
+      });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
+          SnackBar(
+            content: Text('Synced ${newSemesters.length} semesters successfully'),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save error: $e')),
+          SnackBar(content: Text('Sync error: $e')),
         );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  /// Show dialog prompting user to set department in profile
+  Future<void> _showDepartmentNotSetDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Department Not Set'),
+          content: const Text(
+            'Please update your department in your profile to sync courses for your program.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ProfileView(),
+                  ),
+                );
+              },
+              child: const Text('Go to Profile'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // ---- UI -------------------------------------------------------------------
@@ -323,13 +554,13 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
       children: [
         Scaffold(
           appBar: HCAppBar(
-            leading: const BackButton(), // just go back, no save here
+            leading: const BackButton(),
             title: 'GPA Calculator',
             actions: [
               IconButton(
-                onPressed: _isSaving ? null : _save,
-                tooltip: 'Save',
-                icon: const Icon(Icons.save_outlined),
+                onPressed: _isSaving ? null : _syncFromDepartment,
+                tooltip: 'Sync from Department',
+                icon: const Icon(Icons.cloud_download),
               ),
             ],
           ),
@@ -360,8 +591,15 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                 child: Card(
                   key: ObjectKey(semesters[sIdx]),
                   margin: EdgeInsets.zero,
-                  elevation: 0,
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  elevation: 2,
+                  color: _getSemesterColor(s.colorIndex, context), // Use semester's colorIndex
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      width: 1,
+                    ),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                     child: Column(
@@ -409,11 +647,22 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                                 onPressed: () => _cancelEditSemName(sIdx),
                               ),
                             ] else ...[
+                              // Reorder buttons
                               IconButton(
-                                icon: const Icon(Icons.edit_outlined),
-                                tooltip: 'Edit semester name',
-                                onPressed: () => _beginEditSemName(sIdx),
+                                icon: const Icon(Icons.arrow_upward),
+                                tooltip: 'Move semester up',
+                                iconSize: 20,
+                                onPressed: sIdx > 0 ? () => _moveSemesterUp(sIdx) : null,
                               ),
+                              IconButton(
+                                icon: const Icon(Icons.arrow_downward),
+                                tooltip: 'Move semester down',
+                                iconSize: 20,
+                                onPressed: sIdx < semesters.length - 1 
+                                    ? () => _moveSemesterDown(sIdx) 
+                                    : null,
+                              ),
+                             
                               IconButton(
                                 icon: const Icon(Icons.delete_outline),
                                 tooltip: 'Delete semester',
@@ -425,13 +674,55 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
                         const SizedBox(height: 12),
 
+                        // Field headers
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 5,
+                                child: Text(
+                                  'Course Name',
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  'Grade',
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'Credits',
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Space for delete button
+                              const SizedBox(width: 48),
+                            ],
+                          ),
+                        ),
+
                         for (int cIdx = 0;
                             cIdx < semesters[sIdx].courses.length;
                             cIdx++) ...[
                           _CourseRow(
                             key: ObjectKey(semesters[sIdx].courses[cIdx]),
                             course: semesters[sIdx].courses[cIdx],
-                            grades: gradeToPoint.keys.toList(),
+                            creditGrades: gradeToPoint.keys.toList(),
+                            nonCreditGrades: nonCreditGradeToPoint.keys.toList(),
                             onChanged: () => setState(() {}),
                             onDelete: () => _removeCourse(sIdx, cIdx),
                           ),
@@ -480,45 +771,13 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
           Positioned.fill(
             child: AbsorbPointer(
               child: Container(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
                 child: const Center(child: CircularProgressIndicator()),
               ),
             ),
           ),
       ],
     );
-  }
-}
-
-// ====== models =================================================================
-
-class SemesterModel {
-  final List<Course> courses;
-  String name;
-  SemesterModel({required this.courses, this.name = ''});
-}
-
-class Course {
-  final TextEditingController nameCtrl;
-  final TextEditingController creditCtrl;
-  String? grade; // null until picked
-  int credits; // numeric shadow for calc
-
-  Course({
-    required this.nameCtrl,
-    required this.creditCtrl,
-    this.grade,
-    this.credits = 0,
-  });
-
-  factory Course.empty() => Course(
-        nameCtrl: TextEditingController(),
-        creditCtrl: TextEditingController(),
-      );
-
-  void dispose() {
-    nameCtrl.dispose();
-    creditCtrl.dispose();
   }
 }
 
@@ -569,7 +828,7 @@ class _ReplacementNote extends StatelessWidget {
               child: Text(
                 'Replaced by $laterSemesterName — excluded from final CGPA.',
                 style: textTheme.bodySmall?.copyWith(
-                  color: textTheme.bodySmall?.color?.withOpacity(0.75),
+                  color: textTheme.bodySmall?.color?.withValues(alpha: 0.75),
                 ),
               ),
             ),
@@ -588,13 +847,15 @@ class _CourseRow extends StatelessWidget {
   const _CourseRow({
     super.key,
     required this.course,
-    required this.grades,
+    required this.creditGrades,
+    required this.nonCreditGrades,
     required this.onChanged,
     required this.onDelete,
   });
 
   final Course course;
-  final List<String> grades;
+  final List<String> creditGrades;
+  final List<String> nonCreditGrades;
   final VoidCallback onChanged;
   final VoidCallback onDelete;
 
@@ -619,12 +880,16 @@ class _CourseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Determine which grade list to use based on credits
+    final isNonCredit = course.credits == 0;
+    final availableGrades = isNonCredit ? nonCreditGrades : creditGrades;
+    
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Course name
         Expanded(
-          flex: 4,
+          flex: 5,
           child: SizedBox(
             height: kFieldHeight,
             child: TextFormField(
@@ -644,11 +909,14 @@ class _CourseRow extends StatelessWidget {
           child: SizedBox(
             height: kFieldHeight,
             child: DropdownButtonFormField<String>(
-              value: course.grade,
-              decoration: boxDeco(),
+              initialValue: availableGrades.contains(course.grade) ? course.grade : null,
+              decoration: boxDeco().copyWith(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              ),
               hint: const Text('XX'),
               isExpanded: true,
-              items: grades
+              isDense: true,
+              items: availableGrades
                   .map((g) => DropdownMenuItem(value: g, child: Text(g)))
                   .toList(),
               onChanged: (v) {
@@ -672,7 +940,15 @@ class _CourseRow extends StatelessWidget {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: boxDeco('4'),
               onChanged: (v) {
-                course.credits = int.tryParse(v) ?? 0;
+                final newCredits = int.tryParse(v) ?? 0;
+                final oldCredits = course.credits;
+                course.credits = newCredits;
+                
+                // If switching between credit/non-credit, reset grade
+                if ((oldCredits == 0) != (newCredits == 0)) {
+                  course.grade = null;
+                }
+                
                 onChanged();
               },
             ),

@@ -38,7 +38,15 @@ class SocialViewModel extends ChangeNotifier {
       // ensure current user exists in local store for display
       final me = await repository.getUser(meId);
       if (me == null) {
-        await repository.upsertUser(SocialUser(id: meId, displayName: 'Ben'));
+        // Try to use Supabase username/email prefix as default display name
+        final email = Supabase.instance.client.auth.currentUser?.email;
+        final fallback = (email != null && email.isNotEmpty) ? email.split('@').first : 'Kullanıcı';
+        await repository.upsertUser(SocialUser(id: meId, displayName: fallback));
+      } else if (me.displayName.isEmpty || me.displayName == 'Kullanıcı') {
+        // Update existing user with proper display name if missing
+        final email = Supabase.instance.client.auth.currentUser?.email;
+        final fallback = (email != null && email.isNotEmpty) ? email.split('@').first : 'Kullanıcı';
+        await repository.upsertUser(SocialUser(id: meId, displayName: fallback, avatarUrl: me.avatarUrl));
       }
 
       feed = currentTab == SocialTab.explore
@@ -95,6 +103,12 @@ class SocialViewModel extends ChangeNotifier {
       _friends
         ..clear()
         ..addEntries(friendUsers.map((u) => MapEntry(u.id, u)));
+
+      // cache current user's name
+      final currentUser = await repository.getUser(meId);
+      if (currentUser != null) {
+        _userNames[meId] = currentUser.displayName;
+      }
     } finally {
       isLoading = false;
       notifyListeners();
@@ -190,9 +204,39 @@ class SocialViewModel extends ChangeNotifier {
         .toList());
   }
 
+  List<String> hashtagSuggestions(String query) {
+    final q = query.toLowerCase();
+    // naive: derive from recent posts' hashtags
+    final Set<String> tags = {};
+    final regex = RegExp(r'#([A-Za-z0-9_ğüşöçıİĞÜŞÖÇ]+)');
+    for (final p in feed.take(100)) {
+      for (final m in regex.allMatches(p.content)) {
+        final tag = m.group(1)!.toLowerCase();
+        if (tag.contains(q)) tags.add(tag);
+      }
+    }
+    final list = tags.toList()..sort();
+    return list.take(10).toList();
+  }
+
+  void reorderPendingImages(int from, int to) {
+    if (from == to) return;
+    if (from < 0 || to < 0) return;
+    if (from >= pendingImagePaths.length || to >= pendingImagePaths.length) return;
+    final tmp = pendingImagePaths[from];
+    pendingImagePaths[from] = pendingImagePaths[to];
+    pendingImagePaths[to] = tmp;
+    notifyListeners();
+  }
+
   bool canMentionAllNames(Iterable<String> names) {
     final friendNames = _friends.values.map((u) => u.displayName).toSet();
+    final myName = _userNames[meId] ?? 'Kullanıcı';
+    
     for (final n in names) {
+      // Kendinizi mention etmeye izin ver
+      if (n == myName) continue;
+      // Arkadaşları mention etmeye izin ver
       if (!friendNames.contains(n)) return false;
     }
     return true;
@@ -202,7 +246,7 @@ class SocialViewModel extends ChangeNotifier {
       {for (final e in _friends.entries) e.value.displayName: e.key};
 
   List<String> extractMentionNames(String text) {
-    final regex = RegExp(r'@([A-Za-z0-9_ğüşöçıİĞÜŞÖÇ]+)');
+    final regex = RegExp(r'@([A-Za-z0-9_ğüşöçıİĞÜŞÖÇ.]+)');
     return [for (final m in regex.allMatches(text)) m.group(1)!];
   }
 
@@ -326,20 +370,21 @@ class SocialViewModel extends ChangeNotifier {
     notifyListeners();
     
     try {
+      final existingIndex = feed.indexWhere((p) => p.id == editingPostId);
+      final existing = existingIndex != -1 ? feed[existingIndex] : null;
       final post = Post(
         id: editingPostId!,
-        authorId: meId,
+        authorId: existing?.authorId ?? meId,
         content: composerController.text.trim(),
         imagePaths: List.from(pendingImagePaths),
-        createdAt: DateTime.now(),
+        createdAt: existing?.createdAt ?? DateTime.now(),
       );
       
       await repository.updatePost(post);
       
       // Update local feed
-      final index = feed.indexWhere((p) => p.id == editingPostId);
-      if (index != -1) {
-        feed[index] = post;
+      if (existingIndex != -1) {
+        feed[existingIndex] = post;
       }
       
       cancelEdit();
@@ -358,6 +403,27 @@ class SocialViewModel extends ChangeNotifier {
       _likeCounts.remove(postId);
       _commentCounts.remove(postId);
       _likedByMe.remove(postId);
+      notifyListeners();
+    } catch (_) {
+      // swallow for now; could surface error snackbar via caller
+    }
+  }
+
+  Future<void> deleteCommentById(String commentId) async {
+    try {
+      await repository.deleteComment(commentId);
+      // Remove from comment like counts and liked by me
+      _commentLikeCounts.remove(commentId);
+      _commentLikedByMe.remove(commentId);
+      notifyListeners();
+    } catch (_) {
+      // swallow for now; could surface error snackbar via caller
+    }
+  }
+
+  Future<void> updateComment(Comment comment) async {
+    try {
+      await repository.updateComment(comment);
       notifyListeners();
     } catch (_) {
       // swallow for now; could surface error snackbar via caller

@@ -13,6 +13,7 @@ abstract class SocialRepository {
   Future<Post> createPost({required String authorId, required String content, required List<String> imagePaths});
   Future<void> updatePost(Post post);
   Future<void> deletePost(String postId);
+  Future<void> deleteComment(String commentId);
   Future<void> likePost({required String postId, required String userId});
   Future<void> unlikePost({required String postId, required String userId});
   Future<List<Like>> getLikes(String postId);
@@ -27,6 +28,8 @@ abstract class SocialRepository {
   Future<void> likeComment({required String commentId, required String userId});
   Future<void> unlikeComment({required String commentId, required String userId});
   Future<List<CommentLike>> getCommentLikes(String commentId);
+  Future<void> updateComment(Comment comment);
+  Future<void> clearAllData();
 }
 
 class LocalHiveSocialRepository implements SocialRepository {
@@ -109,6 +112,16 @@ class LocalHiveSocialRepository implements SocialRepository {
     final likes = _likes.values.where((l) => l.postId == postId).toList();
     for (final like in likes) {
       await _likes.delete(like.id);
+    }
+  }
+
+  @override
+  Future<void> deleteComment(String commentId) async {
+    await _comments.delete(commentId);
+    // Also delete related comment likes
+    final commentLikes = _commentLikes.values.where((l) => l.commentId == commentId).toList();
+    for (final like in commentLikes) {
+      await _commentLikes.delete(like.id);
     }
   }
 
@@ -260,6 +273,20 @@ class LocalHiveSocialRepository implements SocialRepository {
   @override
   Future<List<CommentLike>> getCommentLikes(String commentId) async {
     return _commentLikes.values.where((l) => l.commentId == commentId).toList();
+  }
+
+  @override
+  Future<void> updateComment(Comment comment) async {
+    await _comments.put(comment.id, comment);
+  }
+
+  Future<void> clearAllData() async {
+    await _users.clear();
+    await _posts.clear();
+    await _comments.clear();
+    await _likes.clear();
+    await _commentLikes.clear();
+    await _friendships.clear();
   }
 }
 

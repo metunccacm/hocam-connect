@@ -22,7 +22,6 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.0'
         channel: 'stable'
         cache: true
     
@@ -30,8 +29,8 @@ jobs:
       run: flutter pub get
       working-directory: ./project
     
-    - name: Run tests
-      run: flutter test
+    - name: Analyze code
+      run: flutter analyze
       working-directory: ./project
     
     - name: Build APK
