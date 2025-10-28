@@ -12,7 +12,8 @@ import 'dart:math' as math;
 
 
 class MainTabView extends StatefulWidget {
-  const MainTabView({super.key});
+  final int initialIndex;
+  const MainTabView({super.key, this.initialIndex = 0});
 
   @override
   State<MainTabView> createState() => _MainTabViewState();
@@ -26,6 +27,7 @@ class _MainTabViewState extends State<MainTabView>
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialIndex;
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),

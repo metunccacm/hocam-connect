@@ -243,7 +243,11 @@ class MyApp extends StatelessWidget {
             '/gpa_calculator': (_) => const GpaCalculatorView(),
             '/forgot-password': (_) => const ForgotPasswordView(),
             '/twoc': (_) => const ThisWeekView(),
-            '/home': (_) => const MainTabView(),
+            '/home': (ctx) {
+              final args = ModalRoute.of(ctx)?.settings.arguments as Map<String, dynamic>?;
+              final initialIndex = (args != null && args['initialIndex'] is int) ? args['initialIndex'] as int : 0;
+              return MainTabView(initialIndex: initialIndex);
+            },
             '/recovery-code': (_) => const RecoveryCodeView(),
             '/reset-password': (_) => const ResetPasswordView(),
             '/hitchike': (_) => const HitchikeView(),
