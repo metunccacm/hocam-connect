@@ -8,6 +8,7 @@ import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 
 import '../models/social_models.dart';
+import 'package:project/view/bottombar_view.dart';
 import '../models/social_user.dart';
 import '../services/social_repository.dart';
 import '../viewmodel/social_viewmodel.dart';
@@ -270,15 +271,51 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      _SocialBottomItem(icon: Icons.home, label: 'Home', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
-                      _SocialBottomItem(icon: Icons.storefront, label: 'Marketplace', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
+                      _SocialBottomItem(
+                        icon: Icons.home,
+                        label: 'Home',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MainTabView(initialIndex: 0),
+                          ),
+                        ),
+                      ),
+                      _SocialBottomItem(
+                        icon: Icons.storefront,
+                        label: 'Marketplace',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MainTabView(initialIndex: 1),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      _SocialBottomItem(icon: Icons.chat_bubble_outline, label: 'Chats', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
-                      _SocialBottomItem(icon: Icons.star_border, label: 'TWOC', onTap: () => Navigator.pushReplacementNamed(context, '/home')),
+                      _SocialBottomItem(
+                        icon: Icons.chat_bubble_outline,
+                        label: 'Chats',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MainTabView(initialIndex: 2),
+                          ),
+                        ),
+                      ),
+                      _SocialBottomItem(
+                        icon: Icons.star_border,
+                        label: 'TWOC',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MainTabView(initialIndex: 3),
+                          ),
+                        ),
+                      ),
                     ],
                   )
                 ],
