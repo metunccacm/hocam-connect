@@ -12,7 +12,7 @@ import '../viewmodel/social_viewmodel.dart';
 import 'bottombar_view.dart';
 import 'create_spost_view.dart';
 import 'spost_detail_view.dart';
-import '../services/social_service.dart';
+
 
 class SocialView extends StatelessWidget {
   const SocialView({super.key});
@@ -21,7 +21,7 @@ class SocialView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<SocialViewModel>(
   create: (_) => SocialViewModel(
-    repository: LocalHiveSocialRepository(),
+    repository: SupabaseSocialRepository(),
     service: SocialService(), // ✅ now properly added
   )..load(),
   child: const _SocialViewBody(),
@@ -212,26 +212,23 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
               ),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          heroTag: 'social_menu_fab',
-          shape: const CircleBorder(),
-          backgroundColor: Colors.white,
-          elevation: 4.0,
-          onPressed: _toggleMenu,
-          child: AnimatedBuilder(
-            animation: _animationController,
-            builder: (context, child) {
-              if (_animationController.isCompleted) {
-                return const Icon(Icons.close, color: Colors.black);
-              }
-              return Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: Image.asset('assets/logo/hc_logo.png'),
-              );
-            },
-          ),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+floatingActionButton: FloatingActionButton(
+  heroTag: 'create_post_fab',
+  backgroundColor: Colors.blue,
+  onPressed: () {
+    final vm = context.read<SocialViewModel>();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateSPostView(repository: vm.repository),
+      ),
+    );
+  },
+  child: const Icon(Icons.add, color: Colors.white),
+),
+floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+
+
         bottomNavigationBar: _BottomBar(),
       ),
     );

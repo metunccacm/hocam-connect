@@ -27,9 +27,6 @@ import 'theme_controller.dart';
 
 // New import for the scaling utility
 import 'config/size_config.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'models/social_user.dart';
-import 'models/social_models.dart';
 import 'services/social_repository.dart';
 import 'view/social_view.dart';
 import 'view/user_profile_view.dart';
@@ -74,31 +71,6 @@ class AuthGate extends StatelessWidget {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter();
-  // Register adapters
-  try {
-    if (!Hive.isAdapterRegistered(40)) Hive.registerAdapter(SocialUserAdapter());
-    if (!Hive.isAdapterRegistered(41)) Hive.registerAdapter(PostAdapter());
-    if (!Hive.isAdapterRegistered(42)) Hive.registerAdapter(CommentAdapter());
-    if (!Hive.isAdapterRegistered(43)) Hive.registerAdapter(LikeAdapter());
-    if (!Hive.isAdapterRegistered(44)) Hive.registerAdapter(CommentLikeAdapter());
-    if (!Hive.isAdapterRegistered(45)) Hive.registerAdapter(FriendshipAdapter());
-    if (!Hive.isAdapterRegistered(46)) Hive.registerAdapter(FriendshipStatusAdapter());
-  } catch (e) {
-    print('Hive adapter registration error: $e');
-  }
-  // Open boxes
-  try {
-    await Hive.openBox<SocialUser>(LocalHiveSocialRepository.usersBox);
-    await Hive.openBox<Post>(LocalHiveSocialRepository.postsBox);
-    await Hive.openBox<Comment>(LocalHiveSocialRepository.commentsBox);
-    await Hive.openBox<Like>(LocalHiveSocialRepository.likesBox);
-    await Hive.openBox<CommentLike>(LocalHiveSocialRepository.commentLikesBox);
-    await Hive.openBox<Friendship>(LocalHiveSocialRepository.friendshipsBox);
-  } catch (e) {
-    print('Hive box opening error: $e');
-  }
-
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
@@ -268,7 +240,7 @@ class MyApp extends StatelessWidget {
               if (userId == null) {
                 return const Scaffold(body: Center(child: Text('Kullanıcı bulunamadı')));
               }
-              final fallback = repo ?? LocalHiveSocialRepository();
+              final fallback = repo ?? SupabaseSocialRepository();
               return UserProfileView(userId: userId, repository: fallback);
             },
           },
