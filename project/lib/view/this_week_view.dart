@@ -63,6 +63,13 @@ class _ThisWeekViewState extends State<ThisWeekView> {
   }
 
   @override
+  void dispose() {
+    // Dispose the WebViewController to prevent crashes during app termination
+    // This ensures proper cleanup before the Flutter engine is destroyed
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'This Week on Campus',
