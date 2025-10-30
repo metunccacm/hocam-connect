@@ -7,6 +7,8 @@ import 'package:project/view/this_week_view.dart';
 import 'package:project/view/webmail_view.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'view/login_view.dart';
 import 'view/register_view.dart';
@@ -28,6 +30,9 @@ import 'theme_controller.dart';
 
 // New import for the scaling utility
 import 'config/size_config.dart';
+
+// Notification Service
+import 'services/notification_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/social_user.dart';
 import 'models/social_models.dart';
@@ -35,6 +40,7 @@ import 'services/social_repository.dart';
 import 'view/social_view.dart';
 import 'view/user_profile_view.dart';
 import 'view/splash_view.dart';
+import 'view/notification_debug_view.dart';
 
 // NEW: connectivity wrapper
 import 'widgets/connectivity_gate.dart';
@@ -75,6 +81,20 @@ class AuthGate extends StatelessWidget {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase (skip if configuration files are missing)
+  try {
+    await Firebase.initializeApp();
+    
+    // Set up background message handler
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    
+    debugPrint('✅ Firebase initialized successfully');
+  } catch (e) {
+    debugPrint('⚠️ Firebase initialization skipped: $e');
+    debugPrint('📝 Add google-services.json (Android) or GoogleService-Info.plist (iOS) to enable push notifications');
+  }
+  
   await Hive.initFlutter();
   // Register adapters
   try {
@@ -108,6 +128,14 @@ void main() async {
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
+  
+  // Initialize notification service after Supabase (only if Firebase is initialized)
+  try {
+    await NotificationService().initialize();
+    debugPrint('✅ Notification service initialized');
+  } catch (e) {
+    debugPrint('⚠️ Notification service initialization skipped: $e');
+  }
 
   // Global navigatorKey (used by password recovery)
   final navigatorKey = GlobalKey<NavigatorState>();
@@ -283,6 +311,7 @@ class MyApp extends StatelessWidget {
               final fallback = repo ?? LocalHiveSocialRepository();
               return UserProfileView(userId: userId, repository: fallback);
             },
+            '/notification-debug': (_) => const NotificationDebugView(),
           },
         );
       },

@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_controller.dart'; //Theme Controller
+import '../services/notification_service.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -16,10 +17,23 @@ class _SettingsViewState extends State<SettingsView> {
   bool notificationsEnabled = true;
   bool _isDark = ThemeController.instance.isDark;
   bool _busy = false;
+  bool _loadingNotifications = false;
 
   // Supabase
-  static const _bucket = 'profile'; // storage bucket adın
   final _supa = Supabase.instance.client;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationState();
+  }
+  
+  Future<void> _loadNotificationState() async {
+    final enabled = await NotificationService().areNotificationsEnabled();
+    if (mounted) {
+      setState(() => notificationsEnabled = enabled);
+    }
+  }
 
   // THEME
   Future<void> _toggleTheme(bool value) async {
@@ -36,10 +50,47 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  // NOTIFICATIONS (placeholder)
-  void _toggleNotifications(bool value) {
-    setState(() => notificationsEnabled = value);
-    // Bildirim entegrasyonunu burada yapacağız.
+  // NOTIFICATIONS
+  Future<void> _toggleNotifications(bool value) async {
+    setState(() => _loadingNotifications = true);
+    
+    try {
+      if (value) {
+        // Check if permission is granted
+        final hasPermission = await NotificationService().hasPermission();
+        if (!hasPermission) {
+          // Request permission
+          final granted = await NotificationService().requestPermissionAgain();
+          if (!granted) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Notification permission denied. Please enable it in system settings.'),
+              ),
+            );
+            setState(() => _loadingNotifications = false);
+            return;
+          }
+        }
+        await NotificationService().enableNotifications();
+      } else {
+        await NotificationService().disableNotifications();
+      }
+      
+      if (mounted) {
+        setState(() {
+          notificationsEnabled = value;
+          _loadingNotifications = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error toggling notifications: $e')),
+        );
+        setState(() => _loadingNotifications = false);
+      }
+    }
   }
 
 Future<void> _deleteAccount() async {
@@ -175,10 +226,20 @@ Future<void> _deleteAccount() async {
                                 color: notificationsEnabled ? Colors.blue : Colors.grey,
                               ),
                               title: const Text('Notifications'),
-                              trailing: Switch.adaptive(
-                                value: notificationsEnabled,
-                                onChanged: _toggleNotifications,
+                              subtitle: const Text(
+                                'Receive push notifications',
+                                style: TextStyle(fontSize: 12),
                               ),
+                              trailing: _loadingNotifications
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Switch.adaptive(
+                                      value: notificationsEnabled,
+                                      onChanged: _toggleNotifications,
+                                    ),
                             ),
 
                             const Divider(),
