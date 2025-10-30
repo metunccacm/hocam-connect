@@ -161,41 +161,48 @@ class CreateSPostViewModel extends ChangeNotifier {
   /// createPost({required authorId, required content, required imagePaths}))
   /// Returns created postId on success.
   Future<String?> submit() async {
-    if (!canSubmit || isSubmitting) return null;
+  if (!canSubmit || isSubmitting) return null;
 
-    // (Optional) Validate mentions limited to friends
-    final names = extractMentionNames(contentCtrl.text);
-    if (!canMentionAllNames(names)) {
-      // Caller/UI can show a snackbar; we just prevent submit
-      return null;
-    }
-
-    isSubmitting = true;
-    notifyListeners();
-    try {
-      // Upload images to Supabase Storage, get public URLs
-      final urls = await _uploadImagesAndGetUrls();
-
-      // Create post through your SocialService API (matches your signature)
-      final post = await service.createPost(
-        authorId: meId,
-        content: contentCtrl.text.trim(),
-        imagePaths: urls,
-      );
-
-      // Clear composer state
-      contentCtrl.clear();
-      _images.clear();
-      notifyListeners();
-
-      return post.id; // convert Post -> String? for caller
-    } catch (e) {
-      rethrow;
-    } finally {
-      isSubmitting = false;
-      notifyListeners();
-    }
+  // Validate mentions (optional)
+  final names = extractMentionNames(contentCtrl.text);
+  if (!canMentionAllNames(names)) {
+    return null;
   }
+
+  isSubmitting = true;
+  notifyListeners();
+
+  try {
+    List<String> urls = [];
+
+    // Only upload if there are images
+    if (_images.isNotEmpty) {
+      urls = await _uploadImagesAndGetUrls();
+    }
+
+    // Create post through Supabase
+    final post = await service.createPost(
+      authorId: meId,
+      content: contentCtrl.text.trim(),
+      imagePaths: urls,
+    );
+
+    // Clear composer state
+    contentCtrl.clear();
+    _images.clear();
+    notifyListeners();
+
+    // Return the post ID string
+    return post.id;
+  } catch (e) {
+    print('Error creating post: $e');
+    rethrow;
+  } finally {
+    isSubmitting = false;
+    notifyListeners();
+  }
+}
+
 
   /* ========================
    * Helpers
