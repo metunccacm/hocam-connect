@@ -12,7 +12,7 @@ import '../viewmodel/social_viewmodel.dart';
 import 'bottombar_view.dart';
 import 'create_spost_view.dart';
 import 'spost_detail_view.dart';
-
+import 'notifications_view.dart';
 
 class SocialView extends StatelessWidget {
   const SocialView({super.key});
@@ -139,8 +139,13 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                     actions: [
                       IconButton(
                         tooltip: 'Notifications',
-                        onPressed: () => Navigator.pushNamed(context, '/notifications'),
-                        icon: const Icon(Icons.notifications_none_outlined),
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NotificationsView()),
+    );
+  },
+  icon: const Icon(Icons.notifications_none_outlined),
                       ),
                     ],
                     floating: true,
