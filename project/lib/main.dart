@@ -4,6 +4,7 @@ import 'package:project/view/forgot_password_view.dart';
 import 'package:project/view/recovery_code_view.dart';
 import 'package:project/view/reset_password_view.dart';
 import 'package:project/view/this_week_view.dart';
+import 'package:project/view/webmail_view.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -77,13 +78,17 @@ void main() async {
   await Hive.initFlutter();
   // Register adapters
   try {
-    if (!Hive.isAdapterRegistered(40)) Hive.registerAdapter(SocialUserAdapter());
+    if (!Hive.isAdapterRegistered(40))
+      Hive.registerAdapter(SocialUserAdapter());
     if (!Hive.isAdapterRegistered(41)) Hive.registerAdapter(PostAdapter());
     if (!Hive.isAdapterRegistered(42)) Hive.registerAdapter(CommentAdapter());
     if (!Hive.isAdapterRegistered(43)) Hive.registerAdapter(LikeAdapter());
-    if (!Hive.isAdapterRegistered(44)) Hive.registerAdapter(CommentLikeAdapter());
-    if (!Hive.isAdapterRegistered(45)) Hive.registerAdapter(FriendshipAdapter());
-    if (!Hive.isAdapterRegistered(46)) Hive.registerAdapter(FriendshipStatusAdapter());
+    if (!Hive.isAdapterRegistered(44))
+      Hive.registerAdapter(CommentLikeAdapter());
+    if (!Hive.isAdapterRegistered(45))
+      Hive.registerAdapter(FriendshipAdapter());
+    if (!Hive.isAdapterRegistered(46))
+      Hive.registerAdapter(FriendshipStatusAdapter());
   } catch (e) {
     print('Hive adapter registration error: $e');
   }
@@ -225,7 +230,8 @@ class MyApp extends StatelessWidget {
     return Consumer<ThemeController>(
       builder: (_, c, __) {
         return MaterialApp(
-          navigatorKey: navigatorKey, // keep your password recovery flow working
+          navigatorKey:
+              navigatorKey, // keep your password recovery flow working
           title: 'Hocam Connect',
           debugShowCheckedModeBanner: false,
           theme: _lightTheme(),
@@ -251,9 +257,13 @@ class MyApp extends StatelessWidget {
             '/gpa_calculator': (_) => const GpaCalculatorView(),
             '/forgot-password': (_) => const ForgotPasswordView(),
             '/twoc': (_) => const ThisWeekView(),
+            '/webmail': (_) => const WebmailView(),
             '/home': (ctx) {
-              final args = ModalRoute.of(ctx)?.settings.arguments as Map<String, dynamic>?;
-              final initialIndex = (args != null && args['initialIndex'] is int) ? args['initialIndex'] as int : 0;
+              final args = ModalRoute.of(ctx)?.settings.arguments
+                  as Map<String, dynamic>?;
+              final initialIndex = (args != null && args['initialIndex'] is int)
+                  ? args['initialIndex'] as int
+                  : 0;
               return MainTabView(initialIndex: initialIndex);
             },
             '/recovery-code': (_) => const RecoveryCodeView(),
@@ -262,11 +272,13 @@ class MyApp extends StatelessWidget {
             '/hitchike/create': (_) => const CreateHitchikeView(),
             '/social': (_) => const SocialView(),
             '/user-profile': (ctx) {
-              final args = ModalRoute.of(ctx)?.settings.arguments as Map<String, dynamic>?;
+              final args = ModalRoute.of(ctx)?.settings.arguments
+                  as Map<String, dynamic>?;
               final userId = args?['userId'] as String?;
               final repo = args?['repo'] as SocialRepository?;
               if (userId == null) {
-                return const Scaffold(body: Center(child: Text('Kullanıcı bulunamadı')));
+                return const Scaffold(
+                    body: Center(child: Text('Kullanıcı bulunamadı')));
               }
               final fallback = repo ?? LocalHiveSocialRepository();
               return UserProfileView(userId: userId, repository: fallback);

@@ -3,6 +3,7 @@ import 'package:project/widgets/custom_appbar.dart';
 import 'package:project/view/additem_view.dart';
 import 'package:project/view/category_view.dart';
 import 'package:project/view/product_detail_view.dart';
+import 'package:project/view/chat_list_view.dart';
 import 'package:provider/provider.dart';
 import 'package:project/viewmodel/marketplace_viewmodel.dart';
 import '../models/product.dart';
@@ -63,7 +64,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
   }
 
   // ——— THEME-AWARE SHIMMER HELPERS ———
-  Widget _shimmerRect({double borderRadius = 0, double? width, double? height}) {
+  Widget _shimmerRect(
+      {double borderRadius = 0, double? width, double? height}) {
     final cs = Theme.of(context).colorScheme;
     final base = cs.surfaceVariant.withOpacity(0.6);
     final highlight = cs.surfaceVariant.withOpacity(0.85);
@@ -118,18 +120,24 @@ class _MarketplaceViewState extends State<MarketplaceView> {
     final cs = theme.colorScheme;
     final onSurface = cs.onSurface;
 
+    // Check if we can pop (i.e., if there's a previous route)
+    final canPop = Navigator.of(context).canPop();
+
     return Scaffold(
       // ❗️Tema-tabanlı arka plan
       backgroundColor: cs.background,
       appBar: HCAppBar(
         automaticallyImplyLeading: false,
-        // ❗️AppBar’ı tema ile sür
+        // ❗️AppBar'ı tema ile sür
         backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
         elevation: 1,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: canPop
+            ? IconButton(
+                icon: Icon(Icons.arrow_back,
+                    color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         titleWidget: _isSearching
             ? TextField(
                 controller: _searchController,
@@ -141,7 +149,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                     color: onSurface.withOpacity(0.6),
                   ),
                 ),
-                style: theme.textTheme.bodyMedium?.copyWith(color: onSurface, fontSize: 16),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: onSurface, fontSize: 16),
               )
             : Text('Marketplace',
                 style: theme.textTheme.titleMedium?.copyWith(
@@ -152,7 +161,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
         actions: [
           if (_isSearching)
             IconButton(
-              icon: Icon(Icons.close, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+              icon: Icon(Icons.close,
+                  color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
               onPressed: _toggleSearch,
             )
           else ...[
@@ -179,13 +189,29 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               },
             ),
             IconButton(
-              icon: Icon(Icons.search, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+              icon: Icon(Icons.search,
+                  color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
               onPressed: _toggleSearch,
             ),
             IconButton(
-              icon: Icon(Icons.add, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+              icon: Icon(Icons.chat_bubble_outline,
+                  color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+              tooltip: 'Chats',
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const AddItemView()));
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const ChatListView()));
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.add,
+                  color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+              onPressed: () {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const AddItemView()));
               },
             ),
           ]
@@ -225,7 +251,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                         Center(
                           child: Text(
                             'No products found.',
-                            style: theme.textTheme.bodyMedium?.copyWith(color: onSurface.withOpacity(0.8)),
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(color: onSurface.withOpacity(0.8)),
                           ),
                         ),
                       ],
@@ -241,7 +268,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     itemCount: viewModel.groupedProducts.keys.length,
                     itemBuilder: (context, index) {
-                      final category = viewModel.groupedProducts.keys.elementAt(index);
+                      final category =
+                          viewModel.groupedProducts.keys.elementAt(index);
                       final products = viewModel.groupedProducts[category]!;
                       return _buildCategorySection(category, products);
                     },
@@ -261,8 +289,9 @@ class _MarketplaceViewState extends State<MarketplaceView> {
     final onSurface = cs.onSurface;
     final onSurfaceVariant = cs.onSurfaceVariant;
 
-    final coverOrPlaceholder = (List<String> urls) =>
-        urls.isNotEmpty ? urls.first : 'https://via.placeholder.com/400x300?text=No+Image';
+    final coverOrPlaceholder = (List<String> urls) => urls.isNotEmpty
+        ? urls.first
+        : 'https://via.placeholder.com/400x300?text=No+Image';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,12 +347,14 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => ProductDetailView(product: p)),
+                      MaterialPageRoute(
+                          builder: (context) => ProductDetailView(product: p)),
                     );
                   },
                   child: Card(
                     clipBehavior: Clip.antiAlias,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     elevation: 2,
                     margin: const EdgeInsets.all(4),
                     child: Column(
@@ -332,13 +363,15 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                         // Görsel
                         Expanded(
                           child: Container(
-                            color: cs.surfaceVariant, // ❗️tema uyumlu placeholder arka plan
+                            color: cs
+                                .surfaceVariant, // ❗️tema uyumlu placeholder arka plan
                             child: CachedNetworkImage(
                               imageUrl: cover,
                               cacheManager: _MarketplaceViewState._cacheManager,
                               fit: BoxFit.cover,
                               width: double.infinity,
-                              placeholder: (context, url) => _shimmerRect(borderRadius: 0),
+                              placeholder: (context, url) =>
+                                  _shimmerRect(borderRadius: 0),
                               errorWidget: (_, __, ___) => Center(
                                 child: Icon(
                                   Icons.image_not_supported_outlined,
@@ -356,7 +389,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                             p.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(color: onSurface),
                           ),
                         ),
                         // Fiyat
@@ -379,20 +413,25 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                                 ClipOval(
                                   child: CachedNetworkImage(
                                     imageUrl: p.sellerImageUrl,
-                                    cacheManager: _MarketplaceViewState._cacheManager,
+                                    cacheManager:
+                                        _MarketplaceViewState._cacheManager,
                                     width: 24,
                                     height: 24,
                                     fit: BoxFit.cover,
-                                    placeholder: (_, __) => _shimmerCircle(size: 24),
-                                    errorWidget: (_, __, ___) =>
-                                        Icon(Icons.person, size: 18, color: onSurfaceVariant),
+                                    placeholder: (_, __) =>
+                                        _shimmerCircle(size: 24),
+                                    errorWidget: (_, __, ___) => Icon(
+                                        Icons.person,
+                                        size: 18,
+                                        color: onSurfaceVariant),
                                   ),
                                 )
                               else
                                 CircleAvatar(
                                   radius: 12,
                                   backgroundColor: cs.surfaceVariant,
-                                  child: Icon(Icons.person, size: 14, color: onSurfaceVariant),
+                                  child: Icon(Icons.person,
+                                      size: 14, color: onSurfaceVariant),
                                 ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -433,7 +472,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               TextButton.icon(
                 style: TextButton.styleFrom(
                   foregroundColor: cs.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0)),
                 ),
                 onPressed: () => _showFilterDialog(viewModel),
                 icon: const Icon(Icons.filter_list, size: 20),
@@ -442,7 +482,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               TextButton.icon(
                 style: TextButton.styleFrom(
                   foregroundColor: cs.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0)),
                 ),
                 onPressed: () => _showSortDialog(viewModel),
                 icon: const Icon(Icons.sort, size: 20),
@@ -469,7 +510,10 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                 value: SortOption.newest,
                 groupValue: viewModel.currentSortOption,
                 onChanged: (v) {
-                  if (v != null) { viewModel.sortProducts(v); Navigator.pop(dialogContext); }
+                  if (v != null) {
+                    viewModel.sortProducts(v);
+                    Navigator.pop(dialogContext);
+                  }
                 },
               ),
               RadioListTile<SortOption>(
@@ -477,7 +521,10 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                 value: SortOption.priceAsc,
                 groupValue: viewModel.currentSortOption,
                 onChanged: (v) {
-                  if (v != null) { viewModel.sortProducts(v); Navigator.pop(dialogContext); }
+                  if (v != null) {
+                    viewModel.sortProducts(v);
+                    Navigator.pop(dialogContext);
+                  }
                 },
               ),
               RadioListTile<SortOption>(
@@ -485,7 +532,10 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                 value: SortOption.priceDesc,
                 groupValue: viewModel.currentSortOption,
                 onChanged: (v) {
-                  if (v != null) { viewModel.sortProducts(v); Navigator.pop(dialogContext); }
+                  if (v != null) {
+                    viewModel.sortProducts(v);
+                    Navigator.pop(dialogContext);
+                  }
                 },
               ),
             ],
@@ -627,7 +677,8 @@ class MyItemsView extends StatelessWidget {
       context: context,
       builder: (_) => const AlertDialog(
         title: Text('Mark as sold?'),
-        content: Text('This will remove the product and its images permanently.'),
+        content:
+            Text('This will remove the product and its images permanently.'),
       ),
     );
     if (ok != true) return;
@@ -638,7 +689,8 @@ class MyItemsView extends StatelessWidget {
     try {
       await _deleteProductEverywhere(p);
       await vm.refreshProducts();
-      messenger.showSnackBar(const SnackBar(content: Text('Listing marked as sold.')));
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Listing marked as sold.')));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
@@ -728,7 +780,8 @@ class MyItemsView extends StatelessWidget {
                   Center(
                     child: Text(
                       "You don't have any posts yet.",
-                      style: theme.textTheme.bodyMedium?.copyWith(color: onSurface.withOpacity(0.8)),
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: onSurface.withOpacity(0.8)),
                     ),
                   ),
                 ],
@@ -749,7 +802,8 @@ class MyItemsView extends StatelessWidget {
                 final cover = p.imageUrls.isNotEmpty
                     ? p.imageUrls.first
                     : 'https://via.placeholder.com/400x300?text=No+Image';
-                final price = '${p.currency == 'TL' ? '₺' : p.currency == 'USD' ? '\$' : '€'}${p.price.toStringAsFixed(2)}';
+                final price =
+                    '${p.currency == 'TL' ? '₺' : p.currency == 'USD' ? '\$' : '€'}${p.price.toStringAsFixed(2)}';
 
                 return Slidable(
                   key: ValueKey('myitem_${p.id}'),
@@ -778,14 +832,16 @@ class MyItemsView extends StatelessWidget {
                   ),
                   child: Card(
                     clipBehavior: Clip.antiAlias,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     margin: const EdgeInsets.symmetric(vertical: 6),
                     elevation: 2,
                     child: InkWell(
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => ProductDetailView(product: p)),
+                          MaterialPageRoute(
+                              builder: (_) => ProductDetailView(product: p)),
                         );
                       },
                       child: SizedBox(
@@ -800,14 +856,17 @@ class MyItemsView extends StatelessWidget {
                                 fit: BoxFit.cover,
                                 placeholder: (_, __) => _shimmerRect(context),
                                 errorWidget: (_, __, ___) => Center(
-                                  child: Icon(Icons.image_not_supported_outlined, color: onSurfaceVariant),
+                                  child: Icon(
+                                      Icons.image_not_supported_outlined,
+                                      color: onSurfaceVariant),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 10, horizontal: 4),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -815,7 +874,8 @@ class MyItemsView extends StatelessWidget {
                                       p.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
                                         fontWeight: FontWeight.w600,
                                         color: onSurface,
                                       ),
@@ -823,7 +883,8 @@ class MyItemsView extends StatelessWidget {
                                     const SizedBox(height: 4),
                                     Text(
                                       price,
-                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
                                         fontWeight: FontWeight.bold,
                                         color: onSurface,
                                       ),
@@ -831,7 +892,8 @@ class MyItemsView extends StatelessWidget {
                                     const Spacer(),
                                     Text(
                                       p.category,
-                                      style: theme.textTheme.labelSmall?.copyWith(color: onSurfaceVariant),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(color: onSurfaceVariant),
                                     ),
                                   ],
                                 ),

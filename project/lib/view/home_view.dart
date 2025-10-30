@@ -8,8 +8,7 @@ import 'package:project/widgets/custom_appbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/chat_service.dart';
-// import 'chat_view.dart';
-// import 'chat_list_view.dart';
+import 'chat_list_view.dart';
 import 'profile_view.dart';
 
 class HomeView extends StatefulWidget {
@@ -35,6 +34,12 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  void _openChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ChatListView()),
+    );
+  }
+
   // The tile widget helper
   Widget tile({
     required IconData icon,
@@ -43,7 +48,7 @@ class _HomeViewState extends State<HomeView> {
     required VoidCallback onTap,
   }) {
     // Fixed size so they pack like a flexbox
-    const double tileSize = 96; 
+    const double tileSize = 96;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -88,7 +93,7 @@ class _HomeViewState extends State<HomeView> {
       ),
     );
   }
-  
+
   // The route opening helper
   Object? _openOrSnack(String routeName) {
     // Avoid crashing if the route doesn't exist yet
@@ -119,16 +124,18 @@ class _HomeViewState extends State<HomeView> {
   }
 
   // Logic for the confirmation dialog and launch
-  Future<void> _showConfirmationDialogAndLaunch(String url, {String? displayName}) async {
+  Future<void> _showConfirmationDialogAndLaunch(String url,
+      {String? displayName}) async {
     final bool isInternalRoute = url.startsWith('/');
     final String displayUrl = displayName ?? (isInternalRoute ? url : url);
-    
+
     final bool? shouldLaunch = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Leave Hocam Connect?'),
-          content: Text('You are about to navigate to $displayUrl. Do you want to continue?'),
+          content: Text(
+              'You are about to navigate to $displayUrl. Do you want to continue?'),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false), // Cancel
@@ -145,7 +152,7 @@ class _HomeViewState extends State<HomeView> {
 
     if (shouldLaunch == true) {
       if (isInternalRoute) {
-         _openOrSnack(url);
+        _openOrSnack(url);
       } else {
         final uri = Uri.parse(url);
         try {
@@ -174,6 +181,11 @@ class _HomeViewState extends State<HomeView> {
         title: 'Home Screen',
         actions: [
           IconButton(
+            icon: const Icon(Icons.chat_bubble_outline),
+            tooltip: 'Chats',
+            onPressed: _openChat,
+          ),
+          IconButton(
             icon: const Icon(Icons.account_box),
             tooltip: 'Profile',
             onPressed: _openProfile,
@@ -193,36 +205,41 @@ class _HomeViewState extends State<HomeView> {
 
   // The _quickActions function now only focuses on building the layout
   List<Widget> _quickActions(BuildContext context) {
-    
     // --- 1. INTERNAL APP FEATURES ---
     List<Widget> internalActions = [
       tile(
         icon: Icons.book,
         label: 'Handbook',
         gradient: const [Color(0xFF11998E), Color(0xFF38EF7D)],
-        onTap: () => Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const StudentHandbookEngView())),
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const StudentHandbookEngView())),
       ),
       tile(
         icon: Icons.calculate,
         label: 'GPA Calc',
-        gradient: const [Color.fromARGB(255, 231, 83, 14), Color.fromARGB(255, 21, 105, 145)],
+        gradient: const [
+          Color.fromARGB(255, 231, 83, 14),
+          Color.fromARGB(255, 21, 105, 145)
+        ],
         onTap: () => Navigator.of(context)
             .push(MaterialPageRoute(builder: (_) => const GpaCalculatorView())),
       ),
       tile(
         icon: Icons.storefront,
         label: 'Marketplace',
-        gradient: const [Color.fromARGB(255, 6, 153, 222), Color.fromARGB(255, 0, 133, 195)],
-        onTap: () => Navigator.of(context)
-            .pushReplacement(MaterialPageRoute(builder: (_) => const MarketplaceView())),
+        gradient: const [
+          Color.fromARGB(255, 6, 153, 222),
+          Color.fromARGB(255, 0, 133, 195)
+        ],
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const MarketplaceView())),
       ),
       tile(
         icon: Icons.directions_car,
         label: 'Hitchhike',
         gradient: const [Color.fromARGB(255, 49, 255, 145), Color(0xFFF09819)],
-        onTap: () => Navigator.of(context)
-            .pushReplacement(MaterialPageRoute(builder: (_) => const HitchikeView())),
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const HitchikeView())),
       ),
       tile(
         icon: Icons.restaurant_menu_rounded,
@@ -247,22 +264,31 @@ class _HomeViewState extends State<HomeView> {
     // --- 2. EXTERNAL LINK ACTIONS (Using confirmation dialog) ---
     List<Widget> externalActions = [
       tile(
+        icon: Icons.email_outlined,
+        label: 'Webmail',
+        gradient: const [Color(0xFFFF6B6B), Color(0xFFFFE66D)],
+        onTap: () => _openOrSnack('/webmail'),
+      ),
+      tile(
         icon: Icons.calendar_today_rounded,
         label: 'CET',
         gradient: const [Color(0xFF614385), Color(0xFF516395)],
-        onTap: () => _showConfirmationDialogAndLaunch('https://cet.ncc.metu.edu.tr/'),
+        onTap: () =>
+            _showConfirmationDialogAndLaunch('https://cet.ncc.metu.edu.tr/'),
       ),
       tile(
         icon: Icons.private_connectivity_outlined,
         label: 'Intranet',
         gradient: const [Color(0xFFFC5C7D), Color(0xFF6A82FB)],
-        onTap: () => _showConfirmationDialogAndLaunch('https://intranet.ncc.metu.edu.tr/'),
+        onTap: () => _showConfirmationDialogAndLaunch(
+            'https://intranet.ncc.metu.edu.tr/'),
       ),
       tile(
         icon: Icons.school,
         label: 'ODTUCLASS',
         gradient: const [Color(0xFF00C6FF), Color(0xFF0072FF)],
-        onTap: () => _showConfirmationDialogAndLaunch('https://odtuclass2025f.metu.edu.tr/'),
+        onTap: () => _showConfirmationDialogAndLaunch(
+            'https://odtuclass2025f.metu.edu.tr/'),
       ),
     ];
 
@@ -276,17 +302,17 @@ class _HomeViewState extends State<HomeView> {
           children: internalActions,
         ),
       ),
-      
+
       // Separator and Header
       const SizedBox(height: 24),
       _buildHeader('External Links'),
-      
-      Center( 
+
+      Center(
         child: Wrap(
           spacing: 12,
           runSpacing: 12,
           children: externalActions,
-        ), 
+        ),
       ),
     ];
   }
