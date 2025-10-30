@@ -1,4 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/social_user.dart';
@@ -57,13 +58,88 @@ class LocalHiveSocialRepository implements SocialRepository {
 
   @override
   Future<SocialUser?> getUser(String userId) async {
-    return _users.get(userId);
+    final local = _users.get(userId);
+    if (local != null) return local;
+
+    // Try to fetch from Supabase profiles table as a fallback and cache locally
+    try {
+      final supa = Supabase.instance.client;
+      final row = await supa.from('profiles').select('id, display_name, full_name, username, avatar_url, email').eq('id', userId).maybeSingle();
+      if (row != null) {
+        final map = Map<String, dynamic>.from(row as Map);
+        final nameCandidates = [
+          (map['display_name'] as String?)?.trim(),
+          (map['full_name'] as String?)?.trim(),
+          (map['username'] as String?)?.trim(),
+          (map['email'] as String?)?.trim(),
+        ];
+        String displayName = 'Kullanıcı';
+        for (final c in nameCandidates) {
+          if (c != null && c.isNotEmpty) {
+            if (c.contains('@')) {
+              displayName = c.split('@').first;
+            } else {
+              displayName = c;
+            }
+            break;
+          }
+        }
+
+        final avatar = (map['avatar_url'] as String?);
+        final user = SocialUser(id: userId, displayName: displayName, avatarUrl: avatar);
+        await upsertUser(user);
+        return user;
+      }
+    } catch (_) {
+      // ignore network errors and return null so caller can fallback
+    }
+    return null;
   }
 
   @override
   Future<List<SocialUser>> getUsersByIds(List<String> userIds) async {
     final set = userIds.toSet();
-    return _users.values.where((u) => set.contains(u.id)).toList();
+    final found = _users.values.where((u) => set.contains(u.id)).toList();
+    final foundIds = found.map((u) => u.id).toSet();
+    final missing = set.difference(foundIds).toList();
+
+    if (missing.isEmpty) return found;
+
+    try {
+      final supa = Supabase.instance.client;
+  final rows = await supa.from('profiles').select('id, display_name, full_name, username, avatar_url, email').inFilter('id', missing);
+  if ((rows as List).isNotEmpty) {
+        for (final r in rows) {
+          final map = Map<String, dynamic>.from(r as Map);
+          final id = map['id'] as String;
+          final nameCandidates = [
+            (map['display_name'] as String?)?.trim(),
+            (map['full_name'] as String?)?.trim(),
+            (map['username'] as String?)?.trim(),
+            (map['email'] as String?)?.trim(),
+          ];
+          String displayName = 'Kullanıcı';
+          for (final c in nameCandidates) {
+            if (c != null && c.isNotEmpty) {
+              if (c.contains('@')) {
+                displayName = c.split('@').first;
+              } else {
+                displayName = c;
+              }
+              break;
+            }
+          }
+          final avatar = (map['avatar_url'] as String?);
+          final user = SocialUser(id: id, displayName: displayName, avatarUrl: avatar);
+          await upsertUser(user);
+          found.add(user);
+        }
+      }
+    } catch (_) {
+      // ignore
+    }
+
+    return found;
   }
 
   @override

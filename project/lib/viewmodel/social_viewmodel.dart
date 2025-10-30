@@ -4,11 +4,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/social_models.dart';
 import '../models/social_user.dart';
 import '../services/social_repository.dart';
+import '../services/social_service.dart'; // ✅ add this import
 
 enum SocialTab { explore, friends }
 
 class SocialViewModel extends ChangeNotifier {
   final SocialRepository repository;
+  final SocialService service; // ✅ added service dependency
+
   final TextEditingController composerController = TextEditingController();
   final List<String> pendingImagePaths = [];
 
@@ -24,94 +27,196 @@ class SocialViewModel extends ChangeNotifier {
   final Set<String> _likedByMe = {};
   final Map<String, int> _commentLikeCounts = {};
   final Set<String> _commentLikedByMe = {};
-  final Map<String, String> _userNames = {}; // cache id -> displayName
-  final Map<String, SocialUser> _friends = {}; // id -> user (friends only)
+  final Map<String, String> _userNames = {};
+  final Map<String, SocialUser> _friends = {};
 
-  SocialViewModel({required this.repository});
+  SocialViewModel({
+    required this.repository,
+    required this.service, // ✅ new parameter
+  });
+
+
+  // Hashtag suggestion cache (prefetched from Supabase)
+  // Ordered: most recent first, then most used.
+  // Each item is a tuple-like map: {tag, lastUsed, count}
+  List<({String tag, DateTime lastUsed, int count})> _hashtagIndex = [];
+
+ 
 
   String get meId => Supabase.instance.client.auth.currentUser?.id ?? 'me-local';
+  final _supa = Supabase.instance.client;
 
   Future<void> load() async {
     isLoading = true;
     notifyListeners();
     try {
-      // ensure current user exists in local store for display
+      // Ensure current user exists & has a human-readable name
       final me = await repository.getUser(meId);
       if (me == null) {
-        // Try to use Supabase username/email prefix as default display name
-        final email = Supabase.instance.client.auth.currentUser?.email;
-        final fallback = (email != null && email.isNotEmpty) ? email.split('@').first : 'Kullanıcı';
-        await repository.upsertUser(SocialUser(id: meId, displayName: fallback));
-      } else if (me.displayName.isEmpty || me.displayName == 'Kullanıcı') {
-        // Update existing user with proper display name if missing
-        final email = Supabase.instance.client.auth.currentUser?.email;
-        final fallback = (email != null && email.isNotEmpty) ? email.split('@').first : 'Kullanıcı';
-        await repository.upsertUser(SocialUser(id: meId, displayName: fallback, avatarUrl: me.avatarUrl));
+        // Prefer profiles.name + surname; fallback to email prefix; final fallback "User"
+        try {
+          final prof = await _supa
+              .from('profiles')
+              .select('name, surname, display_name, full_name, username, email, avatar_url')
+              .eq('id', meId)
+              .maybeSingle();
+
+          String display = 'User';
+          if (prof != null) {
+            final map = Map<String, dynamic>.from(prof as Map);
+            final name = (map['name'] as String?)?.trim();
+            final surname = (map['surname'] as String?)?.trim();
+            final displayName = (map['display_name'] as String?)?.trim();
+            final fullName = (map['full_name'] as String?)?.trim();
+            final username = (map['username'] as String?)?.trim();
+            final email = (map['email'] as String?)?.trim();
+
+            display = _pickName(
+              name: name,
+              surname: surname,
+              displayName: displayName,
+              fullName: fullName,
+              username: username,
+              email: email,
+            );
+            final avatar = (map['avatar_url'] as String?);
+            await repository.upsertUser(SocialUser(id: meId, displayName: display, avatarUrl: avatar));
+          } else {
+            final email = _supa.auth.currentUser?.email;
+            final fb = (email != null && email.isNotEmpty) ? email.split('@').first : 'User';
+            await repository.upsertUser(SocialUser(id: meId, displayName: fb));
+          }
+        } catch (_) {
+          final email = _supa.auth.currentUser?.email;
+          final fb = (email != null && email.isNotEmpty) ? email.split('@').first : 'User';
+          await repository.upsertUser(SocialUser(id: meId, displayName: fb));
+        }
+      } else {
+        // If cached name was placeholder, refresh it from profiles
+        if (me.displayName.isEmpty || me.displayName == 'User' || me.displayName == 'Kullanıcı') {
+          try {
+            final prof = await _supa
+                .from('profiles')
+                .select('name, surname, display_name, full_name, username, email, avatar_url')
+                .eq('id', meId)
+                .maybeSingle();
+            if (prof != null) {
+              final map = Map<String, dynamic>.from(prof as Map);
+              final name = (map['name'] as String?)?.trim();
+              final surname = (map['surname'] as String?)?.trim();
+              final displayName = (map['display_name'] as String?)?.trim();
+              final fullName = (map['full_name'] as String?)?.trim();
+              final username = (map['username'] as String?)?.trim();
+              final email = (map['email'] as String?)?.trim();
+              final avatar = (map['avatar_url'] as String?);
+
+              final display = _pickName(
+                name: name,
+                surname: surname,
+                displayName: displayName,
+                fullName: fullName,
+                username: username,
+                email: email,
+              );
+              await repository.upsertUser(SocialUser(id: meId, displayName: display, avatarUrl: avatar ?? me.avatarUrl));
+            }
+          } catch (_) {/* ignore */}
+        }
       }
 
+      // Load feed
       feed = currentTab == SocialTab.explore
           ? await repository.listExplore()
           : await repository.listFriendsFeed(meId);
 
-      // refresh counts and like state
+      // Refresh counts and like state
       _likeCounts.clear();
       _commentCounts.clear();
       _likedByMe.clear();
       _commentLikeCounts.clear();
       _commentLikedByMe.clear();
       _userNames.clear();
+
       for (final p in feed) {
         final likes = await repository.getLikes(p.id);
         _likeCounts[p.id] = likes.length;
         if (likes.any((l) => l.userId == meId)) {
           _likedByMe.add(p.id);
         }
+
         final comments = await repository.getComments(p.id);
         _commentCounts[p.id] = comments.length;
 
-        // load comment likes
-        for (final comment in comments) {
-          final commentLikes = await repository.getCommentLikes(comment.id);
-          _commentLikeCounts[comment.id] = commentLikes.length;
-          if (commentLikes.any((l) => l.userId == meId)) {
-            _commentLikedByMe.add(comment.id);
+        // comment likes for top-level + replies
+        for (final c in comments) {
+          final cl = await repository.getCommentLikes(c.id);
+          _commentLikeCounts[c.id] = cl.length;
+          if (cl.any((l) => l.userId == meId)) {
+            _commentLikedByMe.add(c.id);
           }
-          
-          // load reply likes
-          final replies = await repository.getReplies(comment.id);
-          for (final reply in replies) {
-            final replyLikes = await repository.getCommentLikes(reply.id);
-            _commentLikeCounts[reply.id] = replyLikes.length;
-            if (replyLikes.any((l) => l.userId == meId)) {
-              _commentLikedByMe.add(reply.id);
+
+          final replies = await repository.getReplies(c.id);
+          for (final r in replies) {
+            final rl = await repository.getCommentLikes(r.id);
+            _commentLikeCounts[r.id] = rl.length;
+            if (rl.any((l) => l.userId == meId)) {
+              _commentLikedByMe.add(r.id);
             }
           }
         }
 
-        // cache author name
-        _userNames[p.authorId] = (await repository.getUser(p.authorId))?.displayName ?? 'Kullanıcı';
-        // cache commenters' names (first one enough for feed)
+        // Cache names
+        _userNames[p.authorId] = (await repository.getUser(p.authorId))?.displayName ?? 'User';
         if (comments.isNotEmpty) {
           final first = comments.first;
-          _userNames[first.authorId] = (await repository.getUser(first.authorId))?.displayName ?? 'Kullanıcı';
+          _userNames[first.authorId] =
+              (await repository.getUser(first.authorId))?.displayName ?? 'User';
         }
       }
 
-      // load friends list
+      // Load friends (for @mention suggestions)
       final friendIds = await repository.listFriendIds(meId);
       final friendUsers = await repository.getUsersByIds(friendIds);
       _friends
         ..clear()
         ..addEntries(friendUsers.map((u) => MapEntry(u.id, u)));
 
-      // cache current user's name
+      // Cache my name
       final currentUser = await repository.getUser(meId);
       if (currentUser != null) {
         _userNames[meId] = currentUser.displayName;
       }
+
+      // Prefetch hashtags from Supabase to support synchronous suggestions
+      await _prefetchHashtags();
     } finally {
       isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _prefetchHashtags() async {
+    try {
+      final rows = await _supa
+          .from('hashtags')
+          .select('name, usage_count, last_used_at')
+          .order('last_used_at', ascending: false)
+          .order('usage_count', ascending: false)
+          .limit(100);
+
+      final list = <({String tag, DateTime lastUsed, int count})>[];
+      for (final r in (rows as List)) {
+        final m = Map<String, dynamic>.from(r as Map);
+        final name = (m['name'] as String).trim();
+        final count = (m['usage_count'] as int?) ?? 0;
+        final luRaw = m['last_used_at'];
+        final lastUsed = (luRaw is String) ? DateTime.tryParse(luRaw) ?? DateTime.fromMillisecondsSinceEpoch(0) : DateTime.fromMillisecondsSinceEpoch(0);
+        list.add((tag: name, lastUsed: lastUsed, count: count));
+      }
+      _hashtagIndex = list;
+    } catch (_) {
+      // If Supabase is not available for any reason, keep whatever we had.
+      // UI will still work with previous cache or empty suggestions.
     }
   }
 
@@ -125,10 +230,15 @@ class SocialViewModel extends ChangeNotifier {
     if (isPosting) return;
     final text = composerController.text.trim();
     if (text.isEmpty && pendingImagePaths.isEmpty) return;
+
     isPosting = true;
     notifyListeners();
     try {
-      await repository.createPost(authorId: meId, content: text, imagePaths: List.of(pendingImagePaths));
+      await repository.createPost(
+        authorId: meId,
+        content: text,
+        imagePaths: List.of(pendingImagePaths),
+      );
       composerController.clear();
       pendingImagePaths.clear();
       await load();
@@ -139,7 +249,6 @@ class SocialViewModel extends ChangeNotifier {
   }
 
   Future<void> toggleLike(Post post) async {
-    // optimistic toggle
     final wasLiked = _likedByMe.contains(post.id);
     if (wasLiked) {
       _likedByMe.remove(post.id);
@@ -148,7 +257,6 @@ class SocialViewModel extends ChangeNotifier {
       try {
         await repository.unlikePost(postId: post.id, userId: meId);
       } catch (_) {
-        // rollback
         _likedByMe.add(post.id);
         _likeCounts.update(post.id, (v) => v + 1, ifAbsent: () => 1);
         notifyListeners();
@@ -160,7 +268,6 @@ class SocialViewModel extends ChangeNotifier {
       try {
         await repository.likePost(postId: post.id, userId: meId);
       } catch (_) {
-        // rollback
         _likedByMe.remove(post.id);
         _likeCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
         notifyListeners();
@@ -171,13 +278,12 @@ class SocialViewModel extends ChangeNotifier {
   Future<void> addComment(Post post, String content) async {
     final text = content.trim();
     if (text.isEmpty) return;
-    // optimistic increment
+
     _commentCounts.update(post.id, (v) => v + 1, ifAbsent: () => 1);
     notifyListeners();
     try {
       await repository.addComment(postId: post.id, authorId: meId, content: text);
     } catch (_) {
-      // rollback
       _commentCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
       notifyListeners();
     }
@@ -186,10 +292,16 @@ class SocialViewModel extends ChangeNotifier {
   Future<void> addReply(Comment parent, String content) async {
     final text = content.trim();
     if (text.isEmpty) return;
+
     _commentCounts.update(parent.postId, (v) => v + 1, ifAbsent: () => 1);
     notifyListeners();
     try {
-      await repository.addReply(postId: parent.postId, parentCommentId: parent.id, authorId: meId, content: text);
+      await repository.addReply(
+        postId: parent.postId,
+        parentCommentId: parent.id,
+        authorId: meId,
+        content: text,
+      );
     } catch (_) {
       _commentCounts.update(parent.postId, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
       notifyListeners();
@@ -198,25 +310,27 @@ class SocialViewModel extends ChangeNotifier {
 
   Future<List<SocialUser>> mentionSuggestions(String query) {
     final q = query.toLowerCase();
-    return Future.value(_friends.values
-        .where((u) => u.displayName.toLowerCase().contains(q))
-        .take(10)
-        .toList());
+    return Future.value(
+      _friends.values.where((u) => u.displayName.toLowerCase().contains(q)).take(10).toList(),
+    );
   }
 
+  // Synchronous hashtag suggestions from prefetched index
+  // Requirement: show most current first, most used first.
   List<String> hashtagSuggestions(String query) {
     final q = query.toLowerCase();
-    // naive: derive from recent posts' hashtags
-    final Set<String> tags = {};
-    final regex = RegExp(r'#([A-Za-z0-9_ğüşöçıİĞÜŞÖÇ]+)');
-    for (final p in feed.take(100)) {
-      for (final m in regex.allMatches(p.content)) {
-        final tag = m.group(1)!.toLowerCase();
-        if (tag.contains(q)) tags.add(tag);
-      }
-    }
-    final list = tags.toList()..sort();
-    return list.take(10).toList();
+    if (q.isEmpty || _hashtagIndex.isEmpty) return const <String>[];
+
+    final filtered = _hashtagIndex
+        .where((e) => e.tag.toLowerCase().startsWith(q))
+        .toList()
+      ..sort((a, b) {
+        final cmpTime = b.lastUsed.compareTo(a.lastUsed); // newer first
+        if (cmpTime != 0) return cmpTime;
+        return b.count.compareTo(a.count); // more used first
+      });
+
+    return filtered.take(10).map((e) => e.tag).toList();
   }
 
   void reorderPendingImages(int from, int to) {
@@ -231,12 +345,10 @@ class SocialViewModel extends ChangeNotifier {
 
   bool canMentionAllNames(Iterable<String> names) {
     final friendNames = _friends.values.map((u) => u.displayName).toSet();
-    final myName = _userNames[meId] ?? 'Kullanıcı';
-    
+    final myName = _userNames[meId] ?? 'User';
+
     for (final n in names) {
-      // Kendinizi mention etmeye izin ver
-      if (n == myName) continue;
-      // Arkadaşları mention etmeye izin ver
+      if (n == myName) continue; // allow self mention
       if (!friendNames.contains(n)) return false;
     }
     return true;
@@ -254,8 +366,13 @@ class SocialViewModel extends ChangeNotifier {
 
   int likeCount(String postId) => _likeCounts[postId] ?? 0;
   int commentCount(String postId) => _commentCounts[postId] ?? 0;
+  bool isLikedByMePost(String postId) => _likedByMe.contains(postId);
+
+  // Backward-compat helpers used in some views
   bool isLikedByMe(String postId) => _likedByMe.contains(postId);
-  String userName(String userId) => _userNames[userId] ?? 'Kullanıcı';
+
+  String userName(String userId) => _userNames[userId] ?? 'User';
+
   String compactCount(int n) {
     if (n >= 1000000) {
       final v = (n / 1000000);
@@ -267,19 +384,20 @@ class SocialViewModel extends ChangeNotifier {
     }
     return n.toString();
   }
+
   String timeAgo(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inSeconds < 60) return 'az önce';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} dk';
-    if (diff.inHours < 24) return '${diff.inHours} sa';
-    if (diff.inDays < 7) return '${diff.inDays} gün';
+    if (diff.inSeconds < 60) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays}d';
     final weeks = (diff.inDays / 7).floor();
-    if (weeks < 5) return '$weeks hf';
+    if (weeks < 5) return '${weeks}w';
     final months = (diff.inDays / 30).floor();
-    if (months < 12) return '$months ay';
+    if (months < 12) return '${months}mo';
     final years = (diff.inDays / 365).floor();
-    return '$years y';
+    return '${years}y';
   }
 
   Future<List<SocialUser>> likers(String postId) async {
@@ -292,47 +410,37 @@ class SocialViewModel extends ChangeNotifier {
     return users;
   }
 
-  int commentLikeCount(String commentId) => _commentLikeCounts[commentId] ?? 0;
-  bool isCommentLikedByMe(String commentId) => _commentLikedByMe.contains(commentId);
+  int commentLikeCountLocal(String commentId) => _commentLikeCounts[commentId] ?? 0;
+  bool isCommentLikedByMeLocal(String commentId) => _commentLikedByMe.contains(commentId);
 
   Future<void> toggleCommentLike(String commentId) async {
-    print('toggleCommentLike called for: $commentId');
     final isLiked = _commentLikedByMe.contains(commentId);
     final currentCount = _commentLikeCounts[commentId] ?? 0;
-    
-    print('Current state - isLiked: $isLiked, count: $currentCount');
-    
-    // Optimistic update
+
+    // Optimistic
     if (isLiked) {
       _commentLikedByMe.remove(commentId);
-      _commentLikeCounts[commentId] = (currentCount - 1).clamp(0, double.infinity).toInt();
+      _commentLikeCounts[commentId] = (currentCount - 1).clamp(0, 1 << 30);
+      notifyListeners();
+      try {
+        await repository.unlikeComment(commentId: commentId, userId: meId);
+      } catch (_) {
+        // rollback
+        _commentLikedByMe.add(commentId);
+        _commentLikeCounts[commentId] = currentCount;
+        notifyListeners();
+      }
     } else {
       _commentLikedByMe.add(commentId);
       _commentLikeCounts[commentId] = currentCount + 1;
-    }
-    print('After optimistic update - isLiked: ${_commentLikedByMe.contains(commentId)}, count: ${_commentLikeCounts[commentId]}');
-    notifyListeners();
-    
-    try {
-      if (isLiked) {
-        print('Calling unlikeComment...');
-        await repository.unlikeComment(commentId: commentId, userId: meId);
-      } else {
-        print('Calling likeComment...');
+      notifyListeners();
+      try {
         await repository.likeComment(commentId: commentId, userId: meId);
-      }
-      print('Repository call successful');
-    } catch (e) {
-      print('Repository call failed: $e');
-      // Rollback on error
-      if (isLiked) {
-        _commentLikedByMe.add(commentId);
-        _commentLikeCounts[commentId] = currentCount;
-      } else {
+      } catch (_) {
         _commentLikedByMe.remove(commentId);
         _commentLikeCounts[commentId] = currentCount;
+        notifyListeners();
       }
-      notifyListeners();
     }
   }
 
@@ -350,8 +458,9 @@ class SocialViewModel extends ChangeNotifier {
     isEditing = true;
     editingPostId = post.id;
     composerController.text = post.content;
-    pendingImagePaths.clear();
-    pendingImagePaths.addAll(post.imagePaths);
+    pendingImagePaths
+      ..clear()
+      ..addAll(post.imagePaths);
     notifyListeners();
   }
 
@@ -365,10 +474,10 @@ class SocialViewModel extends ChangeNotifier {
 
   Future<void> updatePost() async {
     if (!isEditing || editingPostId == null) return;
-    
+
     isPosting = true;
     notifyListeners();
-    
+
     try {
       final existingIndex = feed.indexWhere((p) => p.id == editingPostId);
       final existing = existingIndex != -1 ? feed[existingIndex] : null;
@@ -379,17 +488,14 @@ class SocialViewModel extends ChangeNotifier {
         imagePaths: List.from(pendingImagePaths),
         createdAt: existing?.createdAt ?? DateTime.now(),
       );
-      
+
       await repository.updatePost(post);
-      
-      // Update local feed
+
       if (existingIndex != -1) {
         feed[existingIndex] = post;
       }
-      
+
       cancelEdit();
-    } catch (e) {
-      // Handle error
     } finally {
       isPosting = false;
       notifyListeners();
@@ -405,19 +511,26 @@ class SocialViewModel extends ChangeNotifier {
       _likedByMe.remove(postId);
       notifyListeners();
     } catch (_) {
-      // swallow for now; could surface error snackbar via caller
+      // Optionally surface error
     }
   }
 
   Future<void> deleteCommentById(String commentId) async {
     try {
+      // Delete replies first to avoid FK/RLS issues
+      final replies = await repository.getReplies(commentId);
+      for (final reply in replies) {
+        await repository.deleteComment(reply.id);
+        _commentLikeCounts.remove(reply.id);
+        _commentLikedByMe.remove(reply.id);
+      }
+
       await repository.deleteComment(commentId);
-      // Remove from comment like counts and liked by me
       _commentLikeCounts.remove(commentId);
       _commentLikedByMe.remove(commentId);
       notifyListeners();
-    } catch (_) {
-      // swallow for now; could surface error snackbar via caller
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -425,9 +538,35 @@ class SocialViewModel extends ChangeNotifier {
     try {
       await repository.updateComment(comment);
       notifyListeners();
-    } catch (_) {
-      // swallow for now; could surface error snackbar via caller
+    } catch (_) {/* ignore */}
+  }
+
+  String _pickName({
+    String? name,
+    String? surname,
+    String? displayName,
+    String? fullName,
+    String? username,
+    String? email,
+  }) {
+    final candidates = <String?>[
+      // Prefer explicit name + surname if present
+      ((name?.isNotEmpty ?? false) || (surname?.isNotEmpty ?? false))
+          ? [name, surname].where((s) => s != null && s!.isNotEmpty).join(' ').trim()
+          : null,
+      displayName,
+      fullName,
+      username,
+      email,
+    ];
+    for (final c in candidates) {
+      if (c != null && c.trim().isNotEmpty) {
+        final v = c.trim();
+        if (v.contains('@')) return v.split('@').first;
+        return v;
+      }
     }
+    return 'User';
   }
 
   @override
@@ -436,5 +575,3 @@ class SocialViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
-
-
