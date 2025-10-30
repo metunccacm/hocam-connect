@@ -12,6 +12,7 @@ import 'package:project/view/bottombar_view.dart';
 import '../models/social_user.dart';
 import '../services/social_repository.dart';
 import '../viewmodel/social_viewmodel.dart';
+import 'notifications_view.dart';
 
 class SocialView extends StatelessWidget {
   const SocialView({super.key});
@@ -127,7 +128,9 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                 IconButton(
                   tooltip: 'Bildirimler',
                   onPressed: () {
-                    Navigator.pushNamed(context, '/notifications');
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const NotificationsView()),
+                    );
                   },
                   icon: const Icon(Icons.notifications_none_outlined),
                 ),
@@ -1588,10 +1591,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               padding: const EdgeInsets.only(left: 16, bottom: 8),
                               child: TextButton(
                                 onPressed: () async {
-                                  // Otomatik mention ekle
-                                  final authorName = vm.userName(c.authorId);
-                                  _replyCtrl.text = '@$authorName ';
-                                  _replyCtrl.text = '@$authorName ';
+                                  _replyCtrl.clear();
                                   setState(() { _replyToCommentId = c.id; });
                                 },
                                 child: const Text('Yanıtla'),
@@ -1644,7 +1644,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                                     setState(() {}); // Force UI update
                                                   },
                                                   child: Container(
-                                                    padding: const EdgeInsets.all(6),
+                                                    padding: const EdgeInsets.all(4),
                                                     child: Row(
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
@@ -1665,10 +1665,24 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                                     ),
                                                   ),
                                                 ),
+                                                TextButton(
+                                                  style: TextButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                    minimumSize: const Size(0, 0),
+                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                  ),
+                                                  onPressed: () async {
+                                                    _replyCtrl.clear();
+                                                    setState(() { _replyToCommentId = r.parentCommentId ?? r.id; });
+                                                  },
+                                                  child: const Text('Yanıtla', style: TextStyle(fontSize: 11)),
+                                                ),
                                                 Builder(
                                                   builder: (ctx) {
                                                     final isMine = vm.meId == r.authorId;
                                                     return PopupMenuButton<String>(
+                                                      padding: EdgeInsets.zero,
+                                                      splashRadius: 16,
                                                       onSelected: (v) {
                                                         if (v == 'report' && !isMine) _reportComment(ctx, r);
                                                         if (v == 'delete' && isMine) _deleteComment(ctx, r);
@@ -1687,19 +1701,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                                 ),
                                               ],
                                             ),
-                                            // Yanıt butonu - yanıtların altına da yanıt yazılabilmesi için
-                                            Padding(
-                                              padding: const EdgeInsets.only(left: 16, bottom: 8),
-                                              child: TextButton(
-                                                onPressed: () async {
-                                                  // Otomatik mention ekle
-                                                  final authorName = vm.userName(r.authorId);
-                                                  _replyCtrl.text = '@$authorName ';
-                                                  setState(() { _replyToCommentId = r.id; });
-                                                },
-                                                child: const Text('Yanıtla'),
-                                              ),
-                                            ),
+                                            // Yanıt butonu moved next to actions above for compact layout
                                           ],
                                         ),
                                     ],
