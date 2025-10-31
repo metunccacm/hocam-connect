@@ -286,7 +286,12 @@ class ChatService {
         // Only send push notification if app is in background/terminated
         // If app is in foreground, the UI will show in-app notification via Realtime
         final lifecycleService = AppLifecycleService();
+        print('📱 App lifecycle state: ${lifecycleService.currentState}');
+        print('📱 Is in background: ${lifecycleService.isInBackground}');
+        print('📱 Is in foreground: ${lifecycleService.isInForeground}');
+        
         if (lifecycleService.isInBackground) {
+          print('🔔 Sending push notification (app in background)...');
           // Send direct notification (no DB storage for privacy/security)
           await NotificationRepository.sendDirect(
             userIds: recipientIds,
@@ -298,6 +303,9 @@ class ChatService {
               'screen': '/chat',
             },
           );
+          print('✅ Push notification sent successfully');
+        } else {
+          print('💬 App in foreground - relying on in-app notification via Realtime');
         }
       }
     } catch (e) {

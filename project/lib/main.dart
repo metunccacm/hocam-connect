@@ -34,6 +34,7 @@ import 'config/size_config.dart';
 // Notification Service
 import 'services/notification_service.dart';
 import 'services/app_lifecycle_service.dart';
+import 'services/global_chat_notification_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/social_user.dart';
 import 'models/social_models.dart';
@@ -158,6 +159,14 @@ void main() async {
       }).catchError((e) {
         debugPrint('⚠️ Error saving FCM token: $e');
       });
+      
+      // Initialize global chat notifications after user signs in
+      GlobalChatNotificationService().initialize();
+    }
+    
+    // Clean up global chat notifications on sign out
+    if (data.event == AuthChangeEvent.signedOut) {
+      GlobalChatNotificationService().dispose();
     }
   });
 

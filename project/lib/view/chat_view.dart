@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
+import '../services/global_chat_notification_service.dart';
 
 class ChatView extends StatefulWidget {
   final String conversationId;
@@ -52,6 +53,8 @@ class _ChatViewState extends State<ChatView> {
   @override
   void initState() {
     super.initState();
+    // Tell global service we're viewing this conversation
+    GlobalChatNotificationService().setCurrentConversation(widget.conversationId);
     _bootstrap();
   }
 
@@ -68,6 +71,8 @@ class _ChatViewState extends State<ChatView> {
 
   @override
   void dispose() {
+    // Tell global service we're no longer viewing this conversation
+    GlobalChatNotificationService().setCurrentConversation(null);
     _msgChannel?.unsubscribe();
     _presence?.unsubscribe();
     _blockCh?.unsubscribe();

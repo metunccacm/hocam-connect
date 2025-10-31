@@ -23,28 +23,41 @@ class NotificationRepository {
       throw ArgumentError('Must provide either userId or userIds');
     }
 
+    print('🚀 sendDirect called with:');
+    print('   - userId: $userId');
+    print('   - userIds: $userIds');
+    print('   - title: $title');
+    print('   - body: $body');
+
     try {
+      final requestBody = {
+        if (userId != null) 'user_id': userId,
+        if (userIds != null && userIds.isNotEmpty) 'user_ids': userIds,
+        'title': title,
+        'body': body,
+        if (data != null) 'data': data,
+        if (imageUrl != null) 'imageUrl': imageUrl,
+      };
+      
+      print('📤 Calling Edge Function with body: $requestBody');
+      
       final response = await _supabase.functions.invoke(
         'push-notification',
-        body: {
-          if (userId != null) 'user_id': userId,
-          if (userIds != null && userIds.isNotEmpty) 'user_ids': userIds,
-          'title': title,
-          'body': body,
-          if (data != null) 'data': data,
-          if (imageUrl != null) 'imageUrl': imageUrl,
-        },
+        body: requestBody,
       );
 
-      if(response.status == 200){
-        print('Successfully sent direct notification');
-      }
+      print('📥 Edge Function response:');
+      print('   - status: ${response.status}');
+      print('   - data: ${response.data}');
 
-      if (response.status != 200) {
+      if (response.status == 200) {
+        print('✅ Successfully sent direct notification');
+      } else {
+        print('❌ Push notification failed with status ${response.status}');
         throw Exception('Push notification failed: ${response.data}');
       }
     } catch (e) {
-      print('Error sending direct notification: $e');
+      print('❌ Error sending direct notification: $e');
       rethrow;
     }
   }
