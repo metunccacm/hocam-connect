@@ -33,6 +33,7 @@ import 'config/size_config.dart';
 
 // Notification Service
 import 'services/notification_service.dart';
+import 'services/app_lifecycle_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/social_user.dart';
 import 'models/social_models.dart';
@@ -128,6 +129,10 @@ void main() async {
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
+  
+  // Initialize app lifecycle service
+  AppLifecycleService().initialize();
+  debugPrint('✅ App lifecycle service initialized');
   
   // Initialize notification service after Supabase (only if Firebase is initialized)
   try {
@@ -270,6 +275,7 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           navigatorKey:
               navigatorKey, // keep your password recovery flow working
+          scaffoldMessengerKey: scaffoldMessengerKey, // for in-app notifications
           title: 'Hocam Connect',
           debugShowCheckedModeBanner: false,
           theme: _lightTheme(),

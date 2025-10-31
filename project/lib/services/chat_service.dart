@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../e2ee/e2ee_key_manager.dart';
 import 'notification_repository.dart';
+import 'app_lifecycle_service.dart';
 
 final supa = Supabase.instance.client;
 final _uuid = const Uuid();
@@ -259,6 +260,7 @@ class ChatService {
         .eq('id', conversationId);
 
     // Send push notifications to other participants (don't notify yourself)
+    // Chat notifications are sent directly without storing in DB for security
     try {
       final participantIds = await getParticipantIds(conversationId);
       final recipientIds = participantIds.where((id) => id != currentUserId).toList();
@@ -281,13 +283,20 @@ class ChatService {
             ? '${text.substring(0, 100)}...'
             : text;
 
-        // Send notification to each recipient
-        for (final recipientId in recipientIds) {
-          await NotificationRepository.notifyChatMessage(
-            recipientUserId: recipientId,
-            senderName: senderName,
-            messagePreview: messagePreview,
-            chatId: conversationId,
+        // Only send push notification if app is in background/terminated
+        // If app is in foreground, the UI will show in-app notification via Realtime
+        final lifecycleService = AppLifecycleService();
+        if (lifecycleService.isInBackground) {
+          // Send direct notification (no DB storage for privacy/security)
+          await NotificationRepository.sendDirect(
+            userIds: recipientIds,
+            title: 'New message from $senderName',
+            body: messagePreview,
+            data: {
+              'type': 'chat',
+              'chat_id': conversationId,
+              'screen': '/chat',
+            },
           );
         }
       }

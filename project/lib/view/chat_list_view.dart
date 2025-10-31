@@ -5,6 +5,7 @@ import 'package:project/widgets/custom_appbar.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
+import '../services/app_lifecycle_service.dart';
 import '../utils/network_error_handler.dart';
 import 'chat_view.dart';
 
@@ -351,15 +352,57 @@ Future<void> _reportAfterBlock(String conversationId) async {
             await _onNewConversationDetected(m.conversationId);
           }
           _lastTime[m.conversationId] = m.createdAt.toLocal();
+          
+          String messageText = '(encrypted)';
           try {
-            final text = await _safeDecryptSnippet(m);
-            _snippet[m.conversationId] = text;
+            messageText = await _safeDecryptSnippet(m);
+            _snippet[m.conversationId] = messageText;
           } catch (_) {
-            _snippet[m.conversationId] = '(encrypted)';
+            _snippet[m.conversationId] = messageText;
           }
+          
+          // Show in-app notification if:
+          // 1. Message is from someone else (not me)
+          // 2. App is in foreground
+          // 3. User is not currently viewing this conversation
           if (m.senderId != me) {
             _unread[m.conversationId] = (_unread[m.conversationId] ?? 0) + 1;
+            
+            // Check if app is in foreground and user is not in this specific chat
+            if (mounted && AppLifecycleService().isInForeground) {
+              // Get current route to check if user is viewing this conversation
+              final currentRoute = ModalRoute.of(context)?.settings.name;
+              final isViewingThisChat = currentRoute == '/chat' && 
+                  ModalRoute.of(context)?.settings.arguments == m.conversationId;
+              
+              // Show in-app notification only if not viewing this specific chat
+              if (!isViewingThisChat) {
+                final senderName = _title[m.conversationId] ?? 'Someone';
+                final preview = messageText.length > 50 
+                    ? '${messageText.substring(0, 50)}...'
+                    : messageText;
+                
+                showInAppNotification(
+                  title: senderName,
+                  message: preview,
+                  avatarUrl: _avatar[m.conversationId],
+                  onTap: () {
+                    // Navigate to the chat when tapped
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatView(
+                          conversationId: m.conversationId,
+                          title: _title[m.conversationId] ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }
+            }
           }
+          
           _resort(_convIds);
           if (mounted) setState(() {});
         },

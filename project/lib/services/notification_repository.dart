@@ -1,12 +1,83 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Helper class for working with the notifications table
-/// Automatically triggers push notifications when notifications are created
+/// Helper class for sending push notifications
+/// 
+/// IMPORTANT: 
+/// - Use sendBroadcast() for system announcements to all users (stores in DB)
+/// - Use sendDirect() for private notifications (chat, social, etc.) - NO database storage
+/// - notifications table is ONLY for broadcasts/announcements for security/privacy
 class NotificationRepository {
   static final _supabase = Supabase.instance.client;
 
-  /// Send notification to a single user
-  /// This inserts into the notifications table, which automatically triggers the push notification
+  /// Send notification directly via Edge Function (NO database storage)
+  /// Use for private notifications: chat, social interactions, etc.
+  static Future<void> sendDirect({
+    String? userId,
+    List<String>? userIds,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+    String? imageUrl,
+  }) async {
+    if (userId == null && (userIds == null || userIds.isEmpty)) {
+      throw ArgumentError('Must provide either userId or userIds');
+    }
+
+    try {
+      final response = await _supabase.functions.invoke(
+        'push-notification',
+        body: {
+          if (userId != null) 'user_id': userId,
+          if (userIds != null && userIds.isNotEmpty) 'user_ids': userIds,
+          'title': title,
+          'body': body,
+          if (data != null) 'data': data,
+          if (imageUrl != null) 'imageUrl': imageUrl,
+        },
+      );
+
+      if(response.status == 200){
+        print('Successfully sent direct notification');
+      }
+
+      if (response.status != 200) {
+        throw Exception('Push notification failed: ${response.data}');
+      }
+    } catch (e) {
+      print('Error sending direct notification: $e');
+      rethrow;
+    }
+  }
+
+  /// Send broadcast notification to all users (stores in notifications table)
+  /// Use ONLY for system announcements
+  static Future<String> sendBroadcast({
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+    String? imageUrl,
+  }) async {
+    try {
+      final response = await _supabase.rpc('notify_all_users', params: {
+        'p_title': title,
+        'p_body': body,
+        'p_data': data ?? {},
+        'p_notification_type': 'announcement',
+        'p_image_url': imageUrl,
+      });
+
+      return response as String;
+    } catch (e) {
+      print('Error broadcasting notification: $e');
+      rethrow;
+    }
+  }
+
+  // ========== DEPRECATED METHODS (kept for backwards compatibility) ==========
+  // These methods store in DB - should only be used for announcements
+  // Use sendDirect() instead for private notifications
+
+  /// @deprecated Use sendBroadcast() for announcements or sendDirect() for private notifications
   static Future<String> sendToUser({
     required String userId,
     required String title,
@@ -34,7 +105,7 @@ class NotificationRepository {
     }
   }
 
-  /// Send notification to multiple users
+  /// @deprecated Use sendBroadcast() for announcements or sendDirect() for private notifications
   static Future<String> sendToUsers({
     required List<String> userIds,
     required String title,
@@ -62,7 +133,7 @@ class NotificationRepository {
     }
   }
 
-  /// Broadcast notification to all users
+  /// @deprecated Use sendBroadcast() instead
   static Future<String> sendToAllUsers({
     required String title,
     required String body,
