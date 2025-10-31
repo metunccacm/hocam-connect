@@ -44,6 +44,8 @@ class AppLifecycleService extends WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _currentState = state;
     print('🔄 App lifecycle state changed: $state');
+    print('   - isInForeground: $isInForeground');
+    print('   - isInBackground: $isInBackground');
 
     // Notify all listeners
     for (final listener in _listeners) {
@@ -64,8 +66,19 @@ void showInAppNotification({
   VoidCallback? onTap,
   Duration duration = const Duration(seconds: 4),
 }) {
+  print('📢 showInAppNotification called:');
+  print('   - title: $title');
+  print('   - message: $message');
+  print('   - avatarUrl: $avatarUrl');
+  
   final messenger = scaffoldMessengerKey.currentState;
-  if (messenger == null) return;
+  
+  if (messenger == null) {
+    print('❌ ScaffoldMessenger is null - cannot show notification');
+    return;
+  }
+  
+  print('✅ ScaffoldMessenger found, showing notification...');
 
   // Clear any existing snackbars
   messenger.clearSnackBars();

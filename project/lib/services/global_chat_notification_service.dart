@@ -23,7 +23,10 @@ class GlobalChatNotificationService {
 
   /// Initialize the global listener (call once in main.dart after Supabase init)
   void initialize() {
-    if (_isInitialized) return;
+    if (_isInitialized) {
+      print('⚠️ GlobalChatNotificationService already initialized');
+      return;
+    }
     
     final currentUserId = _supa.auth.currentUser?.id;
     if (currentUserId == null) {
@@ -31,20 +34,35 @@ class GlobalChatNotificationService {
       return;
     }
 
-    print('🌍 Initializing GlobalChatNotificationService...');
+    print('🌍 Initializing GlobalChatNotificationService for user: $currentUserId');
     
-    // Subscribe to all message insertions
-    _messageChannel = _supa.channel('global-chat-notifications')
-      ..onPostgresChanges(
-        event: PostgresChangeEvent.insert,
-        schema: 'public',
-        table: 'messages',
-        callback: (payload) => _handleNewMessage(payload, currentUserId),
-      )
-      ..subscribe();
-    
-    _isInitialized = true;
-    print('✅ GlobalChatNotificationService initialized');
+    try {
+      // Subscribe to all message insertions
+      _messageChannel = _supa.channel('global-chat-notifications-$currentUserId')
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          callback: (payload) {
+            print('🔔 Realtime message insert detected');
+            _handleNewMessage(payload, currentUserId);
+          },
+        )
+        ..subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            print('✅ GlobalChatNotificationService subscribed to messages');
+          } else if (status == RealtimeSubscribeStatus.closed) {
+            print('❌ GlobalChatNotificationService subscription closed');
+          } else if (error != null) {
+            print('❌ GlobalChatNotificationService subscription error: $error');
+          }
+        });
+      
+      _isInitialized = true;
+      print('✅ GlobalChatNotificationService initialized');
+    } catch (e) {
+      print('❌ Error initializing GlobalChatNotificationService: $e');
+    }
   }
 
   /// Set the current conversation being viewed (to avoid showing notification for it)

@@ -143,6 +143,12 @@ void main() async {
     debugPrint('⚠️ Notification service initialization skipped: $e');
   }
 
+  // Initialize global chat notifications if user is already signed in
+  if (Supabase.instance.client.auth.currentSession != null) {
+    debugPrint('🌍 User already signed in, initializing GlobalChatNotificationService...');
+    GlobalChatNotificationService().initialize();
+  }
+
   // Global navigatorKey (used by password recovery)
   final navigatorKey = GlobalKey<NavigatorState>();
 
