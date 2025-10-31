@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../e2ee/e2ee_key_manager.dart';
+import 'notification_repository.dart';
 
 final supa = Supabase.instance.client;
 final _uuid = const Uuid();
@@ -241,9 +242,11 @@ class ChatService {
       conversationId: conversationId,
     );
 
+    final currentUserId = supa.auth.currentUser!.id;
+
     await supa.from('messages').insert({
       'conversation_id': conversationId,
-      'sender_id': supa.auth.currentUser!.id,
+      'sender_id': currentUserId,
       'body_ciphertext_base64': enc['ct_b64'],
       'body_nonce_base64': enc['nonce_b64'],
       'body_mac_base64': enc['mac_b64'],
@@ -254,6 +257,44 @@ class ChatService {
         .from('conversations')
         .update({'last_message_at': DateTime.now().toIso8601String()})
         .eq('id', conversationId);
+
+    // Send push notifications to other participants (don't notify yourself)
+    try {
+      final participantIds = await getParticipantIds(conversationId);
+      final recipientIds = participantIds.where((id) => id != currentUserId).toList();
+
+      if (recipientIds.isNotEmpty) {
+        // Get sender's display name
+        final senderProfile = await supa
+            .from('profiles')
+            .select('name, surname')
+            .eq('id', currentUserId)
+            .maybeSingle();
+
+        final firstName = (senderProfile?['name'] as String? ?? '').trim();
+        final lastName = (senderProfile?['surname'] as String? ?? '').trim();
+        final fullName = '$firstName $lastName'.trim();
+        final senderName = fullName.isNotEmpty ? fullName : 'Someone';
+
+        // Create message preview (truncate if too long)
+        final messagePreview = text.length > 100 
+            ? '${text.substring(0, 100)}...'
+            : text;
+
+        // Send notification to each recipient
+        for (final recipientId in recipientIds) {
+          await NotificationRepository.notifyChatMessage(
+            recipientUserId: recipientId,
+            senderName: senderName,
+            messagePreview: messagePreview,
+            chatId: conversationId,
+          );
+        }
+      }
+    } catch (e) {
+      // Don't fail the message send if notification fails
+      print('Failed to send chat notification: $e');
+    }
   }
 
   Future<String> decryptMessageForUi(ChatMessage m) async {
