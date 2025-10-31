@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -45,14 +46,30 @@ class NotificationService {
         return;
       }
       
+      if (kDebugMode) {
+        print('🚀 Starting notification service initialization...');
+        print('📱 Platform: ${Platform.isIOS ? "iOS" : "Android"}');
+      }
+      
       // Initialize local notifications
       await _initializeLocalNotifications();
 
       // Request permission
+      if (kDebugMode) {
+        print('🔔 Requesting notification permissions...');
+      }
       final notificationSettings = await _requestPermission();
+      
+      if (kDebugMode) {
+        print('🔔 Permission status: ${notificationSettings.authorizationStatus}');
+      }
 
       if (notificationSettings.authorizationStatus ==
           AuthorizationStatus.authorized) {
+        if (kDebugMode) {
+          print('✅ Notification permission granted, getting FCM token...');
+        }
+        
         // Get FCM token
         await _getFCMToken();
 
@@ -140,6 +157,66 @@ class NotificationService {
   /// Get FCM token and save it
   Future<void> _getFCMToken() async {
     try {
+      if (kDebugMode) {
+        print('🔑 _getFCMToken() called');
+      }
+      
+      // For iOS, we need to wait for APNS token first
+      if (Platform.isIOS) {
+        if (kDebugMode) {
+          print('🍎 iOS detected - checking for APNS token...');
+        }
+        
+        // Try multiple times with increasing delays
+        String? apnsToken;
+        for (int i = 0; i < 3; i++) {
+          if (kDebugMode) {
+            print('🔍 Attempt ${i + 1}/3: Calling getAPNSToken()...');
+          }
+          
+          try {
+            apnsToken = await _firebaseMessaging.getAPNSToken();
+            if (kDebugMode) {
+              if (apnsToken != null) {
+                print('✅ APNS token received on attempt ${i + 1}: ${apnsToken.substring(0, min(20, apnsToken.length))}...');
+              } else {
+                print('❌ APNS token is null on attempt ${i + 1}');
+              }
+            }
+            if (apnsToken != null) break;
+          } catch (e) {
+            if (kDebugMode) {
+              print('❌ Error getting APNS token on attempt ${i + 1}: $e');
+            }
+          }
+          
+          if (apnsToken == null && i < 2) {
+            if (kDebugMode) {
+              print('⏳ Waiting ${2 + i} seconds before retry...');
+            }
+            await Future.delayed(Duration(seconds: 2 + i)); // 2s, 3s, 4s
+          }
+        }
+        
+        if (apnsToken == null) {
+          if (kDebugMode) {
+            print('⚠️ APNS token not available after 3 attempts. Will retry in background...');
+            print('💡 Make sure:');
+            print('   1. You\'re testing on a REAL iOS device (not simulator)');
+            print('   2. Push Notifications capability is enabled in Xcode');
+            print('   3. APNs is configured in Firebase Console');
+            print('   4. Runner.entitlements has aps-environment key');
+          }
+          // Set up background retry mechanism
+          _setupAPNSTokenListener();
+          return;
+        }
+        
+        if (kDebugMode) {
+          print('✅ APNS token available: ${apnsToken.substring(0, min(20, apnsToken.length))}...');
+        }
+      }
+      
       final token = await _firebaseMessaging.getToken();
       if (token != null) {
         _currentToken = token;
@@ -162,6 +239,67 @@ class NotificationService {
     }
   }
 
+  /// Setup listener for APNS token on iOS
+  void _setupAPNSTokenListener() {
+    if (Platform.isIOS) {
+      _retryGetFCMToken(attempts: 0, maxAttempts: 5);
+    }
+  }
+
+  /// Retry getting FCM token with exponential backoff
+  Future<void> _retryGetFCMToken({required int attempts, required int maxAttempts}) async {
+    if (attempts >= maxAttempts) {
+      if (kDebugMode) {
+        print('⚠️ Max attempts reached. FCM token will be retrieved on next app launch.');
+      }
+      return;
+    }
+
+    // Exponential backoff: 3s, 5s, 10s, 15s, 20s
+    final delays = [3, 5, 10, 15, 20];
+    final delay = delays[attempts < delays.length ? attempts : delays.length - 1];
+
+    await Future.delayed(Duration(seconds: delay));
+
+    try {
+      final apnsToken = await _firebaseMessaging.getAPNSToken();
+      if (apnsToken != null) {
+        if (kDebugMode) {
+          print('✅ APNS token now available (attempt ${attempts + 1}), getting FCM token...');
+        }
+        
+        // Try to get FCM token
+        final token = await _firebaseMessaging.getToken();
+        if (token != null) {
+          _currentToken = token;
+          await _saveTokenLocally(token);
+          
+          // Save token to Supabase if user is logged in
+          final user = Supabase.instance.client.auth.currentUser;
+          if (user != null) {
+            await _saveTokenToSupabase(token, user.id);
+          }
+          
+          if (kDebugMode) {
+            print('✅ FCM Token retrieved: $token');
+          }
+          return; // Success!
+        }
+      } else {
+        if (kDebugMode) {
+          print('⏳ Still waiting for APNS token (attempt ${attempts + 1}/$maxAttempts)...');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error during retry attempt ${attempts + 1}: $e');
+      }
+    }
+
+    // Retry again
+    await _retryGetFCMToken(attempts: attempts + 1, maxAttempts: maxAttempts);
+  }
+
   /// Save token locally
   Future<void> _saveTokenLocally(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -174,43 +312,116 @@ class NotificationService {
     return prefs.getString(_fcmTokenKey);
   }
 
-  /// Save token to Supabase
+  /// Save token to Supabase profiles table
   Future<void> _saveTokenToSupabase(String token, String userId) async {
     try {
-      await Supabase.instance.client.from('fcm_tokens').upsert({
-        'user_id': userId,
-        'token': token,
-        'platform': Platform.isIOS ? 'ios' : 'android',
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id');
+      if (kDebugMode) {
+        print('💾 Saving FCM token to profiles table...');
+        print('   User ID: $userId');
+        print('   Token: ${token.substring(0, min(20, token.length))}...');
+        print('   Platform: ${Platform.isIOS ? 'ios' : 'android'}');
+      }
+      
+      await Supabase.instance.client
+          .from('profiles')
+          .update({
+            'fcm_token': token,
+            'fcm_platform': Platform.isIOS ? 'ios' : 'android',
+          })
+          .eq('id', userId);
       
       if (kDebugMode) {
-        print('FCM token saved to Supabase');
+        print('✅ FCM token saved to profiles table successfully');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error saving FCM token to Supabase: $e');
+        print('❌ Error saving FCM token to Supabase profiles: $e');
       }
     }
   }
 
-  /// Delete token from Supabase
+  /// Delete token from Supabase profiles table
   Future<void> deleteTokenFromSupabase() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         await Supabase.instance.client
-            .from('fcm_tokens')
-            .delete()
-            .eq('user_id', user.id);
+            .from('profiles')
+            .update({
+              'fcm_token': null,
+              'fcm_platform': null,
+            })
+            .eq('id', user.id);
         
         if (kDebugMode) {
-          print('FCM token deleted from Supabase');
+          print('✅ FCM token cleared from profiles table');
         }
       }
     } catch (e) {
       if (kDebugMode) {
         print('Error deleting FCM token from Supabase: $e');
+      }
+    }
+  }
+
+  /// Save FCM token for currently logged-in user
+  /// Call this after user logs in to ensure their token is saved
+  Future<void> saveFCMTokenForCurrentUser() async {
+    try {
+      // Check if Firebase is initialized
+      if (Firebase.apps.isEmpty) {
+        if (kDebugMode) {
+          print('⚠️ Firebase not initialized. Cannot save FCM token.');
+        }
+        return;
+      }
+
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        if (kDebugMode) {
+          print('No user logged in, cannot save FCM token');
+        }
+        return;
+      }
+
+      // For iOS, check if APNS token is available
+      if (Platform.isIOS) {
+        final apnsToken = await _firebaseMessaging.getAPNSToken();
+        if (apnsToken == null) {
+          if (kDebugMode) {
+            print('⏳ APNS token not available yet. Will retry when available.');
+          }
+          // Setup retry mechanism
+          _setupAPNSTokenListener();
+          return;
+        }
+      }
+
+      // Get current token (from local storage or fetch new one)
+      String? token = _currentToken ?? await getLocalToken();
+      
+      if (token == null) {
+        // Try to get fresh token from Firebase
+        token = await _firebaseMessaging.getToken();
+        if (token != null) {
+          _currentToken = token;
+          await _saveTokenLocally(token);
+        }
+      }
+
+      if (token != null) {
+        await _saveTokenToSupabase(token, user.id);
+        if (kDebugMode) {
+          print('✅ FCM token saved for user: ${user.id}');
+        }
+      } else {
+        if (kDebugMode) {
+          print('⚠️ No FCM token available to save');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving FCM token for current user: $e');
       }
     }
   }

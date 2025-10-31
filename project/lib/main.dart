@@ -140,9 +140,19 @@ void main() async {
   // Global navigatorKey (used by password recovery)
   final navigatorKey = GlobalKey<NavigatorState>();
 
+  // Listen to auth state changes for password recovery and FCM token handling
   Supabase.instance.client.auth.onAuthStateChange.listen((data) {
     if (data.event == AuthChangeEvent.passwordRecovery) {
       navigatorKey.currentState?.pushNamed('/reset-password');
+    }
+    
+    // Save FCM token when user signs in
+    if (data.event == AuthChangeEvent.signedIn && data.session?.user != null) {
+      NotificationService().saveFCMTokenForCurrentUser().then((_) {
+        debugPrint('✅ FCM token saved for logged-in user');
+      }).catchError((e) {
+        debugPrint('⚠️ Error saving FCM token: $e');
+      });
     }
   });
 
