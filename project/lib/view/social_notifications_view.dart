@@ -195,6 +195,9 @@ class _SocialNotificationsViewState extends State<SocialNotificationsView> {
                     case 'comment':
                       text = '$senderName commented on your post';
                       break;
+                    case 'reply':
+                         text = '$senderName replied to your comment';
+                    break;
                     default:
                       text = '$senderName performed an action';
                       break;

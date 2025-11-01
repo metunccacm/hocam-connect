@@ -178,13 +178,54 @@ class SocialService {
   /// POST LIKES
   /// ---------------------------
 
-  Future<void> likePost({required String postId, required String userId}) async {
+  // inside class SocialService
+Future<void> likePost({required String postId, required String userId}) async {
+  // write like (ignore duplicates)
+  final exists = await _db
+      .from('post_likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .maybeSingle();
+  if (exists == null) {
     await _db.from('post_likes').insert({
       'post_id': postId,
       'user_id': userId,
       'created_at': DateTime.now().toIso8601String(),
     });
   }
+
+  // notify post author (if not self) and avoid duplicate notifications
+  try {
+    final post = await _db
+        .from('posts')
+        .select('author_id')
+        .eq('id', postId)
+        .single();
+    final receiverId = (post['author_id'] as String?) ?? '';
+    if (receiverId.isEmpty || receiverId == userId) return;
+
+    final dup = await _db
+        .from('notifications_social')
+        .select('id')
+        .eq('type', 'like')
+        .eq('sender_id', userId)
+        .eq('receiver_id', receiverId)
+        .eq('post_id', postId)
+        .maybeSingle();
+
+    if (dup == null) {
+      await _db.from('notifications_social').insert({
+        'sender_id': userId,
+        'receiver_id': receiverId,
+        'type': 'like',
+        'post_id': postId,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    }
+  } catch (_) {}
+}
+
 
   Future<void> unlikePost({required String postId, required String userId}) async {
     await _db.from('post_likes').delete().eq('post_id', postId).eq('user_id', userId);
@@ -207,32 +248,69 @@ class SocialService {
   /// ---------------------------
 
   Future<void> addComment({
-    required String postId,
-    required String authorId,
-    required String content,
-  }) async {
-    await _db.from('comments').insert({
+  required String postId,
+  required String authorId,
+  required String content,
+}) async {
+  await _db.from('comments').insert({
+    'post_id': postId,
+    'author_id': authorId,
+    'content': content,
+    'created_at': DateTime.now().toIso8601String(),
+  });
+
+  // notify post author
+  final post = await _db.from('posts').select('author_id').eq('id', postId).single();
+  final receiverId = post['author_id'] as String;
+  if (receiverId != authorId) {
+    await _db.from('notifications_social').insert({
+      'type': 'comment',
+      'sender_id': authorId,
+      'receiver_id': receiverId,
       'post_id': postId,
-      'author_id': authorId,
-      'content': content,
-      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+}
+
+Future<void> addReply({
+  required String postId,
+  required String parentCommentId,
+  required String authorId,
+  required String content,
+}) async {
+  await _db.from('comments').insert({
+    'post_id': postId,
+    'parent_comment_id': parentCommentId,
+    'author_id': authorId,
+    'content': content,
+    'created_at': DateTime.now().toIso8601String(),
+  });
+
+  // notify post author
+  final post = await _db.from('posts').select('author_id').eq('id', postId).single();
+  final postAuthorId = post['author_id'] as String;
+  if (postAuthorId != authorId) {
+    await _db.from('notifications_social').insert({
+      'type': 'comment',
+      'sender_id': authorId,
+      'receiver_id': postAuthorId,
+      'post_id': postId,
     });
   }
 
-  Future<void> addReply({
-    required String postId,
-    required String parentCommentId,
-    required String authorId,
-    required String content,
-  }) async {
-    await _db.from('comments').insert({
+  // notify parent comment author (if different)
+  final parent = await _db.from('comments').select('author_id').eq('id', parentCommentId).single();
+  final parentAuthorId = parent['author_id'] as String;
+  if (parentAuthorId != authorId && parentAuthorId != postAuthorId) {
+    await _db.from('notifications_social').insert({
+      'type': 'reply',
+      'sender_id': authorId,
+      'receiver_id': parentAuthorId,
       'post_id': postId,
-      'parent_comment_id': parentCommentId,
-      'author_id': authorId,
-      'content': content,
-      'created_at': DateTime.now().toIso8601String(),
     });
   }
+}
+
 
   Future<List<Comment>> getComments(String postId) async {
     final res = await _db
