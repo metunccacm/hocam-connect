@@ -637,7 +637,7 @@ Future<List<Map<String, dynamic>>> getNotifications(String userId) async {
         comment_id,
         is_read,
         created_at,
-        sender:profiles!sender_id(display_name, avatar_url)
+        sender:profiles!sender_id(display_name,name,surname, avatar_url)
       ''')
       .eq('receiver_id', userId)
       .order('created_at', ascending: false);

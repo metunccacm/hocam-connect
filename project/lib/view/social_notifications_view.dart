@@ -60,7 +60,14 @@ class _SocialNotificationsViewState extends State<SocialNotificationsView> {
                 itemBuilder: (_, i) {
                   final n = _items[i];
                   final s = n['sender'] ?? {};
-                  final senderName = s['display_name'] ?? 'User';
+                  final displayName = (s['display_name'] ?? '').toString().trim();
+                  final name = (s['name'] ?? '').toString().trim();
+                  final surname = (s['surname'] ?? '').toString().trim();
+                    String senderName = displayName.isNotEmpty
+                    ? displayName
+                    : [name, surname].where((e) => e.isNotEmpty).join(' ').trim();
+                  if (senderName.isEmpty) senderName = 'User';
+
                   final avatar = s['avatar_url'] ?? '';
                   final type = n['type'];
                   final created = DateTime.tryParse(n['created_at'] ?? '') ?? DateTime.now();
@@ -76,7 +83,7 @@ class _SocialNotificationsViewState extends State<SocialNotificationsView> {
                     case 'comment':
                       text = '$senderName commented on your post';
                       break;
-                    default:
+                    default:  
                       text = '$senderName performed an action';
                       break;
                   }
