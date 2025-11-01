@@ -378,7 +378,7 @@ class _AddItemViewState extends State<AddItemView> {
               }).toList(),
               if (viewModel.selectedImages.length < 4)
                 GestureDetector(
-                  onTap: viewModel.isPickingImage ? null : () => viewModel.pickImage(context),
+                  onTap: viewModel.isPickingImage ? null : () => _showImageSourceSheet(context, viewModel),
                   child: Container(
                     width: getProportionateScreenWidth(80),
                     height: getProportionateScreenWidth(80),
@@ -398,6 +398,45 @@ class _AddItemViewState extends State<AddItemView> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showImageSourceSheet(BuildContext context, AddItemViewModel viewModel) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take Photo'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                if (!viewModel.isPickingImage) {
+                  viewModel.pickImageFromCamera(context);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                if (!viewModel.isPickingImage) {
+                  viewModel.pickImage(context);
+                }
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.of(ctx).pop(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

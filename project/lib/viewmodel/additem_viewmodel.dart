@@ -83,6 +83,40 @@ class AddItemViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> pickImageFromCamera(BuildContext context) async {
+    try {
+      isPickingImage = true;
+      notifyListeners();
+
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+      if (picked == null) {
+        isPickingImage = false;
+        notifyListeners();
+        return;
+      }
+
+      if (selectedImages.length >= 4) {
+        isPickingImage = false;
+        notifyListeners();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You can upload up to 4 images.')));
+        }
+        return;
+      }
+
+      selectedImages.add(File(picked.path));
+      isPickingImage = false;
+      notifyListeners();
+    } catch (e) {
+      isPickingImage = false;
+      notifyListeners();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Camera capture failed: $e')));
+      }
+    }
+  }
+
   void removeImage(int idx) {
     if (idx >= 0 && idx < selectedImages.length) {
       selectedImages.removeAt(idx);
