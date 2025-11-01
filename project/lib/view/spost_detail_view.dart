@@ -100,46 +100,65 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
                                     ],
                                   ),
                                 ),
-                                PopupMenuButton<String>(
-                                  onSelected: (v) async {
-                                    if (v == 'edit' && vm.isMine(post.authorId)) {
-    final updated = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EditSPostView(
-          postId: post.id,
-          repository: vm.repository,
-          initialPost: post, // optional, speeds up first paint
-        ),
-      ),
-    );
-    // If edit was saved, refresh the post details
-    if (updated == true) {
-      await vm.refreshAll();
+                               PopupMenuButton<String>(
+  onSelected: (v) async {
+    print('Popup selected: $v');
+
+    if (v == 'edit') {
+      // Safety guard: only allow if it's my post
+      if (!vm.isMine(post.authorId)) {
+        print('Not owner, edit blocked. meId=${vm.meId} author=${post.authorId}');
+        return;
+      }
+
+      print('🟢 Opening EditSPostView for post: ${post.id}');
+      try {
+        final changed = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EditSPostView(
+              postId: post.id,
+              repository: vm.repository,   // << pass repo
+              initialPost: post,           // << pass current post to prefill
+            ),
+          ),
+        );
+
+        if (changed == true) {
+          print('Edit finished. Refreshing...');
+          await vm.refreshAll();
+        }
+      } catch (e) {
+        print('Edit navigation error: $e');
+      }
     }
-  }
-                                    if (v == 'delete' && vm.isMine(post.authorId)) {
-                                      final ok = await _confirm(context, 'Delete post?', 'This cannot be undone.');
-                                      if (ok) {
-                                        await vm.deletePost();
-                                        if (mounted) Navigator.pop(context, true);
-                                      }
-                                    }
-                                    if (v == 'report' && !vm.isMine(post.authorId)) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Thanks for the report.')),
-                                      );
-                                    }
-                                  },
-                                  itemBuilder: (_) => [
-                                    if (vm.isMine(post.authorId))
-                                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                    if (vm.isMine(post.authorId))
-                                      const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                                    if (!vm.isMine(post.authorId))
-                                      const PopupMenuItem(value: 'report', child: Text('Report')),
-                                  ],
-                                ),
+
+    if (v == 'delete') {
+      if (!vm.isMine(post.authorId)) return;
+      final ok = await _confirm(context, 'Delete post?', 'This cannot be undone.');
+      if (ok) {
+        await vm.deletePost();
+        if (mounted) Navigator.pop(context, true);
+      }
+    }
+
+    if (v == 'report') {
+      if (vm.isMine(post.authorId)) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thanks for the report.')),
+      );
+    }
+  },
+  itemBuilder: (_) => [
+    if (vm.isMine(post.authorId))
+      const PopupMenuItem(value: 'edit', child: Text('Edit')),
+    if (vm.isMine(post.authorId))
+      const PopupMenuItem(value: 'delete', child: Text('Delete')),
+    if (!vm.isMine(post.authorId))
+      const PopupMenuItem(value: 'report', child: Text('Report')),
+  ],
+),
+
                               ],
                             );
                           },

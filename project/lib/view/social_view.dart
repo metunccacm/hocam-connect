@@ -12,7 +12,10 @@ import '../viewmodel/social_viewmodel.dart';
 import 'bottombar_view.dart';
 import 'create_spost_view.dart';
 import 'spost_detail_view.dart';
-import 'notifications_view.dart';
+import 'social_notifications_view.dart';
+import 'edit_spost_view.dart';
+
+
 
 class SocialView extends StatelessWidget {
   const SocialView({super.key});
@@ -140,11 +143,16 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                       IconButton(
                         tooltip: 'Notifications',
   onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const NotificationsView()),
-    );
-  },
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SocialNotificationsView(
+        repository: vm.repository, // ✅ pass the same repo used by SocialView
+      ),
+    ),
+  );
+},
+
   icon: const Icon(Icons.notifications_none_outlined),
                       ),
                     ],
@@ -420,24 +428,36 @@ class _PostTileState extends State<_PostTile> {
                 builder: (ctx) {
                   final isMine = vm.meId == post.authorId;
                   return PopupMenuButton<String>(
-                    onSelected: (v) async {
-                      if (v == 'report' && !isMine) {
-                        _reportPost(ctx, post);
-                      }
-                      if (v == 'edit' && isMine) {
-                        // Navigate to an edit screen if you have one
-                        // Navigator.push(...);
-                      }
-                      if (v == 'delete' && isMine) {
-                        await _deletePost(ctx, post);
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      if (isMine) const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                      if (isMine) const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                      if (!isMine) const PopupMenuItem(value: 'report', child: Text('Report')),
-                    ],
-                  );
+  onSelected: (v) async {
+    if (v == 'edit' && vm.meId == post.authorId) {
+      final changed = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => EditSPostView(
+            postId: post.id,
+            repository: vm.repository,
+            initialPost: post, // prefill editor
+          ),
+        ),
+      );
+      if (changed == true && context.mounted) {
+        await context.read<SocialViewModel>().load(); // refresh feed
+      }
+    } else if (v == 'delete' && vm.meId == post.authorId) {
+      await _deletePost(context, post);
+    } else if (v == 'report' && vm.meId != post.authorId) {
+      _reportPost(context, post);
+    }
+  },
+  itemBuilder: (_) => [
+    if (vm.meId == post.authorId)
+      const PopupMenuItem(value: 'edit', child: Text('Edit')),
+    if (vm.meId == post.authorId)
+      const PopupMenuItem(value: 'delete', child: Text('Delete')),
+    if (vm.meId != post.authorId)
+      const PopupMenuItem(value: 'report', child: Text('Report')),
+  ],
+);
                 },
               ),
             ],

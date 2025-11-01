@@ -11,8 +11,6 @@ import '../services/social_service.dart';
 import '../services/social_repository.dart';
 
 class EditSPostView extends StatelessWidget {
-  /// Use this when navigating:
-  /// EditSPostView(postId: post.id, repository: repository, initialPost: post)
   final String postId;
   final SocialRepository repository;
   final Post? initialPost;
@@ -36,6 +34,7 @@ class EditSPostView extends StatelessWidget {
     );
   }
 }
+
 
 class _EditSPostBody extends StatefulWidget {
   const _EditSPostBody();

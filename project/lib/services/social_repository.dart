@@ -8,6 +8,10 @@ abstract class SocialRepository {
   Future<SocialUser> upsertUser(SocialUser user);
   Future<SocialUser?> getUser(String userId);
   Future<List<SocialUser>> getUsersByIds(List<String> userIds);
+  /// Notifications
+Future<List<Map<String, dynamic>>> getNotifications(String userId);
+Future<void> markNotificationRead(String id);
+
 
   Future<List<Post>> listExplore();
   Future<List<Post>> listFriendsFeed(String meId);
@@ -91,127 +95,151 @@ class SupabaseSocialRepository implements SocialRepository {
 // inside class SupabaseSocialRepository implements SocialRepository { ... }
 
 @override
-Future<SocialUser?> getUser(String id) async {
-  final row = await _supa
+Future<SocialUser?> getUser(String userId) async {
+  final supa = Supabase.instance.client;
+  final row = await supa
       .from('profiles')
-      .select('id, name, surname, avatar_url')
-      .eq('id', id)
+      .select('id, name, surname, display_name, avatar_url')
+      .eq('id', userId)
       .maybeSingle();
 
   if (row == null) return null;
 
-  final name = (row['name'] as String?)?.trim() ?? '';
-  final surname = (row['surname'] as String?)?.trim() ?? '';
-
-  String display;
-  if (name.isNotEmpty && surname.isNotEmpty) {
-    display = '$name $surname';
-  } else if (name.isNotEmpty) {
-    display = name;
-  } else if (surname.isNotEmpty) {
-    display = surname;
-  } else {
-    display = 'User';
-  }
-
+  final m = Map<String, dynamic>.from(row);
   return SocialUser(
-    id: row['id'] as String,
-    displayName: display,
-    avatarUrl: (row['avatar_url'] as String?) ?? '',
+    id: m['id'] as String,
+    displayName: _bestDisplayName(m),
+    avatarUrl: (m['avatar_url'] ?? '').toString(),
   );
 }
 
 
+String _bestDisplayName(Map<String, dynamic> m) {
+  final dn = (m['display_name'] ?? '').toString().trim();
+  if (dn.isNotEmpty) return dn;
+
+  final name = (m['name'] ?? '').toString().trim();
+  final surname = (m['surname'] ?? '').toString().trim();
+  final full = [name, surname].where((s) => s.isNotEmpty).join(' ').trim();
+  return full.isNotEmpty ? full : 'User';
+}
+ 
+@override
 @override
 Future<List<SocialUser>> getUsersByIds(List<String> userIds) async {
   if (userIds.isEmpty) return [];
-  final rows = await Supabase.instance.client
+
+  final supa = Supabase.instance.client;
+  final rows = await supa
       .from('profiles')
-      .select('id, name, surname, display_name, username, avatar_url, email')
+      .select('id, name, surname, display_name, avatar_url')
       .inFilter('id', userIds);
 
-  return (rows as List).map((row) {
-    final map = Map<String, dynamic>.from(row as Map);
-
-    final String name = (map['name'] as String?)?.trim() ?? '';
-    final String surname = (map['surname'] as String?)?.trim() ?? '';
-    final String displayName =
-        (name.isNotEmpty || surname.isNotEmpty)
-            ? [name, surname].where((s) => s.isNotEmpty).join(' ')
-            : ((map['display_name'] as String?)?.trim()?.isNotEmpty == true
-                ? (map['display_name'] as String).trim()
-                : ((map['username'] as String?)?.trim()?.isNotEmpty == true
-                    ? (map['username'] as String).trim()
-                    : (((map['email'] as String?) ?? '').split('@').first)));
-
-    return SocialUser(
-      id: map['id'] as String,
-      displayName: displayName,
-      avatarUrl: (map['avatar_url'] as String?) ?? '',
-    );
-  }).toList();
+  final list = <SocialUser>[];
+  for (final r in (rows as List)) {
+    final m = Map<String, dynamic>.from(r as Map);
+    final display = _bestDisplayName(m);
+    list.add(SocialUser(
+      id: m['id'] as String,
+      displayName: display,
+      avatarUrl: (m['avatar_url'] ?? '').toString(),
+    ));
+  }
+  return list;
 }
+
 
   // --- FEEDS / POSTS -------------------------------------------------------
 
   @override
-  Future<List<Post>> listExplore() async {
-    final rows = await _supa
-        .from('posts')
-        .select('id, author_id, content, image_paths, created_at')
-        .order('created_at', ascending: false);
+Future<List<Post>> listExplore() async {
+  final supa = Supabase.instance.client;
+  final meId = supa.auth.currentUser?.id;
 
-    return (rows as List).map<Post>((e) {
-      final m = Map<String, dynamic>.from(e as Map);
-      return Post(
-        id: m['id'] as String,
-        authorId: m['author_id'] as String,
-        content: (m['content'] ?? '').toString(),
-        imagePaths: (m['image_paths'] as List?)?.cast<String>() ?? const <String>[],
-        createdAt: DateTime.parse(m['created_at'] as String),
-      );
-    }).toList();
+  // Step 1: Collect friend IDs
+  final friendIds = <String>{};
+  if (meId != null && meId.isNotEmpty) {
+    final fs = await supa
+        .from('friendships')
+        .select('requester_id, addressee_id, status')
+        .or('requester_id.eq.$meId,addressee_id.eq.$meId')
+        .eq('status', 'accepted');
+
+    for (final f in (fs as List)) {
+      final mm = Map<String, dynamic>.from(f as Map);
+      final r = (mm['requester_id'] ?? '').toString();
+      final a = (mm['addressee_id'] ?? '').toString();
+      if (r != meId && r.isNotEmpty) friendIds.add(r);
+      if (a != meId && a.isNotEmpty) friendIds.add(a);
+    }
   }
+
+  // Step 2: Fetch posts (limit optional for performance)
+  final rows = await supa
+      .from('posts')
+      .select('id, author_id, content, image_paths, created_at')
+      .order('created_at', ascending: false)
+      .limit(200);
+
+  // Step 3: Filter out me & friends locally
+  final exclude = <String>{if (meId != null) meId, ...friendIds};
+  final filtered = (rows as List)
+      .where((r) => !exclude.contains(r['author_id']))
+      .map((r) => Map<String, dynamic>.from(r as Map))
+      .toList();
+
+  // Step 4: Map to Post model
+  return filtered.map<Post>((m) {
+    return Post(
+      id: m['id'] as String,
+      authorId: m['author_id'] as String,
+      content: (m['content'] ?? '').toString(),
+      imagePaths: (m['image_paths'] as List?)?.cast<String>() ?? const <String>[],
+      createdAt: DateTime.parse(m['created_at'] as String),
+    );
+  }).toList();
+}
+
 
   @override
-  Future<List<Post>> listFriendsFeed(String meId) async {
-    // accepted friendships where meId is either side
-    final req = await _supa
-        .from('friendships')
-        .select('addressee_id')
-        .eq('requester_id', meId)
-        .eq('status', 'accepted');
+Future<List<Post>> listFriendsFeed(String meId) async {
+  final supa = Supabase.instance.client;
 
-    final add = await _supa
-        .from('friendships')
-        .select('requester_id')
-        .eq('addressee_id', meId)
-        .eq('status', 'accepted');
+  // friend ids (accepted, both directions)
+  final fs = await supa
+      .from('friendships')
+      .select('requester_id, addressee_id, status')
+      .or('requester_id.eq.$meId,addressee_id.eq.$meId')
+      .eq('status', 'accepted');
 
-    final friendIds = <String>{
-      for (final r in (req as List)) (r['addressee_id'] as String),
-      for (final r in (add as List)) (r['requester_id'] as String),
-    }.toList();
-
-    if (friendIds.isEmpty) return const <Post>[];
-
-    final rows = await _supa
-        .from('posts')
-        .select('id, author_id, content, image_paths, created_at')
-        .inFilter('author_id', friendIds)
-        .order('created_at', ascending: false);
-
-    return (rows as List).map<Post>((e) {
-      final m = Map<String, dynamic>.from(e as Map);
-      return Post(
-        id: m['id'] as String,
-        authorId: m['author_id'] as String,
-        content: (m['content'] ?? '').toString(),
-        imagePaths: (m['image_paths'] as List?)?.cast<String>() ?? const <String>[],
-        createdAt: DateTime.parse(m['created_at'] as String),
-      );
-    }).toList();
+  final friendIds = <String>{};
+  for (final f in (fs as List)) {
+    final mm = Map<String, dynamic>.from(f as Map);
+    final r = (mm['requester_id'] ?? '').toString();
+    final a = (mm['addressee_id'] ?? '').toString();
+    if (r != meId && r.isNotEmpty) friendIds.add(r);
+    if (a != meId && a.isNotEmpty) friendIds.add(a);
   }
+  if (friendIds.isEmpty) return [];
+
+  final posts = await supa
+      .from('posts')
+      .select('id, author_id, content, image_paths, created_at')
+      .inFilter('author_id', friendIds.toList())
+      .order('created_at', ascending: false);
+
+  return (posts as List).map<Post>((r) {
+    final m = Map<String, dynamic>.from(r as Map);
+    return Post(
+      id: m['id'] as String,
+      authorId: m['author_id'] as String,
+      content: (m['content'] ?? '').toString(),
+      imagePaths: (m['image_paths'] as List?)?.cast<String>() ?? const <String>[],
+      createdAt: DateTime.parse(m['created_at'] as String),
+    );
+  }).toList();
+}
+
 
   @override
   Future<Post> createPost({
@@ -423,6 +451,12 @@ Future<List<SocialUser>> getUsersByIds(List<String> userIds) async {
       'addressee_id': toUserId,
       'status': 'pending',
     });
+    await createNotification(
+      senderId: fromUserId,
+      receiverId: toUserId,
+      type: 'friend_request',
+);
+
   }
 
   @override
@@ -455,6 +489,7 @@ Future<List<SocialUser>> getUsersByIds(List<String> userIds) async {
       for (final r in (add as List)) (r['requester_id'] as String),
     ];
   }
+
 
   // --- REACTIONS (POST / COMMENT) -----------------------------------------
 
@@ -583,4 +618,60 @@ Future<List<SocialUser>> getUsersByIds(List<String> userIds) async {
   Future<void> clearAllData() async {
     // No-op for Supabase (client cannot truncate server tables safely).
   }
+
+// ======================
+// Notifications (notifications_social)
+// ======================
+
+@override
+Future<List<Map<String, dynamic>>> getNotifications(String userId) async {
+  final supa = Supabase.instance.client;
+  final rows = await supa
+      .from('notifications_social')
+      .select('''
+        id,
+        type,
+        sender_id,
+        receiver_id,
+        post_id,
+        comment_id,
+        is_read,
+        created_at,
+        sender:profiles!sender_id(display_name, avatar_url)
+      ''')
+      .eq('receiver_id', userId)
+      .order('created_at', ascending: false);
+
+  // Ensure a clean List<Map<String,dynamic>>
+  return List<Map<String, dynamic>>.from(rows as List);
+}
+
+@override
+Future<void> markNotificationRead(String id) async {
+  final supa = Supabase.instance.client;
+  await supa
+      .from('notifications_social')
+      .update({'is_read': true})
+      .eq('id', id);
+}
+
+
+// Optional: call this where you create likes/comments/friend-requests
+Future<void> createNotification({
+  required String senderId,
+  required String receiverId,
+  required String type, // 'friend_request' | 'like' | 'comment'
+  String? postId,
+}) async {
+  final supa = Supabase.instance.client;
+  await supa.from('notifications_social').insert({
+    'sender_id': senderId,
+    'receiver_id': receiverId,
+    'type': type,
+    if (postId != null) 'post_id': postId,
+  });
+}
+
+
+
 }
