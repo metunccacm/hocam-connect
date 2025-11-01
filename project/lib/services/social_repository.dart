@@ -151,45 +151,17 @@ Future<List<SocialUser>> getUsersByIds(List<String> userIds) async {
 
   // --- FEEDS / POSTS -------------------------------------------------------
 
-  @override
-Future<List<Post>> listExplore() async {
+ @override
+Future<List<Post>> listExplore({int limit = 200}) async {
   final supa = Supabase.instance.client;
-  final meId = supa.auth.currentUser?.id;
-
-  // Step 1: Collect friend IDs
-  final friendIds = <String>{};
-  if (meId != null && meId.isNotEmpty) {
-    final fs = await supa
-        .from('friendships')
-        .select('requester_id, addressee_id, status')
-        .or('requester_id.eq.$meId,addressee_id.eq.$meId')
-        .eq('status', 'accepted');
-
-    for (final f in (fs as List)) {
-      final mm = Map<String, dynamic>.from(f as Map);
-      final r = (mm['requester_id'] ?? '').toString();
-      final a = (mm['addressee_id'] ?? '').toString();
-      if (r != meId && r.isNotEmpty) friendIds.add(r);
-      if (a != meId && a.isNotEmpty) friendIds.add(a);
-    }
-  }
-
-  // Step 2: Fetch posts (limit optional for performance)
   final rows = await supa
       .from('posts')
       .select('id, author_id, content, image_paths, created_at')
       .order('created_at', ascending: false)
-      .limit(200);
+      .limit(limit);
 
-  // Step 3: Filter out me & friends locally
-  final exclude = <String>{if (meId != null) meId, ...friendIds};
-  final filtered = (rows as List)
-      .where((r) => !exclude.contains(r['author_id']))
-      .map((r) => Map<String, dynamic>.from(r as Map))
-      .toList();
-
-  // Step 4: Map to Post model
-  return filtered.map<Post>((m) {
+  return (rows as List).map((e) {
+    final m = Map<String, dynamic>.from(e as Map);
     return Post(
       id: m['id'] as String,
       authorId: m['author_id'] as String,
