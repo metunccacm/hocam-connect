@@ -8,20 +8,28 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/social_models.dart';
 import '../models/social_user.dart';
 import '../services/social_service.dart';
+import '../services/social_repository.dart';
 
 class EditSPostView extends StatelessWidget {
-  /// Pass either a full Post or just a postId (it will fetch).
-  final Post? post;
-  final String? postId;
-  const EditSPostView({super.key, this.post, this.postId})
-      : assert(post != null || postId != null, 'Provide post or postId');
+  /// Use this when navigating:
+  /// EditSPostView(postId: post.id, repository: repository, initialPost: post)
+  final String postId;
+  final SocialRepository repository;
+  final Post? initialPost;
+
+  const EditSPostView({
+    super.key,
+    required this.postId,
+    required this.repository,
+    this.initialPost,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<_EditSPostVM>(
       create: (_) => _EditSPostVM(
         service: SocialService(),
-        initialPost: post,
+        initialPost: initialPost,
         postId: postId,
       )..init(),
       child: const _EditSPostBody(),
@@ -159,7 +167,7 @@ class _EditSPostBodyState extends State<_EditSPostBody> {
     final vm = context.watch<_EditSPostVM>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gönderiyi Düzenle'),
+        title: const Text('Edit Post'),
         actions: [
           TextButton(
             onPressed: vm.canSubmit && !vm.isSaving
@@ -170,7 +178,7 @@ class _EditSPostBodyState extends State<_EditSPostBody> {
                 : null,
             child: vm.isSaving
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Kaydet'),
+                : const Text('Save'),
           ),
         ],
       ),
@@ -197,7 +205,7 @@ class _EditSPostBodyState extends State<_EditSPostBody> {
                               minLines: 5,
                               maxLines: null,
                               decoration: const InputDecoration(
-                                hintText: 'İçeriği düzenleyin…',
+                                hintText: 'Update your content…',
                                 border: InputBorder.none,
                               ),
                               onChanged: (t) => _onChanged(vm, t),
@@ -244,11 +252,12 @@ class _EditSPostBodyState extends State<_EditSPostBody> {
                         children: [
                           _ToolButton(
                             icon: Icons.photo_outlined,
-                            label: 'Galeri',
+                            label: 'Gallery',
                             onTap: () => _pickImages(vm),
                           ),
                           const Spacer(),
-                          Text('${vm.textCtrl.text.length}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text('${vm.textCtrl.text.length}',
+                              style: const TextStyle(fontSize: 12, color: Colors.grey)),
                         ],
                       ),
                     ],
@@ -414,46 +423,44 @@ class _EditSPostVM extends ChangeNotifier {
 
   bool get canSubmit => textCtrl.text.trim().isNotEmpty || images.isNotEmpty;
 
-  
-Future<void> init() async {
-  try {
-    isLoading = true;
-    notifyListeners();
+  Future<void> init() async {
+    try {
+      isLoading = true;
+      notifyListeners();
 
-    if (initialPost != null) {
-      _post = initialPost!;
-    } else {
-      // Fetch post by ID (non-null assertion)
-      final id = postId!;
-      final rows = await Supabase.instance.client
-          .from('posts')
-          .select('id, author_id, content, image_paths, created_at')
-          .eq('id', id)
-          .single();
+      if (initialPost != null) {
+        _post = initialPost!;
+      } else {
+        // Fetch post by ID (non-null assertion)
+        final id = postId!;
+        final rows = await Supabase.instance.client
+            .from('posts')
+            .select('id, author_id, content, image_paths, created_at')
+            .eq('id', id)
+            .single();
 
-      _post = Post(
-        id: rows['id'] as String,
-        authorId: rows['author_id'] as String,
-        content: (rows['content'] ?? '').toString(),
-        imagePaths: (rows['image_paths'] as List?)?.cast<String>() ?? const <String>[],
-        createdAt: DateTime.parse(rows['created_at'] as String),
-      );
+        _post = Post(
+          id: rows['id'] as String,
+          authorId: rows['author_id'] as String,
+          content: (rows['content'] ?? '').toString(),
+          imagePaths: (rows['image_paths'] as List?)?.cast<String>() ?? const <String>[],
+          createdAt: DateTime.parse(rows['created_at'] as String),
+        );
+      }
+
+      textCtrl.text = _post!.content;
+      images = List.from(_post!.imagePaths);
+
+      // Only author can edit
+      final me = _supa.auth.currentUser?.id;
+      if (me == null || me != _post!.authorId) {
+        throw 'You do not have permission to edit this post.';
+      }
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
-
-    textCtrl.text = _post!.content;
-    images = List.from(_post!.imagePaths);
-
-    // Safety: only author can edit
-    final me = _supa.auth.currentUser?.id;
-    if (me == null || me != _post!.authorId) {
-      throw 'Bu gönderiyi düzenleme yetkiniz yok.';
-    }
-  } finally {
-    isLoading = false;
-    notifyListeners();
   }
-}
-
 
   void addLocalImages(List<String> paths) {
     images.addAll(paths);

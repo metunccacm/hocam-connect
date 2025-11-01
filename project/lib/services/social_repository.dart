@@ -88,39 +88,39 @@ class SupabaseSocialRepository implements SocialRepository {
     return user;
   }
 
-  // services/social_repository.dart  (inside class SupabaseSocialRepository)
+// inside class SupabaseSocialRepository implements SocialRepository { ... }
 
 @override
-Future<SocialUser?> getUser(String userId) async {
-  try {
-    final row = await Supabase.instance.client
-        .from('profiles')
-        .select('id, name, surname, display_name, username, avatar_url, email')
-        .eq('id', userId)
-        .maybeSingle();
+Future<SocialUser?> getUser(String id) async {
+  final row = await _supa
+      .from('profiles')
+      .select('id, name, surname, avatar_url')
+      .eq('id', id)
+      .maybeSingle();
 
-    if (row == null) return null;
+  if (row == null) return null;
 
-    final String name = (row['name'] as String?)?.trim() ?? '';
-    final String surname = (row['surname'] as String?)?.trim() ?? '';
-    final String displayName =
-        (name.isNotEmpty || surname.isNotEmpty)
-            ? [name, surname].where((s) => s.isNotEmpty).join(' ')
-            : ((row['display_name'] as String?)?.trim()?.isNotEmpty == true
-                ? (row['display_name'] as String).trim()
-                : ((row['username'] as String?)?.trim()?.isNotEmpty == true
-                    ? (row['username'] as String).trim()
-                    : (((row['email'] as String?) ?? '').split('@').first)));
+  final name = (row['name'] as String?)?.trim() ?? '';
+  final surname = (row['surname'] as String?)?.trim() ?? '';
 
-    return SocialUser(
-      id: row['id'] as String,
-      displayName: displayName,
-      avatarUrl: (row['avatar_url'] as String?) ?? '',
-    );
-  } catch (_) {
-    return null;
+  String display;
+  if (name.isNotEmpty && surname.isNotEmpty) {
+    display = '$name $surname';
+  } else if (name.isNotEmpty) {
+    display = name;
+  } else if (surname.isNotEmpty) {
+    display = surname;
+  } else {
+    display = 'User';
   }
+
+  return SocialUser(
+    id: row['id'] as String,
+    displayName: display,
+    avatarUrl: (row['avatar_url'] as String?) ?? '',
+  );
 }
+
 
 @override
 Future<List<SocialUser>> getUsersByIds(List<String> userIds) async {

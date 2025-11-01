@@ -219,11 +219,7 @@ class _UserProfileViewState extends State<UserProfileView> {
                       Text(_department!,
                           style: const TextStyle(color: Colors.grey)),
                     ],
-                    const SizedBox(height: 16),
-                    Text('User ID: ${widget.userId}',
-                        style:
-                            const TextStyle(color: Colors.grey, fontSize: 13)),
-                    const SizedBox(height: 24),
+                    
                     if (_friendState == 'me')
                       const Text('This is your profile',
                           style: TextStyle(color: Colors.grey)),

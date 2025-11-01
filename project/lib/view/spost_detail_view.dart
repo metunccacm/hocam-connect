@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/social_models.dart';
 import '../models/social_user.dart';
 import '../services/social_repository.dart';
+import 'edit_spost_view.dart';
+
 
 class SPostDetailView extends StatelessWidget {
   final String postId;
@@ -69,14 +71,15 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
                       padding: const EdgeInsets.all(12),
                       children: [
                         // Header
-                        Row(
-                          children: [
-                            FutureBuilder<SocialUser?>(
-                              future: vm.repository.getUser(post.authorId),
-                              builder: (context, snap) {
-                                final u = snap.data;
-                                final avatar = u?.avatarUrl;
-                                return CircleAvatar(
+                        FutureBuilder<SocialUser?>(
+                          future: vm.repository.getUser(post.authorId),
+                          builder: (context, snap) {
+                            final u = snap.data;
+                            final avatar = u?.avatarUrl;
+                            final display = u?.displayName ?? 'User';
+                            return Row(
+                              children: [
+                                CircleAvatar(
                                   radius: 18,
                                   backgroundColor: Colors.blue.shade100,
                                   backgroundImage: (avatar != null && avatar.isNotEmpty)
@@ -85,50 +88,63 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
                                   child: (avatar == null || avatar.isEmpty)
                                       ? Icon(Icons.person, color: Colors.blue.shade700)
                                       : null,
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(vm.userName(post.authorId),
-                                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                                  Text(vm.timeAgo(post.createdAt),
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                ],
-                              ),
-                            ),
-                            PopupMenuButton<String>(
-                              onSelected: (v) async {
-                                if (v == 'edit' && vm.isMine(post.authorId)) {
-                                  // Navigate to edit screen if needed
-                                }
-                                if (v == 'delete' && vm.isMine(post.authorId)) {
-                                  final ok = await _confirm(context, 'Delete post?', 'This cannot be undone.');
-                                  if (ok) {
-                                    await vm.deletePost();
-                                    if (mounted) Navigator.pop(context, true);
-                                  }
-                                }
-                                if (v == 'report' && !vm.isMine(post.authorId)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Thanks for the report.')),
-                                  );
-                                }
-                              },
-                              itemBuilder: (_) => [
-                                if (vm.isMine(post.authorId))
-                                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                if (vm.isMine(post.authorId))
-                                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                                if (!vm.isMine(post.authorId))
-                                  const PopupMenuItem(value: 'report', child: Text('Report')),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(display, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                      Text(vm.timeAgo(post.createdAt),
+                                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuButton<String>(
+                                  onSelected: (v) async {
+                                    if (v == 'edit' && vm.isMine(post.authorId)) {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditSPostView(
+          postId: post.id,
+          repository: vm.repository,
+          initialPost: post, // optional, speeds up first paint
+        ),
+      ),
+    );
+    // If edit was saved, refresh the post details
+    if (updated == true) {
+      await vm.refreshAll();
+    }
+  }
+                                    if (v == 'delete' && vm.isMine(post.authorId)) {
+                                      final ok = await _confirm(context, 'Delete post?', 'This cannot be undone.');
+                                      if (ok) {
+                                        await vm.deletePost();
+                                        if (mounted) Navigator.pop(context, true);
+                                      }
+                                    }
+                                    if (v == 'report' && !vm.isMine(post.authorId)) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Thanks for the report.')),
+                                      );
+                                    }
+                                  },
+                                  itemBuilder: (_) => [
+                                    if (vm.isMine(post.authorId))
+                                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                    if (vm.isMine(post.authorId))
+                                      const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                    if (!vm.isMine(post.authorId))
+                                      const PopupMenuItem(value: 'report', child: Text('Report')),
+                                  ],
+                                ),
                               ],
-                            ),
-                          ],
+                            );
+                          },
                         ),
+
                         const SizedBox(height: 8),
                         _MentionHashtagText(text: post.content, vm: vm),
                         if (post.imagePaths.isNotEmpty) ...[
@@ -136,6 +152,8 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
                           _ImagesGridNet(urls: post.imagePaths),
                         ],
                         const SizedBox(height: 8),
+
+                        // Actions
                         Row(
                           children: [
                             IconButton(
@@ -154,6 +172,8 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
                         ),
                         const Divider(),
                         const SizedBox(height: 4),
+
+                        // Comments
                         if (vm.comments.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
@@ -176,6 +196,7 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
                     ),
                   ),
                 ),
+
                 // Composer
                 SafeArea(
                   top: false,
@@ -198,8 +219,7 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
                                   decoration: InputDecoration(
                                     hintText: 'Write a reply',
                                     border: const OutlineInputBorder(),
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                     suffixIcon: IconButton(
                                       icon: const Icon(Icons.close),
                                       onPressed: () => setState(() {
@@ -213,8 +233,7 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
                         const SizedBox(width: 8),
                         IconButton(
                           icon: vm.isBusy
-                              ? const SizedBox(
-                                  width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.send),
                           onPressed: vm.isBusy
                               ? null
@@ -284,9 +303,7 @@ class _SPostDetailVM extends ChangeNotifier {
   int likeCount = 0;
   bool isLikedByMe = false;
 
-  // NEW: synchronous total comments getter (for UI binding)
   int get totalComments => comments.length;
-
   String get meId => supa.auth.currentUser?.id ?? '';
 
   Future<void> init() async {
@@ -297,7 +314,6 @@ class _SPostDetailVM extends ChangeNotifier {
       if (initialPost != null) {
         post = initialPost!;
       } else {
-        // Fetch post directly (repository has no fetch-by-id)
         final row = await supa
             .from('posts')
             .select('id, author_id, content, image_paths, created_at')
@@ -313,12 +329,10 @@ class _SPostDetailVM extends ChangeNotifier {
         );
       }
 
-      // Likes
       final likes = await repository.getLikes(post!.id);
       likeCount = likes.length;
       isLikedByMe = likes.any((l) => l.userId == meId);
 
-      // Comments (top-level)
       comments = await repository.getComments(post!.id);
     } finally {
       isLoading = false;
@@ -326,28 +340,23 @@ class _SPostDetailVM extends ChangeNotifier {
     }
   }
 
-  Future<void> refreshAll() async {
-    await init();
-  }
+  Future<void> refreshAll() async => init();
 
-  // Helpers
   bool isMine(String userId) => userId == meId;
 
-  String userName(String uid) => _userNameCache[uid] ?? 'User';
-
-  final Map<String, String> _userNameCache = {};
-
+  // If you still need a cached name, this resolves once and saves it.
+  final Map<String, String> _nameCache = {};
+  String userName(String uid) => _nameCache[uid] ?? 'User';
   Future<String> resolveUserName(String uid) async {
-    if (_userNameCache.containsKey(uid)) return _userNameCache[uid]!;
+    if (_nameCache.containsKey(uid)) return _nameCache[uid]!;
     final u = await repository.getUser(uid);
     final name = u?.displayName ?? 'User';
-    _userNameCache[uid] = name;
+    _nameCache[uid] = name;
     return name;
   }
 
   String timeAgo(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
+    final diff = DateTime.now().difference(dt);
     if (diff.inSeconds < 60) return 'just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m';
     if (diff.inHours < 24) return '${diff.inHours}h';
@@ -366,13 +375,11 @@ class _SPostDetailVM extends ChangeNotifier {
     return n.toString();
   }
 
-  // Post like
   Future<void> toggleLike() async {
     if (post == null) return;
     final id = post!.id;
     final was = isLikedByMe;
 
-    // optimistic
     if (was) {
       isLikedByMe = false;
       likeCount = (likeCount - 1).clamp(0, 1 << 30);
@@ -398,7 +405,6 @@ class _SPostDetailVM extends ChangeNotifier {
     }
   }
 
-  // Comments
   Future<void> addComment(String text) async {
     if (post == null || text.trim().isEmpty) return;
     isBusy = true;
@@ -423,7 +429,6 @@ class _SPostDetailVM extends ChangeNotifier {
         authorId: meId,
         content: text.trim(),
       );
-      // replies are fetched lazily in tiles; you can refresh if needed
     } finally {
       isBusy = false;
       notifyListeners();
@@ -436,7 +441,6 @@ class _SPostDetailVM extends ChangeNotifier {
   }
 
   Future<void> deleteComment(String commentId) async {
-    // delete replies first
     final replies = await repository.getReplies(commentId);
     for (final r in replies) {
       await repository.deleteComment(r.id);
@@ -461,7 +465,6 @@ class _SPostDetailVM extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Comment likes
   Future<int> commentLikeCount(String commentId) async {
     final list = await repository.getCommentLikes(commentId);
     return list.length;
@@ -481,12 +484,9 @@ class _SPostDetailVM extends ChangeNotifier {
         await repository.likeComment(commentId: commentId, userId: meId);
       }
       notifyListeners();
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
   }
 
-  // Mention utilities (optional)
   Future<String?> idByDisplayName(String displayName) async {
     final users = await repository.suggestUsers(displayName);
     final found = users.firstWhere(
@@ -550,6 +550,7 @@ class _CommentTileState extends State<_CommentTile> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Top-level comment
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: FutureBuilder<SocialUser?>(
@@ -567,7 +568,13 @@ class _CommentTileState extends State<_CommentTile> {
               );
             },
           ),
-          title: Text(vm.userName(c.authorId), style: const TextStyle(fontWeight: FontWeight.w600)),
+          title: FutureBuilder<SocialUser?>(
+            future: vm.repository.getUser(c.authorId),
+            builder: (context, snapshot) {
+              final display = snapshot.data?.displayName ?? 'User';
+              return Text(display, style: const TextStyle(fontWeight: FontWeight.w600));
+            },
+          ),
           subtitle: _MentionHashtagText(text: c.content, vm: vm),
           trailing: Text(vm.timeAgo(c.createdAt), style: const TextStyle(fontSize: 11, color: Colors.grey)),
         ),
@@ -662,6 +669,8 @@ class _CommentTileState extends State<_CommentTile> {
             ],
           ),
         ),
+
+        // Replies (with their own menus)
         if (_loading)
           const Padding(
             padding: EdgeInsets.only(left: 56, bottom: 8),
@@ -673,30 +682,109 @@ class _CommentTileState extends State<_CommentTile> {
             child: Column(
               children: _replies!
                   .map(
-                    (r) => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: FutureBuilder<SocialUser?>(
-                        future: vm.repository.getUser(r.authorId),
-                        builder: (context, snapshot) {
-                          final u = snapshot.data;
-                          final avatar = u?.avatarUrl;
-                          return CircleAvatar(
-                            radius: 14,
-                            backgroundColor: Colors.blue.shade100,
-                            backgroundImage:
-                                (avatar != null && avatar.isNotEmpty) ? NetworkImage(avatar) : null,
-                            child: (avatar == null || avatar.isEmpty)
-                                ? Icon(Icons.person, size: 16, color: Colors.blue.shade700)
-                                : null,
-                          );
-                        },
-                      ),
-                      title: Text(vm.userName(r.authorId),
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                      subtitle: _MentionHashtagText(text: r.content, vm: vm),
-                      trailing: Text(vm.timeAgo(r.createdAt),
-                          style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    (r) => Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: FutureBuilder<SocialUser?>(
+                              future: vm.repository.getUser(r.authorId),
+                              builder: (context, snapshot) {
+                                final u = snapshot.data;
+                                final avatar = u?.avatarUrl;
+                                return CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: Colors.blue.shade100,
+                                  backgroundImage: (avatar != null && avatar.isNotEmpty)
+                                      ? NetworkImage(avatar)
+                                      : null,
+                                  child: (avatar == null || avatar.isEmpty)
+                                      ? Icon(Icons.person, size: 16, color: Colors.blue.shade700)
+                                      : null,
+                                );
+                              },
+                            ),
+                            title: FutureBuilder<SocialUser?>(
+                              future: vm.repository.getUser(r.authorId),
+                              builder: (context, snapshot) {
+                                final display = snapshot.data?.displayName ?? 'User';
+                                return Text(display,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600, fontSize: 14));
+                              },
+                            ),
+                            subtitle: _MentionHashtagText(text: r.content, vm: vm),
+                            trailing: Text(vm.timeAgo(r.createdAt),
+                                style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          onSelected: (v) async {
+                            if (v == 'edit' && vm.isMine(r.authorId)) {
+                              final ctrl = TextEditingController(text: r.content);
+                              final updated = await showDialog<String>(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: const Text('Edit reply'),
+                                  content: TextField(
+                                    controller: ctrl,
+                                    maxLines: 4,
+                                    decoration: const InputDecoration(
+                                      border: OutlineInputBorder(),
+                                      hintText: 'Update your reply...',
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+                                      child: const Text('Save'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (updated != null && updated.isNotEmpty && updated != r.content) {
+                                await vm.editComment(r, updated);
+                                setState(() {});
+                              }
+                            }
+                            if (v == 'delete' && vm.isMine(r.authorId)) {
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: const Text('Delete reply'),
+                                  content: const Text('This cannot be undone.'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                                    FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                                  ],
+                                ),
+                              );
+                              if (ok == true) {
+                                await vm.deleteComment(r.id);
+                                setState(() {
+                                  _replies!.removeWhere((x) => x.id == r.id);
+                                });
+                              }
+                            }
+                            if (v == 'report' && !vm.isMine(r.authorId)) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Thanks for the report.')),
+                              );
+                            }
+                          },
+                          itemBuilder: (_) => [
+                            if (vm.isMine(r.authorId))
+                              const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                            if (vm.isMine(r.authorId))
+                              const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                            if (!vm.isMine(r.authorId))
+                              const PopupMenuItem(value: 'report', child: Text('Report')),
+                          ],
+                        ),
+                      ],
                     ),
                   )
                   .toList(),
@@ -736,7 +824,7 @@ class _MentionHashtagText extends StatelessWidget {
               ..onTap = () async {
                 final id = await vm.idByDisplayName(value);
                 if (id != null) {
-                  // Implement your user profile navigation
+                  // Implement NAV to profile if you want:
                   // Navigator.pushNamed(context, '/user-profile', arguments: {'userId': id});
                 }
               }),
@@ -749,8 +837,7 @@ class _MentionHashtagText extends StatelessWidget {
             style: TextStyle(color: Theme.of(context).colorScheme.primary),
             recognizer: (TapGestureRecognizer()
               ..onTap = () {
-                // Implement your hashtag search navigation
-                // Navigator.pushNamed(context, '/search', arguments: {'q': '#$value'});
+                // Implement NAV to hashtag search if you want
               }),
           ),
         );
