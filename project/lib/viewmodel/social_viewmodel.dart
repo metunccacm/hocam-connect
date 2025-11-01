@@ -502,18 +502,32 @@ class SocialViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> deletePostById(String postId) async {
-    try {
-      await repository.deletePost(postId);
-      feed.removeWhere((p) => p.id == postId);
-      _likeCounts.remove(postId);
-      _commentCounts.remove(postId);
-      _likedByMe.remove(postId);
-      notifyListeners();
-    } catch (_) {
-      // Optionally surface error
-    }
-  }
+  // inside class SocialViewModel
+
+Future<void> deletePostById(String postId) async {
+  // 1) delete on server
+  await repository.deletePost(postId);
+
+  // 2) remove from local state (both feeds if you keep two, or the single feed)
+  // If you have separate lists like exploreFeed / friendsFeed, remove in both.
+  try {
+    feed.removeWhere((p) => p.id == postId);
+  } catch (_) {}
+
+  // if you track separate caches:
+  // exploreFeed.removeWhere((p) => p.id == postId);
+  // friendsFeed.removeWhere((p) => p.id == postId);
+
+  // 3) clean any local counters/caches you keep
+  try {
+    _likeCounts.remove(postId);
+    _commentCounts.remove(postId);
+  } catch (_) {}
+
+  // 4) notify UI so the card disappears immediately
+  notifyListeners();
+}
+
 
   Future<void> deleteCommentById(String commentId) async {
     try {

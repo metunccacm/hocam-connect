@@ -251,17 +251,28 @@ Future<List<Post>> listFriendsFeed(String meId) async {
   }
 
   @override
-  Future<void> deletePost(String postId) async {
-    // also clean up likes and comments if not on cascade
-    await _supa.from('post_likes').delete().eq('post_id', postId);
-    final comments = await _supa.from('comments').select('id').eq('post_id', postId);
-    for (final r in (comments as List)) {
-      final cid = r['id'] as String;
-      await _supa.from('comment_likes').delete().eq('comment_id', cid);
-    }
-    await _supa.from('comments').delete().eq('post_id', postId);
-    await _supa.from('posts').delete().eq('id', postId);
+Future<void> deletePost(String postId) async {
+  // 1) delete notifications for this post (like/comment alerts)
+  await _supa.from('notifications_social').delete().eq('post_id', postId);
+
+  // 2) delete likes & comments (and their likes)
+  await _supa.from('post_likes').delete().eq('post_id', postId);
+
+  final comments = await _supa
+      .from('comments')
+      .select('id')
+      .eq('post_id', postId);
+
+  for (final r in (comments as List)) {
+    final cid = r['id'] as String;
+    await _supa.from('comment_likes').delete().eq('comment_id', cid);
   }
+  await _supa.from('comments').delete().eq('post_id', postId);
+
+  // 3) finally delete the post
+  await _supa.from('posts').delete().eq('id', postId);
+}
+
 
   // --- COMMENTS ------------------------------------------------------------
 
