@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // 🔔 NEW
+
 import '../models/social_models.dart';
 import '../models/social_user.dart';
 import '../services/social_repository.dart';
@@ -15,21 +17,18 @@ import 'spost_detail_view.dart';
 import 'social_notifications_view.dart';
 import 'edit_spost_view.dart';
 
-
-
 class SocialView extends StatelessWidget {
   const SocialView({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<SocialViewModel>(
-  create: (_) => SocialViewModel(
-    repository: SupabaseSocialRepository(),
-    service: SocialService(), // ✅ now properly added
-  )..load(),
-  child: const _SocialViewBody(),
-);
-
+      create: (_) => SocialViewModel(
+        repository: SupabaseSocialRepository(),
+        service: SocialService(),
+      )..load(),
+      child: const _SocialViewBody(),
+    );
   }
 }
 
@@ -45,12 +44,20 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
   final ScrollController _scrollController = ScrollController();
   bool _showQuickCompose = false;
 
+  // 🔔 NEW: unread notifications
+  int _unreadCount = 0;
+  RealtimeChannel? _notifChannel;
+
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
     _scrollController.addListener(_updateQuickComposeVisibility);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateQuickComposeVisibility());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateQuickComposeVisibility();
+      _loadUnreadNotifications();   // initial unread fetch
+      _subscribeNotifications();    // realtime
+    });
   }
 
   @override
@@ -58,6 +65,12 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
     _scrollController.removeListener(_updateQuickComposeVisibility);
     _scrollController.dispose();
     _animationController.dispose();
+
+    // 🔔 cleanup
+    if (_notifChannel != null) {
+      Supabase.instance.client.removeChannel(_notifChannel!);
+      _notifChannel = null;
+    }
     super.dispose();
   }
 
@@ -89,7 +102,6 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
     );
     if (postId != null) {
       await vm.load();
-      // Optionally jump to detail
       // ignore: use_build_context_synchronously
       await Navigator.push(
         context,
@@ -101,6 +113,85 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
         ),
       );
       await vm.load();
+    }
+  }
+
+  // ================================
+  // 🔔 Notifications plumbing
+  // ================================
+  Future<void> _loadUnreadNotifications() async {
+  final supa = Supabase.instance.client;
+  final meId = supa.auth.currentUser?.id;
+  if (meId == null) return;
+
+  final rows = await supa
+      .from('notifications_social')
+      .select('id')                // ← simple select
+      .eq('receiver_id', meId)
+      .eq('is_read', false);
+
+  final int cnt = (rows as List).length;  // ← count locally
+  if (!mounted) return;
+  setState(() => _unreadCount = cnt);
+}
+
+
+  void _subscribeNotifications() {
+    final supa = Supabase.instance.client;
+    final meId = supa.auth.currentUser?.id;
+    if (meId == null) return;
+
+    _notifChannel = supa.channel('rt_notifications_$meId')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'notifications_social',
+        callback: (payload) {
+          if (payload.newRecord['receiver_id'] == meId &&
+              payload.newRecord['is_read'] == false) {
+            setState(() => _unreadCount = _unreadCount + 1);
+          }
+        },
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public',
+        table: 'notifications_social',
+        callback: (payload) {
+          if (payload.newRecord['receiver_id'] == meId) {
+            _loadUnreadNotifications();
+          }
+        },
+      )
+      ..subscribe();
+  }
+
+  // When user taps the bell: mark all as read, zero the badge, then open the screen
+  Future<void> _openNotifications() async {
+    final supa = Supabase.instance.client;
+    final meId = supa.auth.currentUser?.id;
+    if (meId == null) return;
+
+    // Mark all unread as read
+    await supa
+        .from('notifications_social')
+        .update({'is_read': true})
+        .eq('receiver_id', meId)
+        .eq('is_read', false);
+
+    if (mounted) setState(() => _unreadCount = 0);
+
+    final vm = context.read<SocialViewModel>();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SocialNotificationsView(repository: vm.repository),
+      ),
+    );
+
+    // After returning, re-sync (in case something arrived while inside)
+    if (mounted) {
+      await _loadUnreadNotifications();
     }
   }
 
@@ -140,20 +231,41 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
                     centerTitle: true,
                     actions: [
-                      IconButton(
-                        tooltip: 'Notifications',
-  onPressed: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => SocialNotificationsView(
-        repository: vm.repository, // ✅ pass the same repo used by SocialView
-      ),
-    ),
-  );
-},
-
-  icon: const Icon(Icons.notifications_none_outlined),
+                      // 🔔 Bell with badge
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6.0),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            IconButton(
+                              tooltip: 'Notifications',
+                              onPressed: _openNotifications,
+                              icon: const Icon(Icons.notifications_none_outlined),
+                            ),
+                            if (_unreadCount > 0)
+                              Positioned(
+                                right: 6,
+                                top: 6,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.redAccent,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  constraints: const BoxConstraints(minWidth: 18),
+                                  child: Text(
+                                    _unreadCount > 99 ? '99+' : '$_unreadCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ],
                     floating: true,
@@ -225,23 +337,21 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
               ),
           ],
         ),
-floatingActionButton: FloatingActionButton(
-  heroTag: 'create_post_fab',
-  backgroundColor: Colors.blue,
-  onPressed: () {
-    final vm = context.read<SocialViewModel>();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CreateSPostView(repository: vm.repository),
-      ),
-    );
-  },
-  child: const Icon(Icons.add, color: Colors.white),
-),
-floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-
-
+        floatingActionButton: FloatingActionButton(
+          heroTag: 'create_post_fab',
+          backgroundColor: Colors.blue,
+          onPressed: () {
+            final vm = context.read<SocialViewModel>();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CreateSPostView(repository: vm.repository),
+              ),
+            );
+          },
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         bottomNavigationBar: _BottomBar(),
       ),
     );
@@ -428,36 +538,33 @@ class _PostTileState extends State<_PostTile> {
                 builder: (ctx) {
                   final isMine = vm.meId == post.authorId;
                   return PopupMenuButton<String>(
-  onSelected: (v) async {
-    if (v == 'edit' && vm.meId == post.authorId) {
-      final changed = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => EditSPostView(
-            postId: post.id,
-            repository: vm.repository,
-            initialPost: post, // prefill editor
-          ),
-        ),
-      );
-      if (changed == true && context.mounted) {
-        await context.read<SocialViewModel>().load(); // refresh feed
-      }
-    } else if (v == 'delete' && vm.meId == post.authorId) {
-      await _deletePost(context, post);
-    } else if (v == 'report' && vm.meId != post.authorId) {
-      _reportPost(context, post);
-    }
-  },
-  itemBuilder: (_) => [
-    if (vm.meId == post.authorId)
-      const PopupMenuItem(value: 'edit', child: Text('Edit')),
-    if (vm.meId == post.authorId)
-      const PopupMenuItem(value: 'delete', child: Text('Delete')),
-    if (vm.meId != post.authorId)
-      const PopupMenuItem(value: 'report', child: Text('Report')),
-  ],
-);
+                    onSelected: (v) async {
+                      if (v == 'edit' && vm.meId == post.authorId) {
+                        final changed = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EditSPostView(
+                              postId: post.id,
+                              repository: vm.repository,
+                              initialPost: post,
+                            ),
+                          ),
+                        );
+                        if (changed == true && context.mounted) {
+                          await context.read<SocialViewModel>().load();
+                        }
+                      } else if (v == 'delete' && vm.meId == post.authorId) {
+                        await _deletePost(context, post);
+                      } else if (v == 'report' && vm.meId != post.authorId) {
+                        _reportPost(context, post);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      if (isMine) const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      if (isMine) const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      if (!isMine) const PopupMenuItem(value: 'report', child: Text('Report')),
+                    ],
+                  );
                 },
               ),
             ],
