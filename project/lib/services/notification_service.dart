@@ -7,14 +7,138 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'chat_service.dart';
 
 /// Background message handler (must be top-level function)
+/// This decrypts messages when app is in background/terminated
+/// Similar to how WhatsApp shows actual message content in notifications
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (kDebugMode) {
-    print('Handling background message: ${message.messageId}');
+    print('🌙 Background message received: ${message.messageId}');
+    print('   Data: ${message.data}');
   }
-  // Handle background message here if needed
+  
+  try {
+    // Initialize Firebase if needed
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+    
+    // Check if Supabase is available
+    // Note: Supabase should be initialized in main.dart before this runs
+    try {
+      final _ = Supabase.instance.client.auth.currentUser;
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ Supabase not available in background handler: $e');
+      }
+      return;
+    }
+    
+    // Check if it's a chat message
+    final type = message.data['type'] as String?;
+    final messageId = message.data['message_id'] as String?;
+    final senderName = message.data['sender_name'] as String?;
+    
+    if (type == 'chat' && messageId != null) {
+      if (kDebugMode) {
+        print('💬 Chat message detected in background');
+      }
+      
+      // Import ChatService and decrypt
+      // Note: This requires the user's E2EE keys to be available
+      try {
+        final chatService = ChatService();
+        await chatService.ensureMyLongTermKey();
+        
+        // Fetch the message from database
+        final messageData = await Supabase.instance.client
+            .from('messages')
+            .select()
+            .eq('id', messageId)
+            .single();
+        
+        final chatMessage = ChatMessage.fromJson(messageData);
+        
+        // Decrypt the message
+        final decryptedText = await chatService.decryptMessageForUi(chatMessage);
+        
+        // Show local notification with decrypted content
+        final localNotifications = FlutterLocalNotificationsPlugin();
+        
+        // Initialize local notifications
+        await localNotifications.initialize(
+          const InitializationSettings(
+            android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+            iOS: DarwinInitializationSettings(),
+          ),
+        );
+        
+        // Show notification with actual message content
+        await localNotifications.show(
+          message.hashCode,
+          senderName ?? 'New Message',
+          decryptedText.length > 100 
+              ? '${decryptedText.substring(0, 100)}...' 
+              : decryptedText,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'chat_messages',
+              'Chat Messages',
+              channelDescription: 'Notifications for new chat messages',
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+          ),
+          payload: message.data.toString(),
+        );
+        
+        if (kDebugMode) {
+          print('✅ Background notification shown with decrypted content');
+        }
+        
+      } catch (e) {
+        if (kDebugMode) {
+          print('❌ Failed to decrypt message in background: $e');
+          print('   Showing generic notification instead');
+        }
+        
+        // Fallback: Show generic notification if decryption fails
+        final localNotifications = FlutterLocalNotificationsPlugin();
+        await localNotifications.initialize(
+          const InitializationSettings(
+            android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+            iOS: DarwinInitializationSettings(),
+          ),
+        );
+        
+        await localNotifications.show(
+          message.hashCode,
+          senderName ?? 'New Message',
+          'Sent you a message',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'chat_messages',
+              'Chat Messages',
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+            iOS: DarwinNotificationDetails(),
+          ),
+        );
+      }
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('❌ Error in background message handler: $e');
+    }
+  }
 }
 
 class NotificationService {
@@ -440,12 +564,25 @@ class NotificationService {
   /// Handle foreground messages
   void _handleForegroundMessage(RemoteMessage message) {
     if (kDebugMode) {
-      print('Foreground message received: ${message.notification?.title}');
+      print('🔔 Foreground message received');
+      print('   Title: ${message.notification?.title}');
+      print('   Body: ${message.notification?.body}');
+      print('   Data: ${message.data}');
     }
 
-    // Show local notification when app is in foreground
-    if (message.notification != null) {
-      _showLocalNotification(message);
+    // For E2EE chats, we rely on GlobalChatNotificationService for in-app notifications
+    // which can decrypt messages. Push notifications are generic ("New message from X")
+    
+    // Only show local notification if it's not a chat message
+    // (chat messages are handled by GlobalChatNotificationService which decrypts them)
+    if (message.data['type'] != 'chat') {
+      if (message.notification != null) {
+        _showLocalNotification(message);
+      }
+    } else {
+      if (kDebugMode) {
+        print('🚫 Skipping local notification - chat messages handled by GlobalChatNotificationService');
+      }
     }
   }
 
@@ -480,13 +617,36 @@ class NotificationService {
     );
   }
 
-  /// Handle notification tap
+  /// Handle notification tap (when app was in background/terminated)
   void _handleNotificationTap(RemoteMessage message) {
     if (kDebugMode) {
-      print('Notification tapped: ${message.data}');
+      print('🔔 Notification tapped');
+      print('   Data: ${message.data}');
     }
-    // TODO: Navigate to specific screen based on message.data
-    // Example: if (message.data['type'] == 'chat') { navigate to chat }
+    
+    // Navigate based on notification type
+    final type = message.data['type'] as String?;
+    final conversationId = message.data['conversation_id'] as String?;
+    
+    if (type == 'chat' && conversationId != null) {
+      // Store navigation intent - will be handled by main app after it fully loads
+      _pendingChatNavigation = conversationId;
+      if (kDebugMode) {
+        print('📍 Pending navigation to conversation: $conversationId');
+      }
+    }
+    
+    // TODO: Handle other notification types (social, marketplace, etc.)
+  }
+  
+  // Store pending navigation for handling after app loads
+  String? _pendingChatNavigation;
+  
+  /// Get and clear pending chat navigation
+  String? getPendingChatNavigation() {
+    final pending = _pendingChatNavigation;
+    _pendingChatNavigation = null;
+    return pending;
   }
 
   /// Handle local notification tap
