@@ -317,7 +317,7 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                     ),
                   ),
                   SliverToBoxAdapter(
-                    child: Column(children: const [SizedBox(height: 8)]),
+                    child: Column(children: [SizedBox(height: 8)]),
                   ),
                   if (vm.isLoading)
                     SliverList(
