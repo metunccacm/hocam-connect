@@ -492,7 +492,7 @@ Future<Comment> addReply({
       'addressee_id': toUserId,
       'status': 'pending',
     });
-    await createNotification(
+    await _createNotification(
       senderId: fromUserId,
       receiverId: toUserId,
       type: 'friend_request',
