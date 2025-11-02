@@ -592,7 +592,7 @@ Future<void> deletePostById(String postId) async {
     final candidates = <String?>[
       // Prefer explicit name + surname if present
       ((name?.isNotEmpty ?? false) || (surname?.isNotEmpty ?? false))
-          ? [name, surname].where((s) => s != null && s!.isNotEmpty).join(' ').trim()
+          ? [name, surname].where((s) => s != null && s.isNotEmpty).join(' ').trim()
           : null,
       displayName,
       fullName,

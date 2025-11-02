@@ -22,7 +22,7 @@ class CreditsView extends StatelessWidget {
                   end: Alignment.bottomRight,
                   colors: [
                     theme.scaffoldBackgroundColor,
-                    theme.scaffoldBackgroundColor.withOpacity(0.95),
+                    theme.scaffoldBackgroundColor.withValues(alpha: 0.95),
                   ],
                 )
               : null,
@@ -119,11 +119,11 @@ class CreditsView extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: isDark
-            ? color.withOpacity(0.15)
-            : color.withOpacity(0.1),
+            ? color.withValues(alpha: 0.15)
+            : color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
           width: 1.5,
         ),
       ),
@@ -132,7 +132,7 @@ class CreditsView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(isDark ? 0.3 : 0.2),
+              color: color.withValues(alpha: isDark ? 0.3 : 0.2),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -168,19 +168,19 @@ class CreditsView extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.grey.shade800.withOpacity(0.6)
+            ? Colors.grey.shade800.withValues(alpha: 0.6)
             : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark
-              ? Colors.grey.shade700.withOpacity(0.5)
+              ? Colors.grey.shade700.withValues(alpha: 0.5)
               : Colors.grey.shade200,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: isDark
-                ? Colors.black.withOpacity(0.3)
+                ? Colors.black.withValues(alpha: 0.3)
                 : Colors.grey.shade200,
             blurRadius: 8,
             offset: const Offset(0, 2),
@@ -197,7 +197,7 @@ class CreditsView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: color.withOpacity(0.3),
+                        color: color.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -220,7 +220,7 @@ class CreditsView extends StatelessWidget {
                               end: Alignment.bottomRight,
                               colors: [
                                 color,
-                                color.withOpacity(0.7),
+                                color.withValues(alpha: 0.7),
                               ],
                             ),
                           ),
@@ -249,7 +249,7 @@ class CreditsView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: color.withOpacity(0.3),
+                        color: color.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

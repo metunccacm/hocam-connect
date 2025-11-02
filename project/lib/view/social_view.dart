@@ -14,7 +14,6 @@ import '../services/social_repository.dart';
 import '../services/social_service.dart';
 import '../viewmodel/social_viewmodel.dart';
 import 'bottombar_view.dart';
-import 'create_spost_view.dart';
 import 'spost_detail_view.dart';
 import 'social_notifications_view.dart';
 import 'edit_spost_view.dart';
@@ -41,7 +40,8 @@ class _SocialViewBody extends StatefulWidget {
   State<_SocialViewBody> createState() => _SocialViewBodyState();
 }
 
-class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProviderStateMixin {
+class _SocialViewBodyState extends State<_SocialViewBody>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   final ScrollController _scrollController = ScrollController();
   bool _showQuickCompose = false;
@@ -53,12 +53,13 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
+    _animationController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 250));
     _scrollController.addListener(_updateQuickComposeVisibility);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateQuickComposeVisibility();
-      _loadUnreadNotifications();   // initial unread fetch
-      _subscribeNotifications();    // realtime
+      _loadUnreadNotifications(); // initial unread fetch
+      _subscribeNotifications(); // realtime
     });
   }
 
@@ -106,50 +107,25 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
     );
   }
 
-  Future<void> _openCreatePost() async {
-    final vm = context.read<SocialViewModel>();
-    final postId = await Navigator.push<String?>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CreateSPostView(repository: vm.repository),
-        fullscreenDialog: true,
-      ),
-    );
-    if (postId != null) {
-      await vm.load();
-      // ignore: use_build_context_synchronously
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SPostDetailView(
-            postId: postId,
-            repository: vm.repository,
-          ),
-        ),
-      );
-      await vm.load();
-    }
-  }
 
   // ================================
   // 🔔 Notifications plumbing
   // ================================
   Future<void> _loadUnreadNotifications() async {
-  final supa = Supabase.instance.client;
-  final meId = supa.auth.currentUser?.id;
-  if (meId == null) return;
+    final supa = Supabase.instance.client;
+    final meId = supa.auth.currentUser?.id;
+    if (meId == null) return;
 
-  final rows = await supa
-      .from('notifications_social')
-      .select('id')                // ← simple select
-      .eq('receiver_id', meId)
-      .eq('is_read', false);
+    final rows = await supa
+        .from('notifications_social')
+        .select('id') // ← simple select
+        .eq('receiver_id', meId)
+        .eq('is_read', false);
 
-  final int cnt = (rows as List).length;  // ← count locally
-  if (!mounted) return;
-  setState(() => _unreadCount = cnt);
-}
-
+    final int cnt = (rows as List).length; // ← count locally
+    if (!mounted) return;
+    setState(() => _unreadCount = cnt);
+  }
 
   void _subscribeNotifications() {
     final supa = Supabase.instance.client;
@@ -196,7 +172,9 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
 
     if (mounted) setState(() => _unreadCount = 0);
 
+    if (!mounted) return;
     final vm = context.read<SocialViewModel>();
+    if (!mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -229,7 +207,8 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                   SliverAppBar(
                     toolbarHeight: 48,
                     elevation: 0,
-                    backgroundColor: Theme.of(context).colorScheme.surface.withAlpha(191),
+                    backgroundColor:
+                        Theme.of(context).colorScheme.surface.withAlpha(191),
                     leading: Navigator.canPop(context)
                         ? IconButton(
                             icon: const Icon(Icons.arrow_back_ios_new_rounded),
@@ -243,7 +222,8 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                       ),
                     ),
                     title: const Text('Hocam Connect',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 22)),
                     centerTitle: true,
                     actions: [
                       // 🔔 Bell with badge
@@ -255,19 +235,22 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                             IconButton(
                               tooltip: 'Bildirimler',
                               onPressed: _openNotifications,
-                              icon: const Icon(Icons.notifications_none_outlined),
+                              icon:
+                                  const Icon(Icons.notifications_none_outlined),
                             ),
                             if (_unreadCount > 0)
                               Positioned(
                                 right: 6,
                                 top: 6,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: Colors.redAccent,
                                     borderRadius: BorderRadius.circular(10),
                                   ),
-                                  constraints: const BoxConstraints(minWidth: 18),
+                                  constraints:
+                                      const BoxConstraints(minWidth: 18),
                                   child: Text(
                                     _unreadCount > 99 ? '99+' : '$_unreadCount',
                                     style: const TextStyle(
@@ -289,7 +272,8 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                     bottom: PreferredSize(
                       preferredSize: const Size.fromHeight(44),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         child: Container(
                           height: 40,
                           decoration: BoxDecoration(
@@ -306,10 +290,19 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                               color: const Color(0xFF007BFF),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            onTap: (i) => vm.switchTab(i == 0 ? SocialTab.explore : SocialTab.friends),
+                            onTap: (i) => vm.switchTab(
+                                i == 0 ? SocialTab.explore : SocialTab.friends),
                             tabs: const [
-                              Tab(child: Text('Explore', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-                              Tab(child: Text('Friends', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+                              Tab(
+                                  child: Text('Explore',
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600))),
+                              Tab(
+                                  child: Text('Friends',
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600))),
                             ],
                           ),
                         ),
@@ -384,7 +377,7 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05), // Very subtle shadow
+                color: Colors.black.withValues(alpha: 0.05), // Very subtle shadow
                 blurRadius: 8.0,
                 offset: const Offset(0, -2), // Shadow above the bar
                 spreadRadius: 0,
@@ -465,7 +458,8 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
       animation: _animationController,
       builder: (context, child) {
         final animationValue =
-            CurvedAnimation(parent: _animationController, curve: Curves.easeOut).value;
+            CurvedAnimation(parent: _animationController, curve: Curves.easeOut)
+                .value;
         if (animationValue == 0) return const SizedBox.shrink();
 
         return Positioned.fill(
@@ -475,7 +469,8 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
             children: [
               GestureDetector(
                 onTap: _toggleMenu,
-                child: Container(color: Colors.black.withOpacity(0.3 * animationValue)),
+                child: Container(
+                    color: Colors.black.withValues(alpha: 0.3 * animationValue)),
               ),
               _buildMenuItem(
                 icon: Icons.calculate_outlined,
@@ -549,7 +544,8 @@ class _LoadingPostShimmer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+      child:
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
         _ShimmerBox(width: 160, height: 16),
         SizedBox(height: 12),
         _ShimmerBox(width: double.infinity, height: 12),
@@ -572,7 +568,7 @@ class _ShimmerBox extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.grey.shade800.withOpacity(0.25),
+        color: Colors.grey.shade800.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(8),
       ),
     );
@@ -619,9 +615,12 @@ class _PostTileState extends State<_PostTile> {
                           radius: 16,
                           backgroundColor: Colors.blue.shade100,
                           backgroundImage:
-                              avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                              avatarUrl != null && avatarUrl.isNotEmpty
+                                  ? NetworkImage(avatarUrl)
+                                  : null,
                           child: (avatarUrl == null || avatarUrl.isEmpty)
-                              ? Icon(Icons.person, size: 18, color: Colors.blue.shade700)
+                              ? Icon(Icons.person,
+                                  size: 18, color: Colors.blue.shade700)
                               : null,
                         );
                       },
@@ -640,7 +639,8 @@ class _PostTileState extends State<_PostTile> {
                         }
                         return Text(
                           displayName,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 14),
                         );
                       },
                     ),
@@ -648,7 +648,8 @@ class _PostTileState extends State<_PostTile> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(vm.timeAgo(post.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 11)),
+              Text(vm.timeAgo(post.createdAt),
+                  style: const TextStyle(color: Colors.grey, fontSize: 11)),
               const Spacer(),
               Builder(
                 builder: (ctx) {
@@ -676,9 +677,14 @@ class _PostTileState extends State<_PostTile> {
                       }
                     },
                     itemBuilder: (_) => [
-                      if (isMine) const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                      if (isMine) const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                      if (!isMine) const PopupMenuItem(value: 'report', child: Text('Report')),
+                      if (isMine)
+                        const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      if (isMine)
+                        const PopupMenuItem(
+                            value: 'delete', child: Text('Delete')),
+                      if (!isMine)
+                        const PopupMenuItem(
+                            value: 'report', child: Text('Report')),
                     ],
                   );
                 },
@@ -696,7 +702,9 @@ class _PostTileState extends State<_PostTile> {
             children: [
               IconButton(
                 icon: Icon(
-                  vm.isLikedByMe(post.id) ? Icons.favorite : Icons.favorite_border,
+                  vm.isLikedByMe(post.id)
+                      ? Icons.favorite
+                      : Icons.favorite_border,
                   color: vm.isLikedByMe(post.id) ? Colors.red : null,
                 ),
                 onPressed: () => vm.toggleLike(post),
@@ -705,7 +713,8 @@ class _PostTileState extends State<_PostTile> {
               const SizedBox(width: 16),
               IconButton(
                 icon: const Icon(Icons.mode_comment_outlined),
-                onPressed: () async {
+                  onPressed: () async {
+                  if (!mounted) return;
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -763,7 +772,10 @@ class _FirstCommentOrMore extends StatelessWidget {
                   onTap: () => Navigator.pushNamed(
                     context,
                     '/user-profile',
-                    arguments: {'userId': first.authorId, 'repo': vm.repository},
+                    arguments: {
+                      'userId': first.authorId,
+                      'repo': vm.repository
+                    },
                   ),
                   child: Row(
                     children: [
@@ -775,11 +787,13 @@ class _FirstCommentOrMore extends StatelessWidget {
                           return CircleAvatar(
                             radius: 12,
                             backgroundColor: Colors.blue.shade100,
-                            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                                ? NetworkImage(avatarUrl)
-                                : null,
+                            backgroundImage:
+                                avatarUrl != null && avatarUrl.isNotEmpty
+                                    ? NetworkImage(avatarUrl)
+                                    : null,
                             child: (avatarUrl == null || avatarUrl.isEmpty)
-                                ? Icon(Icons.person, size: 14, color: Colors.blue.shade700)
+                                ? Icon(Icons.person,
+                                    size: 14, color: Colors.blue.shade700)
                                 : null,
                           );
                         },
@@ -788,7 +802,8 @@ class _FirstCommentOrMore extends StatelessWidget {
                       FutureBuilder<SocialUser?>(
                         future: vm.repository.getUser(first.authorId),
                         builder: (context, snapshot) {
-                          final displayName = snapshot.data?.displayName ?? vm.userName(first.authorId);
+                          final displayName = snapshot.data?.displayName ??
+                              vm.userName(first.authorId);
                           return Text(
                             displayName,
                             style: const TextStyle(fontWeight: FontWeight.w500),
@@ -799,7 +814,8 @@ class _FirstCommentOrMore extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(vm.timeAgo(first.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                Text(vm.timeAgo(first.createdAt),
+                    style: const TextStyle(color: Colors.grey, fontSize: 11)),
               ],
             ),
             const SizedBox(height: 4),
@@ -822,7 +838,8 @@ class _FirstCommentOrMore extends StatelessWidget {
   }
 }
 
-void _openCommentsBottomSheet(BuildContext context, Post post, SocialViewModel vm) {
+void _openCommentsBottomSheet(
+    BuildContext context, Post post, SocialViewModel vm) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -872,7 +889,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 padding: const EdgeInsets.only(top: 8.0, left: 12, right: 12),
                 child: Row(
                   children: [
-                    Text('${vm.likeCount(widget.post.id)} beğeni', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text('${vm.likeCount(widget.post.id)} beğeni',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                     const Spacer(),
                     Text('${vm.commentCount(widget.post.id)} yorum'),
                   ],
@@ -911,11 +929,14 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                         final avatarUrl = user?.avatarUrl;
                                         return CircleAvatar(
                                           backgroundColor: Colors.blue.shade100,
-                                          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                          backgroundImage: avatarUrl != null &&
+                                                  avatarUrl.isNotEmpty
                                               ? NetworkImage(avatarUrl)
                                               : null,
-                                          child: (avatarUrl == null || avatarUrl.isEmpty)
-                                              ? Icon(Icons.person, color: Colors.blue.shade700)
+                                          child: (avatarUrl == null ||
+                                                  avatarUrl.isEmpty)
+                                              ? Icon(Icons.person,
+                                                  color: Colors.blue.shade700)
                                               : null,
                                         );
                                       },
@@ -923,12 +944,19 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                     title: FutureBuilder<SocialUser?>(
                                       future: vm.repository.getUser(c.authorId),
                                       builder: (context, snapshot) {
-                                        final displayName = snapshot.data?.displayName ?? vm.userName(c.authorId);
-                                        return Text(displayName, style: const TextStyle(fontWeight: FontWeight.w600));
+                                        final displayName =
+                                            snapshot.data?.displayName ??
+                                                vm.userName(c.authorId);
+                                        return Text(displayName,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600));
                                       },
                                     ),
-                                    subtitle: _MentionText(text: c.content, vm: vm),
-                                    trailing: Text(vm.timeAgo(c.createdAt), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                    subtitle:
+                                        _MentionText(text: c.content, vm: vm),
+                                    trailing: Text(vm.timeAgo(c.createdAt),
+                                        style: const TextStyle(
+                                            fontSize: 11, color: Colors.grey)),
                                   ),
                                 ),
                                 Row(
@@ -946,16 +974,26 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(
-                                              vm.isCommentLikedByMeLocal(c.id) ? Icons.favorite : Icons.favorite_border,
+                                              vm.isCommentLikedByMeLocal(c.id)
+                                                  ? Icons.favorite
+                                                  : Icons.favorite_border,
                                               size: 16,
-                                              color: vm.isCommentLikedByMeLocal(c.id) ? Colors.red : Colors.grey,
+                                              color: vm.isCommentLikedByMeLocal(
+                                                      c.id)
+                                                  ? Colors.red
+                                                  : Colors.grey,
                                             ),
                                             const SizedBox(width: 4),
                                             Text(
-                                              vm.compactCount(vm.commentLikeCountLocal(c.id)),
+                                              vm.compactCount(vm
+                                                  .commentLikeCountLocal(c.id)),
                                               style: TextStyle(
                                                 fontSize: 12,
-                                                color: vm.isCommentLikedByMeLocal(c.id) ? Colors.red : Colors.grey,
+                                                color:
+                                                    vm.isCommentLikedByMeLocal(
+                                                            c.id)
+                                                        ? Colors.red
+                                                        : Colors.grey,
                                               ),
                                             ),
                                           ],
@@ -967,17 +1005,26 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                         final isMine = vm.meId == c.authorId;
                                         return PopupMenuButton<String>(
                                           onSelected: (v) {
-                                            if (v == 'report' && !isMine) _reportComment(ctx, c);
-                                            if (v == 'delete' && isMine) _deleteComment(ctx, c);
-                                            if (v == 'edit' && isMine) _editComment(ctx, c);
+                                            if (v == 'report' && !isMine)
+                                              _reportComment(ctx, c);
+                                            if (v == 'delete' && isMine)
+                                              _deleteComment(ctx, c);
+                                            if (v == 'edit' && isMine)
+                                              _editComment(ctx, c);
                                           },
                                           itemBuilder: (_) => [
                                             if (isMine)
-                                              const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                              const PopupMenuItem(
+                                                  value: 'edit',
+                                                  child: Text('Düzenle')),
                                             if (isMine)
-                                              const PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                              const PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Text('Sil')),
                                             if (!isMine)
-                                              const PopupMenuItem(value: 'report', child: Text('Bildir')),
+                                              const PopupMenuItem(
+                                                  value: 'report',
+                                                  child: Text('Bildir')),
                                           ],
                                         );
                                       },
@@ -987,13 +1034,17 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               ],
                             ),
                             Padding(
-                              padding: const EdgeInsets.only(left: 16, bottom: 8),
+                              padding:
+                                  const EdgeInsets.only(left: 16, bottom: 8),
                               child: TextButton(
                                 onPressed: () async {
                                   // Get the author's display name for mention
-                                  final user = await vm.repository.getUser(c.authorId);
+                                  final user =
+                                      await vm.repository.getUser(c.authorId);
                                   String mentionName;
-                                  if (user != null && user.displayName.isNotEmpty && user.displayName != 'User') {
+                                  if (user != null &&
+                                      user.displayName.isNotEmpty &&
+                                      user.displayName != 'User') {
                                     mentionName = user.displayName;
                                   } else {
                                     // Fallback: try to get from profiles table directly
@@ -1005,24 +1056,39 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                           .eq('id', c.authorId)
                                           .maybeSingle();
                                       if (prof != null) {
-                                        final name = (prof['name'] ?? '').toString().trim();
-                                        final surname = (prof['surname'] ?? '').toString().trim();
-                                        final full = [name, surname].where((s) => s.isNotEmpty).join(' ').trim();
-                                        mentionName = full.isNotEmpty ? full : (user?.displayName ?? vm.userName(c.authorId));
+                                        final name = (prof['name'] ?? '')
+                                            .toString()
+                                            .trim();
+                                        final surname = (prof['surname'] ?? '')
+                                            .toString()
+                                            .trim();
+                                        final full = [name, surname]
+                                            .where((s) => s.isNotEmpty)
+                                            .join(' ')
+                                            .trim();
+                                        mentionName = full.isNotEmpty
+                                            ? full
+                                            : (user?.displayName ??
+                                                vm.userName(c.authorId));
                                       } else {
-                                        mentionName = user?.displayName ?? vm.userName(c.authorId);
+                                        mentionName = user?.displayName ??
+                                            vm.userName(c.authorId);
                                       }
                                     } catch (_) {
-                                      mentionName = user?.displayName ?? vm.userName(c.authorId);
+                                      mentionName = user?.displayName ??
+                                          vm.userName(c.authorId);
                                     }
                                   }
-                                  setState(() { 
+                                  setState(() {
                                     _replyToCommentId = c.id;
                                     _replyCtrl.text = '@$mentionName ';
                                   });
                                   // Wait for widget rebuild, then set cursor position and focus
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    _replyCtrl.selection = TextSelection.fromPosition(TextPosition(offset: _replyCtrl.text.length));
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    _replyCtrl.selection =
+                                        TextSelection.fromPosition(TextPosition(
+                                            offset: _replyCtrl.text.length));
                                     _replyFocusNode.requestFocus();
                                   });
                                 },
@@ -1042,60 +1108,107 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                           children: [
                                             Expanded(
                                               child: ListTile(
-                                                leading: FutureBuilder<SocialUser?>(
-                                                  future: vm.repository.getUser(r.authorId),
+                                                leading:
+                                                    FutureBuilder<SocialUser?>(
+                                                  future: vm.repository
+                                                      .getUser(r.authorId),
                                                   builder: (context, snapshot) {
                                                     final user = snapshot.data;
-                                                    final avatarUrl = user?.avatarUrl;
+                                                    final avatarUrl =
+                                                        user?.avatarUrl;
                                                     return CircleAvatar(
                                                       radius: 12,
-                                                      backgroundColor: Colors.blue.shade100,
-                                                      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                                                          ? NetworkImage(avatarUrl)
-                                                          : null,
-                                                      child: (avatarUrl == null || avatarUrl.isEmpty)
-                                                          ? Icon(Icons.person, size: 16, color: Colors.blue.shade700)
+                                                      backgroundColor:
+                                                          Colors.blue.shade100,
+                                                      backgroundImage:
+                                                          avatarUrl != null &&
+                                                                  avatarUrl
+                                                                      .isNotEmpty
+                                                              ? NetworkImage(
+                                                                  avatarUrl)
+                                                              : null,
+                                                      child: (avatarUrl ==
+                                                                  null ||
+                                                              avatarUrl.isEmpty)
+                                                          ? Icon(Icons.person,
+                                                              size: 16,
+                                                              color: Colors.blue
+                                                                  .shade700)
                                                           : null,
                                                     );
                                                   },
                                                 ),
-                                                title: FutureBuilder<SocialUser?>(
-                                                  future: vm.repository.getUser(r.authorId),
+                                                title:
+                                                    FutureBuilder<SocialUser?>(
+                                                  future: vm.repository
+                                                      .getUser(r.authorId),
                                                   builder: (context, snapshot) {
-                                                    final displayName = snapshot.data?.displayName ?? vm.userName(r.authorId);
-                                                    return Text(displayName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14));
+                                                    final displayName = snapshot
+                                                            .data
+                                                            ?.displayName ??
+                                                        vm.userName(r.authorId);
+                                                    return Text(displayName,
+                                                        style: const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            fontSize: 14));
                                                   },
                                                 ),
-                                                subtitle: _MentionText(text: r.content, vm: vm),
+                                                subtitle: _MentionText(
+                                                    text: r.content, vm: vm),
                                                 dense: true,
-                                                trailing: Text(vm.timeAgo(r.createdAt), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                                trailing: Text(
+                                                    vm.timeAgo(r.createdAt),
+                                                    style: const TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.grey)),
                                               ),
                                             ),
                                             Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 GestureDetector(
-                                                  behavior: HitTestBehavior.opaque,
+                                                  behavior:
+                                                      HitTestBehavior.opaque,
                                                   onTap: () async {
-                                                    await vm.toggleCommentLike(r.id);
+                                                    await vm.toggleCommentLike(
+                                                        r.id);
                                                     setState(() {});
                                                   },
                                                   child: Container(
-                                                    padding: const EdgeInsets.all(4),
+                                                    padding:
+                                                        const EdgeInsets.all(4),
                                                     child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
                                                       children: [
                                                         Icon(
-                                                          vm.isCommentLikedByMeLocal(r.id) ? Icons.favorite : Icons.favorite_border,
+                                                          vm.isCommentLikedByMeLocal(
+                                                                  r.id)
+                                                              ? Icons.favorite
+                                                              : Icons
+                                                                  .favorite_border,
                                                           size: 14,
-                                                          color: vm.isCommentLikedByMeLocal(r.id) ? Colors.red : Colors.grey,
+                                                          color:
+                                                              vm.isCommentLikedByMeLocal(
+                                                                      r.id)
+                                                                  ? Colors.red
+                                                                  : Colors.grey,
                                                         ),
-                                                        const SizedBox(width: 2),
+                                                        const SizedBox(
+                                                            width: 2),
                                                         Text(
-                                                          vm.compactCount(vm.commentLikeCountLocal(r.id)),
+                                                          vm.compactCount(vm
+                                                              .commentLikeCountLocal(
+                                                                  r.id)),
                                                           style: TextStyle(
                                                             fontSize: 10,
-                                                            color: vm.isCommentLikedByMeLocal(r.id) ? Colors.red : Colors.grey,
+                                                            color:
+                                                                vm.isCommentLikedByMeLocal(
+                                                                        r.id)
+                                                                    ? Colors.red
+                                                                    : Colors
+                                                                        .grey,
                                                           ),
                                                         ),
                                                       ],
@@ -1104,67 +1217,140 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                                 ),
                                                 TextButton(
                                                   style: TextButton.styleFrom(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                    minimumSize: const Size(0, 0),
-                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 4),
+                                                    minimumSize:
+                                                        const Size(0, 0),
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
                                                   ),
                                                   onPressed: () async {
                                                     // Get the reply author's display name for mention
-                                                    final user = await vm.repository.getUser(r.authorId);
+                                                    final user = await vm
+                                                        .repository
+                                                        .getUser(r.authorId);
                                                     String mentionName;
-                                                    if (user != null && user.displayName.isNotEmpty && user.displayName != 'User') {
-                                                      mentionName = user.displayName;
+                                                    if (user != null &&
+                                                        user.displayName
+                                                            .isNotEmpty &&
+                                                        user.displayName !=
+                                                            'User') {
+                                                      mentionName =
+                                                          user.displayName;
                                                     } else {
                                                       // Fallback: try to get from profiles table directly
-                                                      final supa = Supabase.instance.client;
+                                                      final supa = Supabase
+                                                          .instance.client;
                                                       try {
                                                         final prof = await supa
                                                             .from('profiles')
-                                                            .select('name, surname, display_name')
-                                                            .eq('id', r.authorId)
+                                                            .select(
+                                                                'name, surname, display_name')
+                                                            .eq('id',
+                                                                r.authorId)
                                                             .maybeSingle();
                                                         if (prof != null) {
-                                                          final name = (prof['name'] ?? '').toString().trim();
-                                                          final surname = (prof['surname'] ?? '').toString().trim();
-                                                          final full = [name, surname].where((s) => s.isNotEmpty).join(' ').trim();
-                                                          mentionName = full.isNotEmpty ? full : (user?.displayName ?? vm.userName(r.authorId));
+                                                          final name =
+                                                              (prof['name'] ??
+                                                                      '')
+                                                                  .toString()
+                                                                  .trim();
+                                                          final surname =
+                                                              (prof['surname'] ??
+                                                                      '')
+                                                                  .toString()
+                                                                  .trim();
+                                                          final full = [
+                                                            name,
+                                                            surname
+                                                          ]
+                                                              .where((s) =>
+                                                                  s.isNotEmpty)
+                                                              .join(' ')
+                                                              .trim();
+                                                          mentionName = full
+                                                                  .isNotEmpty
+                                                              ? full
+                                                              : (user?.displayName ??
+                                                                  vm.userName(r
+                                                                      .authorId));
                                                         } else {
-                                                          mentionName = user?.displayName ?? vm.userName(r.authorId);
+                                                          mentionName = user
+                                                                  ?.displayName ??
+                                                              vm.userName(
+                                                                  r.authorId);
                                                         }
                                                       } catch (_) {
-                                                        mentionName = user?.displayName ?? vm.userName(r.authorId);
+                                                        mentionName =
+                                                            user?.displayName ??
+                                                                vm.userName(
+                                                                    r.authorId);
                                                       }
                                                     }
-                                                    setState(() { 
-                                                      _replyToCommentId = r.parentCommentId ?? r.id;
-                                                      _replyCtrl.text = '@$mentionName ';
+                                                    setState(() {
+                                                      _replyToCommentId =
+                                                          r.parentCommentId ??
+                                                              r.id;
+                                                      _replyCtrl.text =
+                                                          '@$mentionName ';
                                                     });
                                                     // Wait for widget rebuild, then set cursor position and focus
-                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                      _replyCtrl.selection = TextSelection.fromPosition(TextPosition(offset: _replyCtrl.text.length));
-                                                      _replyFocusNode.requestFocus();
+                                                    WidgetsBinding.instance
+                                                        .addPostFrameCallback(
+                                                            (_) {
+                                                      _replyCtrl.selection =
+                                                          TextSelection.fromPosition(
+                                                              TextPosition(
+                                                                  offset: _replyCtrl
+                                                                      .text
+                                                                      .length));
+                                                      _replyFocusNode
+                                                          .requestFocus();
                                                     });
                                                   },
-                                                  child: const Text('Yanıtla', style: TextStyle(fontSize: 11)),
+                                                  child: const Text('Yanıtla',
+                                                      style: TextStyle(
+                                                          fontSize: 11)),
                                                 ),
                                                 Builder(
                                                   builder: (ctx) {
-                                                    final isMine = vm.meId == r.authorId;
-                                                    return PopupMenuButton<String>(
+                                                    final isMine =
+                                                        vm.meId == r.authorId;
+                                                    return PopupMenuButton<
+                                                        String>(
                                                       padding: EdgeInsets.zero,
                                                       splashRadius: 16,
                                                       onSelected: (v) {
-                                                        if (v == 'report' && !isMine) _reportComment(ctx, r);
-                                                        if (v == 'delete' && isMine) _deleteComment(ctx, r);
-                                                        if (v == 'edit' && isMine) _editComment(ctx, r);
+                                                        if (v == 'report' &&
+                                                            !isMine)
+                                                          _reportComment(
+                                                              ctx, r);
+                                                        if (v == 'delete' &&
+                                                            isMine)
+                                                          _deleteComment(
+                                                              ctx, r);
+                                                        if (v == 'edit' &&
+                                                            isMine)
+                                                          _editComment(ctx, r);
                                                       },
                                                       itemBuilder: (_) => [
                                                         if (isMine)
-                                                          const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                                          const PopupMenuItem(
+                                                              value: 'edit',
+                                                              child: Text(
+                                                                  'Düzenle')),
                                                         if (isMine)
-                                                          const PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                                          const PopupMenuItem(
+                                                              value: 'delete',
+                                                              child:
+                                                                  Text('Sil')),
                                                         if (!isMine)
-                                                          const PopupMenuItem(value: 'report', child: Text('Bildir')),
+                                                          const PopupMenuItem(
+                                                              value: 'report',
+                                                              child: Text(
+                                                                  'Bildir')),
                                                       ],
                                                     );
                                                   },
@@ -1196,7 +1382,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               decoration: const InputDecoration(
                                 hintText: 'Yorum yaz',
                                 border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
                               ),
                             )
                           : TextField(
@@ -1205,12 +1392,13 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               decoration: InputDecoration(
                                 hintText: 'Yanıt yaz',
                                 border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
                                 suffixIcon: IconButton(
                                   icon: const Icon(Icons.close),
-                                  onPressed: () => setState(() { 
-                                    _replyToCommentId = null; 
-                                    _replyCtrl.clear(); 
+                                  onPressed: () => setState(() {
+                                    _replyToCommentId = null;
+                                    _replyCtrl.clear();
                                     _replyFocusNode.unfocus();
                                   }),
                                 ),
@@ -1225,7 +1413,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                           if (text.isEmpty) return;
                           final names = vm.extractMentionNames(text);
                           if (!vm.canMentionAllNames(names)) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Sadece arkadaşlarını etiketleyebilirsin.')));
                             return;
                           }
                           await vm.addComment(widget.post, text);
@@ -1235,10 +1426,18 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                           if (text.isEmpty) return;
                           final names = vm.extractMentionNames(text);
                           if (!vm.canMentionAllNames(names)) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Sadece arkadaşlarını etiketleyebilirsin.')));
                             return;
                           }
-                          final parentComment = Comment(id: _replyToCommentId!, postId: widget.post.id, authorId: vm.meId, content: '', createdAt: DateTime.now());
+                          final parentComment = Comment(
+                              id: _replyToCommentId!,
+                              postId: widget.post.id,
+                              authorId: vm.meId,
+                              content: '',
+                              createdAt: DateTime.now());
                           await vm.addReply(parentComment, text);
                           _replyCtrl.clear();
                           _replyToCommentId = null;
@@ -1282,14 +1481,22 @@ class _MentionText extends StatelessWidget {
         final isFriend = vm.isFriendName(value);
         spans.add(TextSpan(
           text: '@$value',
-          style: TextStyle(color: isFriend ? Theme.of(context).colorScheme.primary : Colors.grey),
+          style: TextStyle(
+              color: isFriend
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey),
           recognizer: (TapGestureRecognizer()
             ..onTap = () {
-              Navigator.pushNamed(
-                context,
-                '/user-profile',
-                arguments: {'userId': id.isEmpty ? value : id, 'repo': vm.repository},
-              );
+              if (context.mounted) {
+                Navigator.pushNamed(
+                  context,
+                  '/user-profile',
+                  arguments: {
+                    'userId': id.isEmpty ? value : id,
+                    'repo': vm.repository
+                  },
+                );
+              }
             }),
         ));
       } else {
@@ -1298,7 +1505,10 @@ class _MentionText extends StatelessWidget {
           style: TextStyle(color: Theme.of(context).colorScheme.primary),
           recognizer: (TapGestureRecognizer()
             ..onTap = () {
-              Navigator.pushNamed(context, '/search', arguments: {'q': '#$value'});
+              if (context.mounted) {
+                Navigator.pushNamed(context, '/search',
+                    arguments: {'q': '#$value'});
+              }
             }),
         ));
       }
@@ -1307,7 +1517,9 @@ class _MentionText extends StatelessWidget {
     if (last < text.length) {
       spans.add(TextSpan(text: text.substring(last)));
     }
-    return RichText(text: TextSpan(style: DefaultTextStyle.of(context).style, children: spans));
+    return RichText(
+        text: TextSpan(
+            style: DefaultTextStyle.of(context).style, children: spans));
   }
 }
 
@@ -1337,7 +1549,9 @@ class _ImagesGridNet extends StatelessWidget {
     if (show.length == 1) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        child: AspectRatio(aspectRatio: 4 / 3, child: Image.network(show[0], fit: BoxFit.cover)),
+        child: AspectRatio(
+            aspectRatio: 4 / 3,
+            child: Image.network(show[0], fit: BoxFit.cover)),
       );
     }
     if (show.length == 2) {
@@ -1395,7 +1609,10 @@ class _ImagesGridNet extends StatelessWidget {
                       alignment: Alignment.center,
                       child: Text(
                         '+$extra',
-                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                 ],
@@ -1408,78 +1625,13 @@ class _ImagesGridNet extends StatelessWidget {
   }
 }
 
-/* =========================
- * Bottom Bar
- * ========================= */
-
-class _BottomBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border(top: BorderSide(color: Colors.grey.shade200, width: 0.5)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8.0, offset: const Offset(0, -2))],
-      ),
-      child: BottomAppBar(
-        color: Colors.grey.shade50,
-        elevation: 0,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8.0,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-                _SocialBottomItem(
-                  icon: Icons.home,
-                  label: 'Home',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MainTabView(initialIndex: 0)),
-                  ),
-                ),
-                _SocialBottomItem(
-                  icon: Icons.storefront,
-                  label: 'Marketplace',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MainTabView(initialIndex: 1)),
-                  ),
-                ),
-              ]),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-                _SocialBottomItem(
-                  icon: Icons.chat_bubble_outline,
-                  label: 'Chats',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MainTabView(initialIndex: 2)),
-                  ),
-                ),
-                _SocialBottomItem(
-                  icon: Icons.star_border,
-                  label: 'TWOC',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MainTabView(initialIndex: 3)),
-                  ),
-                ),
-              ]),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _SocialBottomItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _SocialBottomItem({required this.icon, required this.label, required this.onTap});
+  const _SocialBottomItem(
+      {required this.icon, required this.label, required this.onTap});
   @override
   Widget build(BuildContext context) {
     final color = Colors.grey;
@@ -1502,7 +1654,8 @@ class _SocialBottomItem extends StatelessWidget {
  * ========================= */
 
 Future<void> _reportPost(BuildContext context, Post post) async {
-  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thanks for the report.')));
+  ScaffoldMessenger.of(context)
+      .showSnackBar(const SnackBar(content: Text('Thanks for the report.')));
 }
 
 Future<void> _deleteComment(BuildContext context, Comment comment) async {
@@ -1512,20 +1665,25 @@ Future<void> _deleteComment(BuildContext context, Comment comment) async {
       title: const Text('Yorumu sil'),
       content: const Text('Bu yorumu silmek istediğine emin misin?'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç')),
+        FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sil')),
       ],
     ),
   );
   if (ok != true) return;
   await context.read<SocialViewModel>().deleteCommentById(comment.id);
-  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum silindi.')));
+  ScaffoldMessenger.of(context)
+      .showSnackBar(const SnackBar(content: Text('Yorum silindi.')));
 }
 
 Future<void> _editComment(BuildContext context, Comment comment) async {
   final vm = context.read<SocialViewModel>();
   final controller = TextEditingController(text: comment.content);
-  
+
   final updatedContent = await showDialog<String>(
     context: context,
     builder: (_) => AlertDialog(
@@ -1551,7 +1709,9 @@ Future<void> _editComment(BuildContext context, Comment comment) async {
     ),
   );
 
-  if (updatedContent != null && updatedContent.isNotEmpty && updatedContent != comment.content) {
+  if (updatedContent != null &&
+      updatedContent.isNotEmpty &&
+      updatedContent != comment.content) {
     final updatedComment = Comment(
       id: comment.id,
       postId: comment.postId,
@@ -1561,12 +1721,14 @@ Future<void> _editComment(BuildContext context, Comment comment) async {
       parentCommentId: comment.parentCommentId,
     );
     await vm.updateComment(updatedComment);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum güncellendi.')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Yorum güncellendi.')));
   }
 }
 
 Future<void> _reportComment(BuildContext context, Comment comment) async {
-  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bildiriminiz alındı. Teşekkürler.')));
+  ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Bildiriminiz alındı. Teşekkürler.')));
 }
 
 Future<void> _deletePost(BuildContext context, Post post) async {
@@ -1577,8 +1739,12 @@ Future<void> _deletePost(BuildContext context, Post post) async {
       title: const Text('Delete post'),
       content: const Text('This cannot be undone.'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel')),
+        FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete')),
       ],
     ),
   );
@@ -1587,11 +1753,13 @@ Future<void> _deletePost(BuildContext context, Post post) async {
   try {
     await vm.deletePostById(post.id);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post deleted.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Post deleted.')));
     }
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error while deleting: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error while deleting: $e')));
     }
   }
 }
@@ -1667,7 +1835,8 @@ class _FullScreenComposerState extends State<_FullScreenComposer> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Material(
         color: Theme.of(context).colorScheme.surface,
         child: SafeArea(
@@ -1704,7 +1873,9 @@ class _FullScreenComposerState extends State<_FullScreenComposer> {
                           minLines: 5,
                           maxLines: null,
                           decoration: InputDecoration(
-                            hintText: vm.isEditing ? 'Gönderinizi düzenleyin...' : 'Ne oluyor?',
+                            hintText: vm.isEditing
+                                ? 'Gönderinizi düzenleyin...'
+                                : 'Ne oluyor?',
                             border: InputBorder.none,
                           ),
                           onChanged: (_) => setState(() {}),
@@ -1721,7 +1892,8 @@ class _FullScreenComposerState extends State<_FullScreenComposer> {
                 SafeArea(
                   top: false,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     child: Row(
                       children: [
                         IconButton(
@@ -1732,7 +1904,11 @@ class _FullScreenComposerState extends State<_FullScreenComposer> {
                         FilledButton(
                           onPressed: canPost && !vm.isPosting ? _submit : null,
                           child: vm.isPosting
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
                               : Text(vm.isEditing ? 'Güncelle' : 'Paylaş'),
                         ),
                       ],
@@ -1767,8 +1943,10 @@ class _ImagesGrid extends StatelessWidget {
     final double availableWidth = screenWidth - 24; // outer padding approx
     final double dpr = MediaQuery.of(context).devicePixelRatio;
 
-
-    Widget buildThumb(int index, {BorderRadius? br, required double targetWidth, required double targetHeight}) {
+    Widget buildThumb(int index,
+        {BorderRadius? br,
+        required double targetWidth,
+        required double targetHeight}) {
       final cacheWidth = (targetWidth * dpr).clamp(256, 2048).round();
       final image = Image.file(
         File(show[index]),
@@ -1785,14 +1963,17 @@ class _ImagesGrid extends StatelessWidget {
         data: index,
         feedback: Material(
             color: Colors.transparent,
-            child: SizedBox(width: targetWidth, height: targetHeight, child: child)),
+            child: SizedBox(
+                width: targetWidth, height: targetHeight, child: child)),
         childWhenDragging: Opacity(opacity: 0.6, child: tile),
         child: DragTarget<int>(
           builder: (context, candidate, rejected) => tile,
-          onAccept: (from) {
+          onAcceptWithDetails: (details) {
             // Reorder within composer list
+            final from = details.data;
             final vm = context.read<SocialViewModel>();
-            if (vm.pendingImagePaths.length >= index + 1 && vm.pendingImagePaths.length >= from + 1) {
+            if (vm.pendingImagePaths.length >= index + 1 &&
+                vm.pendingImagePaths.length >= from + 1) {
               vm.reorderPendingImages(from, index);
             }
           },
@@ -1817,9 +1998,17 @@ class _ImagesGrid extends StatelessWidget {
         height: h,
         child: Row(
           children: [
-            Expanded(child: buildThumb(0, br: BorderRadius.circular(radius), targetWidth: w, targetHeight: h)),
+            Expanded(
+                child: buildThumb(0,
+                    br: BorderRadius.circular(radius),
+                    targetWidth: w,
+                    targetHeight: h)),
             const SizedBox(width: 6),
-            Expanded(child: buildThumb(1, br: BorderRadius.circular(radius), targetWidth: w, targetHeight: h)),
+            Expanded(
+                child: buildThumb(1,
+                    br: BorderRadius.circular(radius),
+                    targetWidth: w,
+                    targetHeight: h)),
           ],
         ),
       );
@@ -1835,7 +2024,10 @@ class _ImagesGrid extends StatelessWidget {
           children: [
             Expanded(
               flex: 2,
-              child: buildThumb(0, br: BorderRadius.circular(radius), targetWidth: leftW, targetHeight: h),
+              child: buildThumb(0,
+                  br: BorderRadius.circular(radius),
+                  targetWidth: leftW,
+                  targetHeight: h),
             ),
             const SizedBox(width: 6),
             Expanded(
@@ -1843,10 +2035,16 @@ class _ImagesGrid extends StatelessWidget {
               child: Column(
                 children: [
                   Expanded(
-                      child: buildThumb(1, br: BorderRadius.circular(radius), targetWidth: rightW, targetHeight: h / 2 - 3)),
+                      child: buildThumb(1,
+                          br: BorderRadius.circular(radius),
+                          targetWidth: rightW,
+                          targetHeight: h / 2 - 3)),
                   const SizedBox(height: 6),
                   Expanded(
-                      child: buildThumb(2, br: BorderRadius.circular(radius), targetWidth: rightW, targetHeight: h / 2 - 3)),
+                      child: buildThumb(2,
+                          br: BorderRadius.circular(radius),
+                          targetWidth: rightW,
+                          targetHeight: h / 2 - 3)),
                 ],
               ),
             ),
@@ -1867,9 +2065,17 @@ class _ImagesGrid extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Expanded(child: buildThumb(0, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH)),
+                Expanded(
+                    child: buildThumb(0,
+                        br: BorderRadius.circular(radius),
+                        targetWidth: cellW,
+                        targetHeight: cellH)),
                 const SizedBox(width: 6),
-                Expanded(child: buildThumb(1, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH)),
+                Expanded(
+                    child: buildThumb(1,
+                        br: BorderRadius.circular(radius),
+                        targetWidth: cellW,
+                        targetHeight: cellH)),
               ],
             ),
           ),
@@ -1877,13 +2083,20 @@ class _ImagesGrid extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Expanded(child: buildThumb(2, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH)),
+                Expanded(
+                    child: buildThumb(2,
+                        br: BorderRadius.circular(radius),
+                        targetWidth: cellW,
+                        targetHeight: cellH)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      buildThumb(3, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH),
+                      buildThumb(3,
+                          br: BorderRadius.circular(radius),
+                          targetWidth: cellW,
+                          targetHeight: cellH),
                       if (extra > 0)
                         Container(
                           decoration: BoxDecoration(
@@ -1893,7 +2106,10 @@ class _ImagesGrid extends StatelessWidget {
                           alignment: Alignment.center,
                           child: Text(
                             '+$extra',
-                            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700),
                           ),
                         ),
                     ],
