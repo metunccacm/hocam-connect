@@ -130,7 +130,6 @@ String _bestDisplayName(Map<String, dynamic> m) {
 }
  
 @override
-@override
 Future<List<SocialUser>> getUsersByIds(List<String> userIds) async {
   if (userIds.isEmpty) return [];
 

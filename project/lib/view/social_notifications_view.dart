@@ -107,7 +107,7 @@ class _SocialNotificationsViewState extends State<SocialNotificationsView> {
 
                   final avatar = (s['avatar_url'] ?? '').toString();
                   final type = (n['type'] ?? '').toString();
-                  final created =
+                  final createdAt =
                       DateTime.tryParse((n['created_at'] ?? '').toString()) ?? DateTime.now();
 
                   // Friend request tile with inline Accept / Decline
@@ -146,7 +146,7 @@ class _SocialNotificationsViewState extends State<SocialNotificationsView> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${created.hour.toString().padLeft(2, '0')}:${created.minute.toString().padLeft(2, '0')}',
+                    '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}',
                     style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ],
@@ -210,7 +210,7 @@ class _SocialNotificationsViewState extends State<SocialNotificationsView> {
                     ),
                     title: Text(text),
                     subtitle: Text(
-                      '${created.hour.toString().padLeft(2, '0')}:${created.minute.toString().padLeft(2, '0')}',
+                      '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}',
                       style: const TextStyle(color: Colors.grey),
                     ),
                     onTap: () async {
