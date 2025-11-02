@@ -50,12 +50,20 @@ class AddItemViewModel extends ChangeNotifier {
   }
 
   Future<void> pickImage(BuildContext context) async {
+    await _pickImageFromSource(context, ImageSource.gallery, 'Image pick failed');
+  }
+
+  Future<void> pickImageFromCamera(BuildContext context) async {
+    await _pickImageFromSource(context, ImageSource.camera, 'Camera capture failed');
+  }
+
+  Future<void> _pickImageFromSource(BuildContext context, ImageSource source, String errorPrefix) async {
     try {
       isPickingImage = true;
       notifyListeners();
 
       final picker = ImagePicker();
-      final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      final picked = await picker.pickImage(source: source, imageQuality: 85);
       if (picked == null) {
         isPickingImage = false;
         notifyListeners();
@@ -78,7 +86,7 @@ class AddItemViewModel extends ChangeNotifier {
       isPickingImage = false;
       notifyListeners();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Image pick failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$errorPrefix: $e')));
       }
     }
   }
