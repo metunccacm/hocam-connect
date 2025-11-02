@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_controller.dart'; //Theme Controller
+import 'credits_view.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -218,6 +219,26 @@ Future<void> _deleteAccount() async {
                           color: _isDark ? Colors.grey : Theme.of(context).primaryColorDark,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    // Emeği Geçenler Button
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const CreditsView(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.people),
+                      label: const Text('Emeği Geçenler'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
