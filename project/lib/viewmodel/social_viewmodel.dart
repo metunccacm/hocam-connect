@@ -165,12 +165,22 @@ class SocialViewModel extends ChangeNotifier {
           }
         }
 
-        // Cache names
+        // Cache names - post author
         _userNames[p.authorId] = (await repository.getUser(p.authorId))?.displayName ?? 'User';
-        if (comments.isNotEmpty) {
-          final first = comments.first;
-          _userNames[first.authorId] =
-              (await repository.getUser(first.authorId))?.displayName ?? 'User';
+        
+        // Cache names - all comment authors
+        for (final c in comments) {
+          if (!_userNames.containsKey(c.authorId)) {
+            _userNames[c.authorId] = (await repository.getUser(c.authorId))?.displayName ?? 'User';
+          }
+          
+          // Cache names - all reply authors
+          final replies = await repository.getReplies(c.id);
+          for (final r in replies) {
+            if (!_userNames.containsKey(r.authorId)) {
+              _userNames[r.authorId] = (await repository.getUser(r.authorId))?.displayName ?? 'User';
+            }
+          }
         }
       }
 
@@ -279,6 +289,14 @@ class SocialViewModel extends ChangeNotifier {
     final text = content.trim();
     if (text.isEmpty) return;
 
+    // Ensure my name is cached
+    if (!_userNames.containsKey(meId)) {
+      final me = await repository.getUser(meId);
+      if (me != null) {
+        _userNames[meId] = me.displayName;
+      }
+    }
+
     _commentCounts.update(post.id, (v) => v + 1, ifAbsent: () => 1);
     notifyListeners();
     try {
@@ -292,6 +310,14 @@ class SocialViewModel extends ChangeNotifier {
   Future<void> addReply(Comment parent, String content) async {
     final text = content.trim();
     if (text.isEmpty) return;
+
+    // Ensure my name is cached
+    if (!_userNames.containsKey(meId)) {
+      final me = await repository.getUser(meId);
+      if (me != null) {
+        _userNames[meId] = me.displayName;
+      }
+    }
 
     _commentCounts.update(parent.postId, (v) => v + 1, ifAbsent: () => 1);
     notifyListeners();

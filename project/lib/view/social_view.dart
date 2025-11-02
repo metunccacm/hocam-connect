@@ -1,8 +1,10 @@
 // lib/view/social_view.dart
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // 🔔 NEW
 
@@ -89,6 +91,19 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
     if (shouldShow != _showQuickCompose) {
       setState(() => _showQuickCompose = shouldShow);
     }
+  }
+
+  void _openFullCompose() {
+    final vm = context.read<SocialViewModel>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _FullScreenComposer(vm: vm);
+      },
+    );
   }
 
   Future<void> _openCreatePost() async {
@@ -238,7 +253,7 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
                           clipBehavior: Clip.none,
                           children: [
                             IconButton(
-                              tooltip: 'Notifications',
+                              tooltip: 'Bildirimler',
                               onPressed: _openNotifications,
                               icon: const Icon(Icons.notifications_none_outlined),
                             ),
@@ -323,36 +338,124 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
             ),
             _buildMenuOverlay(),
 
-            // Quick compose FAB
-            if (_showQuickCompose)
-              Positioned(
-                right: 16,
-                bottom: 88,
-                child: FloatingActionButton(
-                  heroTag: 'quick_compose_fab',
-                  backgroundColor: const Color(0xFF007BFF),
-                  onPressed: _openCreatePost,
-                  child: const Icon(Icons.edit, color: Colors.white),
-                ),
+            // Quick compose button (bottom-right), always visible above bottom bar
+            Positioned(
+              right: 16,
+              bottom: 88, // above BottomAppBar (~60) with margin
+              child: FloatingActionButton(
+                heroTag: 'quick_compose_fab',
+                backgroundColor: const Color(0xFF007BFF),
+                onPressed: _openFullCompose,
+                child: const Icon(Icons.edit, color: Colors.white),
               ),
+            ),
           ],
         ),
         floatingActionButton: FloatingActionButton(
-          heroTag: 'create_post_fab',
-          backgroundColor: Colors.blue,
-          onPressed: () {
-            final vm = context.read<SocialViewModel>();
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CreateSPostView(repository: vm.repository),
-              ),
-            );
-          },
-          child: const Icon(Icons.add, color: Colors.white),
+          heroTag: 'social_menu_fab',
+          shape: const CircleBorder(),
+          backgroundColor: Colors.white,
+          elevation: 4.0,
+          onPressed: _toggleMenu,
+          child: AnimatedBuilder(
+            animation: _animationController,
+            builder: (context, child) {
+              // When menu is open, show a close icon
+              if (_animationController.isCompleted) {
+                return const Icon(Icons.close, color: Colors.black);
+              }
+              // Otherwise, show the logo
+              return Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Image.asset('assets/logo/hc_logo.png'),
+              );
+            },
+          ),
         ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        bottomNavigationBar: _BottomBar(),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50, // Light grey background
+            border: Border(
+              top: BorderSide(
+                color: Colors.grey.shade200, // Subtle top border
+                width: 0.5,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05), // Very subtle shadow
+                blurRadius: 8.0,
+                offset: const Offset(0, -2), // Shadow above the bar
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: BottomAppBar(
+            color: Colors.grey.shade50, // Match container color
+            elevation: 0, // Remove default elevation
+            shape: const CircularNotchedRectangle(),
+            notchMargin: 8.0,
+            child: SizedBox(
+              height: 60,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _SocialBottomItem(
+                        icon: Icons.home,
+                        label: 'Home',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MainTabView(initialIndex: 0),
+                          ),
+                        ),
+                      ),
+                      _SocialBottomItem(
+                        icon: Icons.storefront,
+                        label: 'Marketplace',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MainTabView(initialIndex: 1),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _SocialBottomItem(
+                        icon: Icons.chat_bubble_outline,
+                        label: 'Chats',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MainTabView(initialIndex: 2),
+                          ),
+                        ),
+                      ),
+                      _SocialBottomItem(
+                        icon: Icons.star_border,
+                        label: 'TWOC',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MainTabView(initialIndex: 3),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -524,9 +627,22 @@ class _PostTileState extends State<_PostTile> {
                       },
                     ),
                     const SizedBox(width: 10),
-                    Text(
-                      vm.userName(post.authorId),
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                    FutureBuilder<SocialUser?>(
+                      future: vm.repository.getUser(post.authorId),
+                      builder: (context, snapshot) {
+                        final user = snapshot.data;
+                        // Önce name + surname kullan, yoksa displayName
+                        String displayName = 'User';
+                        if (user != null) {
+                          // repository.getUser zaten _bestDisplayName kullanıyor
+                          // ama önce name+surname görmek istiyoruz
+                          displayName = user.displayName;
+                        }
+                        return Text(
+                          displayName,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -606,8 +722,537 @@ class _PostTileState extends State<_PostTile> {
               Text(vm.compactCount(vm.commentCount(post.id))),
             ],
           ),
+          const SizedBox(height: 6),
+          _FirstCommentOrMore(post: post),
         ]),
       ),
+    );
+  }
+}
+
+class _FirstCommentOrMore extends StatelessWidget {
+  final Post post;
+  const _FirstCommentOrMore({required this.post});
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<SocialViewModel>();
+    return FutureBuilder<List<Comment>>(
+      future: vm.repository.getComments(post.id),
+      builder: (context, snapshot) {
+        final comments = snapshot.data ?? const <Comment>[];
+        if (comments.isEmpty) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () {
+                final vm = context.read<SocialViewModel>();
+                _openCommentsBottomSheet(context, post, vm);
+              },
+              child: const Text('Yorum yap'),
+            ),
+          );
+        }
+        final first = comments.first;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    '/user-profile',
+                    arguments: {'userId': first.authorId, 'repo': vm.repository},
+                  ),
+                  child: Row(
+                    children: [
+                      FutureBuilder<SocialUser?>(
+                        future: vm.repository.getUser(first.authorId),
+                        builder: (context, snapshot) {
+                          final user = snapshot.data;
+                          final avatarUrl = user?.avatarUrl;
+                          return CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.blue.shade100,
+                            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                ? NetworkImage(avatarUrl)
+                                : null,
+                            child: (avatarUrl == null || avatarUrl.isEmpty)
+                                ? Icon(Icons.person, size: 14, color: Colors.blue.shade700)
+                                : null,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      FutureBuilder<SocialUser?>(
+                        future: vm.repository.getUser(first.authorId),
+                        builder: (context, snapshot) {
+                          final displayName = snapshot.data?.displayName ?? vm.userName(first.authorId);
+                          return Text(
+                            displayName,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(vm.timeAgo(first.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 11)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            _MentionText(text: first.content, vm: vm),
+            if (comments.length > 1 || vm.commentCount(post.id) > 1)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () {
+                    final vm = context.read<SocialViewModel>();
+                    _openCommentsBottomSheet(context, post, vm);
+                  },
+                  child: const Text('Devamını gör'),
+                ),
+              )
+          ],
+        );
+      },
+    );
+  }
+}
+
+void _openCommentsBottomSheet(BuildContext context, Post post, SocialViewModel vm) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => _CommentsSheet(post: post, vm: vm),
+  );
+}
+
+class _CommentsSheet extends StatefulWidget {
+  final Post post;
+  final SocialViewModel vm;
+  const _CommentsSheet({required this.post, required this.vm});
+
+  @override
+  State<_CommentsSheet> createState() => _CommentsSheetState();
+}
+
+class _CommentsSheetState extends State<_CommentsSheet> {
+  final TextEditingController _controller = TextEditingController();
+  final TextEditingController _replyCtrl = TextEditingController();
+  final FocusNode _replyFocusNode = FocusNode();
+  String? _replyToCommentId;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _replyCtrl.dispose();
+    _replyFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = widget.vm;
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 4,
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0, left: 12, right: 12),
+                child: Row(
+                  children: [
+                    Text('${vm.likeCount(widget.post.id)} beğeni', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    Text('${vm.commentCount(widget.post.id)} yorum'),
+                  ],
+                ),
+              ),
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: FutureBuilder<List<Comment>>(
+                  future: vm.repository.getComments(widget.post.id),
+                  builder: (context, snapshot) {
+                    final comments = snapshot.data ?? const <Comment>[];
+                    return ListView.builder(
+                      controller: scrollController,
+                      itemCount: comments.length,
+                      itemBuilder: (_, i) {
+                        final c = comments[i];
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ListTile(
+                                    leading: FutureBuilder<SocialUser?>(
+                                      future: vm.repository.getUser(c.authorId),
+                                      builder: (context, snapshot) {
+                                        final user = snapshot.data;
+                                        final avatarUrl = user?.avatarUrl;
+                                        return CircleAvatar(
+                                          backgroundColor: Colors.blue.shade100,
+                                          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                              ? NetworkImage(avatarUrl)
+                                              : null,
+                                          child: (avatarUrl == null || avatarUrl.isEmpty)
+                                              ? Icon(Icons.person, color: Colors.blue.shade700)
+                                              : null,
+                                        );
+                                      },
+                                    ),
+                                    title: FutureBuilder<SocialUser?>(
+                                      future: vm.repository.getUser(c.authorId),
+                                      builder: (context, snapshot) {
+                                        final displayName = snapshot.data?.displayName ?? vm.userName(c.authorId);
+                                        return Text(displayName, style: const TextStyle(fontWeight: FontWeight.w600));
+                                      },
+                                    ),
+                                    subtitle: _MentionText(text: c.content, vm: vm),
+                                    trailing: Text(vm.timeAgo(c.createdAt), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                  ),
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () async {
+                                        await vm.toggleCommentLike(c.id);
+                                        setState(() {});
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              vm.isCommentLikedByMeLocal(c.id) ? Icons.favorite : Icons.favorite_border,
+                                              size: 16,
+                                              color: vm.isCommentLikedByMeLocal(c.id) ? Colors.red : Colors.grey,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              vm.compactCount(vm.commentLikeCountLocal(c.id)),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: vm.isCommentLikedByMeLocal(c.id) ? Colors.red : Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    Builder(
+                                      builder: (ctx) {
+                                        final isMine = vm.meId == c.authorId;
+                                        return PopupMenuButton<String>(
+                                          onSelected: (v) {
+                                            if (v == 'report' && !isMine) _reportComment(ctx, c);
+                                            if (v == 'delete' && isMine) _deleteComment(ctx, c);
+                                            if (v == 'edit' && isMine) _editComment(ctx, c);
+                                          },
+                                          itemBuilder: (_) => [
+                                            if (isMine)
+                                              const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                            if (isMine)
+                                              const PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                            if (!isMine)
+                                              const PopupMenuItem(value: 'report', child: Text('Bildir')),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16, bottom: 8),
+                              child: TextButton(
+                                onPressed: () async {
+                                  // Get the author's display name for mention
+                                  final user = await vm.repository.getUser(c.authorId);
+                                  String mentionName;
+                                  if (user != null && user.displayName.isNotEmpty && user.displayName != 'User') {
+                                    mentionName = user.displayName;
+                                  } else {
+                                    // Fallback: try to get from profiles table directly
+                                    final supa = Supabase.instance.client;
+                                    try {
+                                      final prof = await supa
+                                          .from('profiles')
+                                          .select('name, surname, display_name')
+                                          .eq('id', c.authorId)
+                                          .maybeSingle();
+                                      if (prof != null) {
+                                        final name = (prof['name'] ?? '').toString().trim();
+                                        final surname = (prof['surname'] ?? '').toString().trim();
+                                        final full = [name, surname].where((s) => s.isNotEmpty).join(' ').trim();
+                                        mentionName = full.isNotEmpty ? full : (user?.displayName ?? vm.userName(c.authorId));
+                                      } else {
+                                        mentionName = user?.displayName ?? vm.userName(c.authorId);
+                                      }
+                                    } catch (_) {
+                                      mentionName = user?.displayName ?? vm.userName(c.authorId);
+                                    }
+                                  }
+                                  setState(() { 
+                                    _replyToCommentId = c.id;
+                                    _replyCtrl.text = '@$mentionName ';
+                                  });
+                                  // Wait for widget rebuild, then set cursor position and focus
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    _replyCtrl.selection = TextSelection.fromPosition(TextPosition(offset: _replyCtrl.text.length));
+                                    _replyFocusNode.requestFocus();
+                                  });
+                                },
+                                child: const Text('Yanıtla'),
+                              ),
+                            ),
+                            FutureBuilder<List<Comment>>(
+                              future: vm.repository.getReplies(c.id),
+                              builder: (context, snap) {
+                                final repl = snap.data ?? const <Comment>[];
+                                return Padding(
+                                  padding: const EdgeInsets.only(left: 32),
+                                  child: Column(
+                                    children: [
+                                      for (final r in repl)
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ListTile(
+                                                leading: FutureBuilder<SocialUser?>(
+                                                  future: vm.repository.getUser(r.authorId),
+                                                  builder: (context, snapshot) {
+                                                    final user = snapshot.data;
+                                                    final avatarUrl = user?.avatarUrl;
+                                                    return CircleAvatar(
+                                                      radius: 12,
+                                                      backgroundColor: Colors.blue.shade100,
+                                                      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                                          ? NetworkImage(avatarUrl)
+                                                          : null,
+                                                      child: (avatarUrl == null || avatarUrl.isEmpty)
+                                                          ? Icon(Icons.person, size: 16, color: Colors.blue.shade700)
+                                                          : null,
+                                                    );
+                                                  },
+                                                ),
+                                                title: FutureBuilder<SocialUser?>(
+                                                  future: vm.repository.getUser(r.authorId),
+                                                  builder: (context, snapshot) {
+                                                    final displayName = snapshot.data?.displayName ?? vm.userName(r.authorId);
+                                                    return Text(displayName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14));
+                                                  },
+                                                ),
+                                                subtitle: _MentionText(text: r.content, vm: vm),
+                                                dense: true,
+                                                trailing: Text(vm.timeAgo(r.createdAt), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                              ),
+                                            ),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                GestureDetector(
+                                                  behavior: HitTestBehavior.opaque,
+                                                  onTap: () async {
+                                                    await vm.toggleCommentLike(r.id);
+                                                    setState(() {});
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(4),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          vm.isCommentLikedByMeLocal(r.id) ? Icons.favorite : Icons.favorite_border,
+                                                          size: 14,
+                                                          color: vm.isCommentLikedByMeLocal(r.id) ? Colors.red : Colors.grey,
+                                                        ),
+                                                        const SizedBox(width: 2),
+                                                        Text(
+                                                          vm.compactCount(vm.commentLikeCountLocal(r.id)),
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            color: vm.isCommentLikedByMeLocal(r.id) ? Colors.red : Colors.grey,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                                TextButton(
+                                                  style: TextButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                    minimumSize: const Size(0, 0),
+                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                  ),
+                                                  onPressed: () async {
+                                                    // Get the reply author's display name for mention
+                                                    final user = await vm.repository.getUser(r.authorId);
+                                                    String mentionName;
+                                                    if (user != null && user.displayName.isNotEmpty && user.displayName != 'User') {
+                                                      mentionName = user.displayName;
+                                                    } else {
+                                                      // Fallback: try to get from profiles table directly
+                                                      final supa = Supabase.instance.client;
+                                                      try {
+                                                        final prof = await supa
+                                                            .from('profiles')
+                                                            .select('name, surname, display_name')
+                                                            .eq('id', r.authorId)
+                                                            .maybeSingle();
+                                                        if (prof != null) {
+                                                          final name = (prof['name'] ?? '').toString().trim();
+                                                          final surname = (prof['surname'] ?? '').toString().trim();
+                                                          final full = [name, surname].where((s) => s.isNotEmpty).join(' ').trim();
+                                                          mentionName = full.isNotEmpty ? full : (user?.displayName ?? vm.userName(r.authorId));
+                                                        } else {
+                                                          mentionName = user?.displayName ?? vm.userName(r.authorId);
+                                                        }
+                                                      } catch (_) {
+                                                        mentionName = user?.displayName ?? vm.userName(r.authorId);
+                                                      }
+                                                    }
+                                                    setState(() { 
+                                                      _replyToCommentId = r.parentCommentId ?? r.id;
+                                                      _replyCtrl.text = '@$mentionName ';
+                                                    });
+                                                    // Wait for widget rebuild, then set cursor position and focus
+                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                      _replyCtrl.selection = TextSelection.fromPosition(TextPosition(offset: _replyCtrl.text.length));
+                                                      _replyFocusNode.requestFocus();
+                                                    });
+                                                  },
+                                                  child: const Text('Yanıtla', style: TextStyle(fontSize: 11)),
+                                                ),
+                                                Builder(
+                                                  builder: (ctx) {
+                                                    final isMine = vm.meId == r.authorId;
+                                                    return PopupMenuButton<String>(
+                                                      padding: EdgeInsets.zero,
+                                                      splashRadius: 16,
+                                                      onSelected: (v) {
+                                                        if (v == 'report' && !isMine) _reportComment(ctx, r);
+                                                        if (v == 'delete' && isMine) _deleteComment(ctx, r);
+                                                        if (v == 'edit' && isMine) _editComment(ctx, r);
+                                                      },
+                                                      itemBuilder: (_) => [
+                                                        if (isMine)
+                                                          const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                                        if (isMine)
+                                                          const PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                                        if (!isMine)
+                                                          const PopupMenuItem(value: 'report', child: Text('Bildir')),
+                                                      ],
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: (_replyToCommentId == null)
+                          ? TextField(
+                              controller: _controller,
+                              decoration: const InputDecoration(
+                                hintText: 'Yorum yaz',
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                            )
+                          : TextField(
+                              controller: _replyCtrl,
+                              focusNode: _replyFocusNode,
+                              decoration: InputDecoration(
+                                hintText: 'Yanıt yaz',
+                                border: const OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.close),
+                                  onPressed: () => setState(() { 
+                                    _replyToCommentId = null; 
+                                    _replyCtrl.clear(); 
+                                    _replyFocusNode.unfocus();
+                                  }),
+                                ),
+                              ),
+                            ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.send),
+                      onPressed: () async {
+                        if (_replyToCommentId == null) {
+                          final text = _controller.text.trim();
+                          if (text.isEmpty) return;
+                          final names = vm.extractMentionNames(text);
+                          if (!vm.canMentionAllNames(names)) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
+                            return;
+                          }
+                          await vm.addComment(widget.post, text);
+                          _controller.clear();
+                        } else {
+                          final text = _replyCtrl.text.trim();
+                          if (text.isEmpty) return;
+                          final names = vm.extractMentionNames(text);
+                          if (!vm.canMentionAllNames(names)) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
+                            return;
+                          }
+                          final parentComment = Comment(id: _replyToCommentId!, postId: widget.post.id, authorId: vm.meId, content: '', createdAt: DateTime.now());
+                          await vm.addReply(parentComment, text);
+                          _replyCtrl.clear();
+                          _replyToCommentId = null;
+                        }
+                        setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -860,6 +1505,70 @@ Future<void> _reportPost(BuildContext context, Post post) async {
   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thanks for the report.')));
 }
 
+Future<void> _deleteComment(BuildContext context, Comment comment) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Yorumu sil'),
+      content: const Text('Bu yorumu silmek istediğine emin misin?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+      ],
+    ),
+  );
+  if (ok != true) return;
+  await context.read<SocialViewModel>().deleteCommentById(comment.id);
+  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum silindi.')));
+}
+
+Future<void> _editComment(BuildContext context, Comment comment) async {
+  final vm = context.read<SocialViewModel>();
+  final controller = TextEditingController(text: comment.content);
+  
+  final updatedContent = await showDialog<String>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Yorumu düzenle'),
+      content: TextField(
+        controller: controller,
+        maxLines: 4,
+        decoration: const InputDecoration(
+          hintText: 'Yorumunuzu düzenleyin...',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('İptal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, controller.text.trim()),
+          child: const Text('Kaydet'),
+        ),
+      ],
+    ),
+  );
+
+  if (updatedContent != null && updatedContent.isNotEmpty && updatedContent != comment.content) {
+    final updatedComment = Comment(
+      id: comment.id,
+      postId: comment.postId,
+      authorId: comment.authorId,
+      content: updatedContent,
+      createdAt: comment.createdAt,
+      parentCommentId: comment.parentCommentId,
+    );
+    await vm.updateComment(updatedComment);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum güncellendi.')));
+  }
+}
+
+Future<void> _reportComment(BuildContext context, Comment comment) async {
+  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bildiriminiz alındı. Teşekkürler.')));
+}
+
 Future<void> _deletePost(BuildContext context, Post post) async {
   final vm = context.read<SocialViewModel>();
   final ok = await showDialog<bool>(
@@ -884,5 +1593,378 @@ Future<void> _deletePost(BuildContext context, Post post) async {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error while deleting: $e')));
     }
+  }
+}
+
+/* =========================
+ * Full Screen Composer
+ * ========================= */
+
+class _FullScreenComposer extends StatefulWidget {
+  final SocialViewModel vm;
+  const _FullScreenComposer({required this.vm});
+
+  @override
+  State<_FullScreenComposer> createState() => _FullScreenComposerState();
+}
+
+class _FullScreenComposerState extends State<_FullScreenComposer> {
+  final ImagePicker _picker = ImagePicker();
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  List<String> _images = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Seed from existing vm state if any (for edit continuity in future)
+    _controller.text = widget.vm.composerController.text;
+    _images = List.from(widget.vm.pendingImagePaths);
+    // Autofocus after open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImages() async {
+    final images = await _picker.pickMultiImage(imageQuality: 85);
+    if (images.isEmpty) return;
+    setState(() {
+      _images.addAll(images.map((x) => x.path));
+    });
+  }
+
+  Future<void> _submit() async {
+    final vm = widget.vm;
+    final text = _controller.text.trim();
+    if (text.isEmpty && _images.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+    vm.composerController.text = _controller.text;
+    vm.pendingImagePaths
+      ..clear()
+      ..addAll(_images);
+    if (vm.isEditing) {
+      await vm.updatePost();
+    } else {
+      await vm.postNow();
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = widget.vm;
+    final canPost = _controller.text.trim().isNotEmpty || _images.isNotEmpty;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Material(
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.98,
+            child: Column(
+              children: [
+                // Header
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        if (vm.isEditing) {
+                          vm.cancelEdit();
+                        }
+                        Navigator.pop(context);
+                      },
+                      child: const Text('İptal et'),
+                    ),
+                  ],
+                ),
+                const Divider(height: 1),
+                // Composer content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          minLines: 5,
+                          maxLines: null,
+                          decoration: InputDecoration(
+                            hintText: vm.isEditing ? 'Gönderinizi düzenleyin...' : 'Ne oluyor?',
+                            border: InputBorder.none,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        if (_images.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _ImagesGrid(paths: _images),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                // Actions bar
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.photo_outlined),
+                          onPressed: _pickImages,
+                        ),
+                        const Spacer(),
+                        FilledButton(
+                          onPressed: canPost && !vm.isPosting ? _submit : null,
+                          child: vm.isPosting
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : Text(vm.isEditing ? 'Güncelle' : 'Paylaş'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/* =========================
+ * Images Grid (local file paths)
+ * ========================= */
+
+class _ImagesGrid extends StatelessWidget {
+  final List<String> paths;
+
+  const _ImagesGrid({required this.paths});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = paths.length;
+    final show = paths.take(4).toList();
+    const double radius = 8;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    // best-effort estimate for available width inside cards/padding
+    final double availableWidth = screenWidth - 24; // outer padding approx
+    final double dpr = MediaQuery.of(context).devicePixelRatio;
+
+
+    Widget buildThumb(int index, {BorderRadius? br, required double targetWidth, required double targetHeight}) {
+      final cacheWidth = (targetWidth * dpr).clamp(256, 2048).round();
+      final image = Image.file(
+        File(show[index]),
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.low,
+        cacheWidth: cacheWidth,
+      );
+      final child = ClipRRect(
+        borderRadius: br ?? BorderRadius.circular(radius),
+        child: RepaintBoundary(child: image),
+      );
+      final tile = child;
+      return LongPressDraggable<int>(
+        data: index,
+        feedback: Material(
+            color: Colors.transparent,
+            child: SizedBox(width: targetWidth, height: targetHeight, child: child)),
+        childWhenDragging: Opacity(opacity: 0.6, child: tile),
+        child: DragTarget<int>(
+          builder: (context, candidate, rejected) => tile,
+          onAccept: (from) {
+            // Reorder within composer list
+            final vm = context.read<SocialViewModel>();
+            if (vm.pendingImagePaths.length >= index + 1 && vm.pendingImagePaths.length >= from + 1) {
+              vm.reorderPendingImages(from, index);
+            }
+          },
+        ),
+      );
+    }
+
+    if (show.length == 1) {
+      final w = availableWidth;
+      final h = w * 3 / 4;
+      return SizedBox(
+        width: w,
+        height: h,
+        child: buildThumb(0, targetWidth: w, targetHeight: h),
+      );
+    }
+
+    if (show.length == 2) {
+      final h = 200.0;
+      final w = (availableWidth - 6) / 2;
+      return SizedBox(
+        height: h,
+        child: Row(
+          children: [
+            Expanded(child: buildThumb(0, br: BorderRadius.circular(radius), targetWidth: w, targetHeight: h)),
+            const SizedBox(width: 6),
+            Expanded(child: buildThumb(1, br: BorderRadius.circular(radius), targetWidth: w, targetHeight: h)),
+          ],
+        ),
+      );
+    }
+
+    if (show.length == 3) {
+      final h = 220.0;
+      final leftW = (availableWidth - 6) * 2 / 3;
+      final rightW = (availableWidth - 6) / 3;
+      return SizedBox(
+        height: h,
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: buildThumb(0, br: BorderRadius.circular(radius), targetWidth: leftW, targetHeight: h),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              flex: 1,
+              child: Column(
+                children: [
+                  Expanded(
+                      child: buildThumb(1, br: BorderRadius.circular(radius), targetWidth: rightW, targetHeight: h / 2 - 3)),
+                  const SizedBox(height: 6),
+                  Expanded(
+                      child: buildThumb(2, br: BorderRadius.circular(radius), targetWidth: rightW, targetHeight: h / 2 - 3)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 4 or more => 2x2 grid with +N overlay on last tile
+    final extra = total - 4;
+    final h = 240.0;
+    final cellW = (availableWidth - 6) / 2;
+    final cellH = (h - 6) / 2;
+    return SizedBox(
+      height: h,
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: buildThumb(0, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH)),
+                const SizedBox(width: 6),
+                Expanded(child: buildThumb(1, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: buildThumb(2, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      buildThumb(3, br: BorderRadius.circular(radius), targetWidth: cellW, targetHeight: cellH),
+                      if (extra > 0)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(radius),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '+$extra',
+                            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* =========================
+ * Image Viewer
+ * ========================= */
+
+class _ImageViewer extends StatefulWidget {
+  final List<String> paths;
+  final int initialIndex;
+
+  const _ImageViewer({required this.paths, required this.initialIndex});
+
+  @override
+  State<_ImageViewer> createState() => _ImageViewerState();
+}
+
+class _ImageViewerState extends State<_ImageViewer> {
+  late PageController _pc;
+
+  @override
+  void initState() {
+    super.initState();
+    _pc = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pc.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              PageView.builder(
+                controller: _pc,
+                itemCount: widget.paths.length,
+                itemBuilder: (_, i) => InteractiveViewer(
+                  child: Center(child: Image.file(File(widget.paths[i]))),
+                ),
+              ),
+              Positioned(
+                top: 12,
+                right: 12,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

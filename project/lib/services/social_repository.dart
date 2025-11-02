@@ -115,13 +115,18 @@ Future<SocialUser?> getUser(String userId) async {
 
 
 String _bestDisplayName(Map<String, dynamic> m) {
-  final dn = (m['display_name'] ?? '').toString().trim();
-  if (dn.isNotEmpty) return dn;
-
+  // Önce name + surname'e bak (isim soyisim öncelikli)
   final name = (m['name'] ?? '').toString().trim();
   final surname = (m['surname'] ?? '').toString().trim();
   final full = [name, surname].where((s) => s.isNotEmpty).join(' ').trim();
-  return full.isNotEmpty ? full : 'User';
+  if (full.isNotEmpty) return full;
+
+  // Eğer name+surname yoksa display_name'e bak
+  final dn = (m['display_name'] ?? '').toString().trim();
+  if (dn.isNotEmpty) return dn;
+
+  // Son çare olarak User döndür
+  return 'User';
 }
  
 @override
