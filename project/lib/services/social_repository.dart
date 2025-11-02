@@ -1,5 +1,5 @@
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:uuid/uuid.dart';
+// lib/services/social_repository.dart
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/social_user.dart';
 import '../models/social_models.dart';
@@ -8,286 +8,757 @@ abstract class SocialRepository {
   Future<SocialUser> upsertUser(SocialUser user);
   Future<SocialUser?> getUser(String userId);
   Future<List<SocialUser>> getUsersByIds(List<String> userIds);
+  /// Notifications
+Future<List<Map<String, dynamic>>> getNotifications(String userId);
+Future<void> markNotificationRead(String id);
+
+
   Future<List<Post>> listExplore();
   Future<List<Post>> listFriendsFeed(String meId);
-  Future<Post> createPost({required String authorId, required String content, required List<String> imagePaths});
+
+  Future<Post> createPost({
+    required String authorId,
+    required String content,
+    required List<String> imagePaths,
+  });
   Future<void> updatePost(Post post);
   Future<void> deletePost(String postId);
+
   Future<void> deleteComment(String commentId);
+
   Future<void> likePost({required String postId, required String userId});
   Future<void> unlikePost({required String postId, required String userId});
   Future<List<Like>> getLikes(String postId);
-  Future<Comment> addComment({required String postId, required String authorId, required String content});
+
+  Future<Comment> addComment({
+    required String postId,
+    required String authorId,
+    required String content,
+  });
   Future<List<Comment>> getComments(String postId);
-  Future<Comment> addReply({required String postId, required String parentCommentId, required String authorId, required String content});
+
+  Future<Comment> addReply({
+    required String postId,
+    required String parentCommentId,
+    required String authorId,
+    required String content,
+  });
   Future<List<Comment>> getReplies(String parentCommentId);
+
   Future<List<SocialUser>> suggestUsers(String query);
-  Future<void> sendFriendRequest({required String fromUserId, required String toUserId});
-  Future<void> respondFriendRequest({required String requestId, required bool accept});
+
+  Future<void> sendFriendRequest({
+    required String fromUserId,
+    required String toUserId,
+  });
+  Future<void> respondFriendRequest({
+    required String requestId,
+    required bool accept,
+  });
   Future<List<String>> listFriendIds(String meId);
-  Future<void> likeComment({required String commentId, required String userId});
-  Future<void> unlikeComment({required String commentId, required String userId});
+
+  Future<void> likeComment({
+    required String commentId,
+    required String userId,
+  });
+  Future<void> unlikeComment({
+    required String commentId,
+    required String userId,
+  });
   Future<List<CommentLike>> getCommentLikes(String commentId);
+
   Future<void> updateComment(Comment comment);
-  Future<void> clearAllData();
+
+  Future<void> clearAllData(); // no-op for Supabase (kept for interface parity)
 }
 
-class LocalHiveSocialRepository implements SocialRepository {
-  static const String usersBox = 'social_users';
-  static const String postsBox = 'social_posts';
-  static const String commentsBox = 'social_comments';
-  static const String likesBox = 'social_likes';
-  static const String commentLikesBox = 'social_comment_likes';
-  static const String friendshipsBox = 'social_friendships';
+class SupabaseSocialRepository implements SocialRepository {
+  SupabaseClient get _supa => Supabase.instance.client;
 
-  final Uuid _uuid = const Uuid();
-
-  Box<SocialUser> get _users => Hive.box<SocialUser>(usersBox);
-  Box<Post> get _posts => Hive.box<Post>(postsBox);
-  Box<Comment> get _comments => Hive.box<Comment>(commentsBox);
-  Box<Like> get _likes => Hive.box<Like>(likesBox);
-  Box<CommentLike> get _commentLikes => Hive.box<CommentLike>(commentLikesBox);
-  Box<Friendship> get _friendships => Hive.box<Friendship>(friendshipsBox);
+  // --- USERS ---------------------------------------------------------------
 
   @override
   Future<SocialUser> upsertUser(SocialUser user) async {
-    await _users.put(user.id, user);
+    // Best-effort profile update for display name / avatar
+    // If your RLS disallows this, we simply ignore errors.
+    try {
+      await _supa.from('profiles').update({
+        if (user.displayName.isNotEmpty) 'display_name': user.displayName,
+        if (user.avatarUrl != null) 'avatar_url': user.avatarUrl,
+      }).eq('id', user.id);
+    } catch (_) {
+      // ignore
+    }
     return user;
   }
 
-  @override
-  Future<SocialUser?> getUser(String userId) async {
-    return _users.get(userId);
-  }
+// inside class SupabaseSocialRepository implements SocialRepository { ... }
 
-  @override
-  Future<List<SocialUser>> getUsersByIds(List<String> userIds) async {
-    final set = userIds.toSet();
-    return _users.values.where((u) => set.contains(u.id)).toList();
-  }
+@override
+Future<SocialUser?> getUser(String userId) async {
+  final supa = Supabase.instance.client;
+  final row = await supa
+      .from('profiles')
+      .select('id, name, surname, display_name, avatar_url')
+      .eq('id', userId)
+      .maybeSingle();
 
-  @override
-  Future<List<Post>> listExplore() async {
-    final items = _posts.values.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return items;
-  }
+  if (row == null) return null;
 
-  @override
-  Future<List<Post>> listFriendsFeed(String meId) async {
-    final friendIds = await listFriendIds(meId);
-    final set = friendIds.toSet();
-    final items = _posts.values.where((p) => set.contains(p.authorId)).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return items;
-  }
+  final m = Map<String, dynamic>.from(row);
+  return SocialUser(
+    id: m['id'] as String,
+    displayName: _bestDisplayName(m),
+    avatarUrl: (m['avatar_url'] ?? '').toString(),
+  );
+}
 
-  @override
-  Future<Post> createPost({required String authorId, required String content, required List<String> imagePaths}) async {
-    final id = _uuid.v4();
-    final post = Post(
-      id: id,
-      authorId: authorId,
-      content: content,
-      imagePaths: imagePaths,
-      createdAt: DateTime.now(),
+
+String _bestDisplayName(Map<String, dynamic> m) {
+  // Önce name + surname'e bak (isim soyisim öncelikli)
+  final name = (m['name'] ?? '').toString().trim();
+  final surname = (m['surname'] ?? '').toString().trim();
+  final full = [name, surname].where((s) => s.isNotEmpty).join(' ').trim();
+  if (full.isNotEmpty) return full;
+
+  // Eğer name+surname yoksa display_name'e bak
+  final dn = (m['display_name'] ?? '').toString().trim();
+  if (dn.isNotEmpty) return dn;
+
+  // Son çare olarak User döndür
+  return 'User';
+}
+ 
+@override
+Future<List<SocialUser>> getUsersByIds(List<String> userIds) async {
+  if (userIds.isEmpty) return [];
+
+  final supa = Supabase.instance.client;
+  final rows = await supa
+      .from('profiles')
+      .select('id, name, surname, display_name, avatar_url')
+      .inFilter('id', userIds);
+
+  final list = <SocialUser>[];
+  for (final r in (rows as List)) {
+    final m = Map<String, dynamic>.from(r as Map);
+    final display = _bestDisplayName(m);
+    list.add(SocialUser(
+      id: m['id'] as String,
+      displayName: display,
+      avatarUrl: (m['avatar_url'] ?? '').toString(),
+    ));
+  }
+  return list;
+}
+
+
+  // --- FEEDS / POSTS -------------------------------------------------------
+
+ @override
+Future<List<Post>> listExplore({int limit = 200}) async {
+  final supa = Supabase.instance.client;
+  final rows = await supa
+      .from('posts')
+      .select('id, author_id, content, image_paths, created_at')
+      .order('created_at', ascending: false)
+      .limit(limit);
+
+  return (rows as List).map((e) {
+    final m = Map<String, dynamic>.from(e as Map);
+    return Post(
+      id: m['id'] as String,
+      authorId: m['author_id'] as String,
+      content: (m['content'] ?? '').toString(),
+      imagePaths: (m['image_paths'] as List?)?.cast<String>() ?? const <String>[],
+      createdAt: DateTime.parse(m['created_at'] as String),
     );
-    await _posts.put(id, post);
-    return post;
+  }).toList();
+}
+
+
+  @override
+Future<List<Post>> listFriendsFeed(String meId) async {
+  final supa = Supabase.instance.client;
+
+  // friend ids (accepted, both directions)
+  final fs = await supa
+      .from('friendships')
+      .select('requester_id, addressee_id, status')
+      .or('requester_id.eq.$meId,addressee_id.eq.$meId')
+      .eq('status', 'accepted');
+
+  final friendIds = <String>{};
+  for (final f in (fs as List)) {
+    final mm = Map<String, dynamic>.from(f as Map);
+    final r = (mm['requester_id'] ?? '').toString();
+    final a = (mm['addressee_id'] ?? '').toString();
+    if (r != meId && r.isNotEmpty) friendIds.add(r);
+    if (a != meId && a.isNotEmpty) friendIds.add(a);
+  }
+  if (friendIds.isEmpty) return [];
+
+  final posts = await supa
+      .from('posts')
+      .select('id, author_id, content, image_paths, created_at')
+      .inFilter('author_id', friendIds.toList())
+      .order('created_at', ascending: false);
+
+  return (posts as List).map<Post>((r) {
+    final m = Map<String, dynamic>.from(r as Map);
+    return Post(
+      id: m['id'] as String,
+      authorId: m['author_id'] as String,
+      content: (m['content'] ?? '').toString(),
+      imagePaths: (m['image_paths'] as List?)?.cast<String>() ?? const <String>[],
+      createdAt: DateTime.parse(m['created_at'] as String),
+    );
+  }).toList();
+}
+
+
+  @override
+  Future<Post> createPost({
+    required String authorId,
+    required String content,
+    required List<String> imagePaths,
+  }) async {
+    final row = await _supa
+        .from('posts')
+        .insert({
+          'author_id': authorId,
+          'content': content.trim(),
+          'image_paths': imagePaths,
+        })
+        .select('id, author_id, content, image_paths, created_at')
+        .single();
+
+    final m = Map<String, dynamic>.from(row as Map);
+    return Post(
+      id: m['id'] as String,
+      authorId: m['author_id'] as String,
+      content: (m['content'] ?? '').toString(),
+      imagePaths: (m['image_paths'] as List?)?.cast<String>() ?? const <String>[],
+      createdAt: DateTime.parse(m['created_at'] as String),
+    );
   }
 
   @override
   Future<void> updatePost(Post post) async {
-    await _posts.put(post.id, post);
+    await _supa
+        .from('posts')
+        .update({
+          'content': post.content,
+          'image_paths': post.imagePaths,
+        })
+        .eq('id', post.id);
   }
 
   @override
-  Future<void> deletePost(String postId) async {
-    await _posts.delete(postId);
-    // Also delete related comments and likes
-    final comments = _comments.values.where((c) => c.postId == postId).toList();
-    for (final comment in comments) {
-      await _comments.delete(comment.id);
-    }
-    final likes = _likes.values.where((l) => l.postId == postId).toList();
-    for (final like in likes) {
-      await _likes.delete(like.id);
-    }
+Future<void> deletePost(String postId) async {
+  // 1) delete notifications for this post (like/comment alerts)
+  await _supa.from('notifications_social').delete().eq('post_id', postId);
+
+  // 2) delete likes & comments (and their likes)
+  await _supa.from('post_likes').delete().eq('post_id', postId);
+
+  final comments = await _supa
+      .from('comments')
+      .select('id')
+      .eq('post_id', postId);
+
+  for (final r in (comments as List)) {
+    final cid = r['id'] as String;
+    await _supa.from('comment_likes').delete().eq('comment_id', cid);
   }
+  await _supa.from('comments').delete().eq('post_id', postId);
+
+  // 3) finally delete the post
+  await _supa.from('posts').delete().eq('id', postId);
+}
+
+
+  // --- COMMENTS ------------------------------------------------------------
 
   @override
   Future<void> deleteComment(String commentId) async {
-    await _comments.delete(commentId);
-    // Also delete related comment likes
-    final commentLikes = _commentLikes.values.where((l) => l.commentId == commentId).toList();
-    for (final like in commentLikes) {
-      await _commentLikes.delete(like.id);
+    // delete replies first, then likes, then the comment
+    final replies =
+        await _supa.from('comments').select('id').eq('parent_comment_id', commentId);
+    for (final r in (replies as List)) {
+      final rid = r['id'] as String;
+      await _supa.from('comment_likes').delete().eq('comment_id', rid);
+      await _supa.from('comments').delete().eq('id', rid);
     }
-  }
-
-  @override
-  Future<void> likePost({required String postId, required String userId}) async {
-    final existing = _likes.values.firstWhere(
-      (l) => l.postId == postId && l.userId == userId,
-      orElse: () => Like(id: '', postId: '', userId: '', createdAt: DateTime(0)),
-    );
-    if (existing.id.isNotEmpty) return; // already liked
-
-    final like = Like(id: _uuid.v4(), postId: postId, userId: userId, createdAt: DateTime.now());
-    await _likes.put(like.id, like);
-  }
-
-  @override
-  Future<void> unlikePost({required String postId, required String userId}) async {
-    final toRemove = _likes.values.firstWhere(
-      (l) => l.postId == postId && l.userId == userId,
-      orElse: () => Like(id: '', postId: '', userId: '', createdAt: DateTime(0)),
-    );
-    if (toRemove.id.isEmpty) return;
-    await _likes.delete(toRemove.id);
+    await _supa.from('comment_likes').delete().eq('comment_id', commentId);
+    await _supa.from('comments').delete().eq('id', commentId);
   }
 
   @override
   Future<List<Like>> getLikes(String postId) async {
-    return _likes.values.where((l) => l.postId == postId).toList();
+    final rows =
+        await _supa.from('post_likes').select('id, post_id, user_id, created_at').eq('post_id', postId);
+    return (rows as List).map<Like>((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      return Like(
+        id: m['id'] as String,
+        postId: m['post_id'] as String,
+        userId: m['user_id'] as String,
+        createdAt: DateTime.parse(m['created_at'] as String),
+      );
+    }).toList();
   }
 
   @override
-  Future<Comment> addComment({required String postId, required String authorId, required String content}) async {
-    final c = Comment(
-      id: _uuid.v4(),
-      postId: postId,
-      authorId: authorId,
-      content: content,
-      createdAt: DateTime.now(),
-    );
-    await _comments.put(c.id, c);
-    return c;
-  }
+Future<Comment> addComment({
+  required String postId,
+  required String authorId,
+  required String content,
+}) async {
+  final row = await _supa
+      .from('comments')
+      .insert({
+        'post_id': postId,
+        'author_id': authorId,
+        'content': content.trim(),
+        'parent_comment_id': null,
+      })
+      .select('id, post_id, author_id, content, created_at, parent_comment_id')
+      .single();
 
+  // notify post author (if not self)
+  try {
+    final post = await _supa
+        .from('posts')
+        .select('author_id')
+        .eq('id', postId)
+        .single();
+    final receiverId = (post['author_id'] as String?) ?? '';
+    if (receiverId.isNotEmpty && receiverId != authorId) {
+      await _createNotification(
+        senderId: authorId,
+        receiverId: receiverId,
+        type: 'comment',
+        postId: postId,
+      );
+    }
+  } catch (_) {}
+
+  final m = Map<String, dynamic>.from(row as Map);
+  return Comment(
+    id: m['id'] as String,
+    postId: m['post_id'] as String,
+    authorId: m['author_id'] as String,
+    content: (m['content'] ?? '').toString(),
+    createdAt: DateTime.parse(m['created_at'] as String),
+    parentCommentId: m['parent_comment_id'] as String?,
+  );
+}
   @override
   Future<List<Comment>> getComments(String postId) async {
-    final items = _comments.values.where((c) => c.postId == postId && c.parentCommentId == null).toList()
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return items;
+    final rows = await _supa
+        .from('comments')
+        .select('id, post_id, author_id, content, created_at, parent_comment_id')
+        .eq('post_id', postId)
+        .isFilter('parent_comment_id', null)
+        .order('created_at', ascending: true);
+
+    return (rows as List).map<Comment>((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      return Comment(
+        id: m['id'] as String,
+        postId: m['post_id'] as String,
+        authorId: m['author_id'] as String,
+        content: (m['content'] ?? '').toString(),
+        createdAt: DateTime.parse(m['created_at'] as String),
+        parentCommentId: m['parent_comment_id'] as String?,
+      );
+    }).toList();
   }
 
   @override
-  Future<Comment> addReply({required String postId, required String parentCommentId, required String authorId, required String content}) async {
-    final c = Comment(
-      id: _uuid.v4(),
-      postId: postId,
-      authorId: authorId,
-      content: content,
-      createdAt: DateTime.now(),
-      parentCommentId: parentCommentId,
-    );
-    await _comments.put(c.id, c);
-    return c;
-  }
+Future<Comment> addReply({
+  required String postId,
+  required String parentCommentId,
+  required String authorId,
+  required String content,
+}) async {
+  final row = await _supa
+      .from('comments')
+      .insert({
+        'post_id': postId,
+        'author_id': authorId,
+        'content': content.trim(),
+        'parent_comment_id': parentCommentId,
+      })
+      .select('id, post_id, author_id, content, created_at, parent_comment_id')
+      .single();
+
+  try {
+    // notify post author
+    final post = await _supa
+        .from('posts')
+        .select('author_id')
+        .eq('id', postId)
+        .single();
+    final postAuthorId = (post['author_id'] as String?) ?? '';
+    if (postAuthorId.isNotEmpty && postAuthorId != authorId) {
+      await _createNotification(
+        senderId: authorId,
+        receiverId: postAuthorId,
+        type: 'comment', // or 'reply' if you want to distinguish
+        postId: postId,
+      );
+    }
+
+    // notify parent comment author (if different from post author and self)
+    final parent = await _supa
+        .from('comments')
+        .select('author_id')
+        .eq('id', parentCommentId)
+        .single();
+    final parentAuthorId = (parent['author_id'] as String?) ?? '';
+    if (parentAuthorId.isNotEmpty &&
+        parentAuthorId != authorId &&
+        parentAuthorId != postAuthorId) {
+      await _createNotification(
+        senderId: authorId,
+        receiverId: parentAuthorId,
+        type: 'reply',
+        postId: postId,
+      );
+    }
+  } catch (_) {}
+
+  final m = Map<String, dynamic>.from(row as Map);
+  return Comment(
+    id: m['id'] as String,
+    postId: m['post_id'] as String,
+    authorId: m['author_id'] as String,
+    content: (m['content'] ?? '').toString(),
+    createdAt: DateTime.parse(m['created_at'] as String),
+    parentCommentId: m['parent_comment_id'] as String?,
+  );
+} 
 
   @override
   Future<List<Comment>> getReplies(String parentCommentId) async {
-    final items = _comments.values.where((c) => c.parentCommentId == parentCommentId).toList()
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return items;
-  }
+    final rows = await _supa
+        .from('comments')
+        .select('id, post_id, author_id, content, created_at, parent_comment_id')
+        .eq('parent_comment_id', parentCommentId)
+        .order('created_at', ascending: true);
 
-  @override
-  Future<List<SocialUser>> suggestUsers(String query) async {
-    final q = query.toLowerCase();
-    return _users.values.where((u) => u.displayName.toLowerCase().contains(q)).take(10).toList();
-  }
-
-  @override
-  Future<void> sendFriendRequest({required String fromUserId, required String toUserId}) async {
-    final already = _friendships.values.firstWhere(
-      (f) => (f.requesterId == fromUserId && f.addresseeId == toUserId) ||
-             (f.requesterId == toUserId && f.addresseeId == fromUserId),
-      orElse: () => Friendship(id: '', requesterId: '', addresseeId: '', status: FriendshipStatus.pending, createdAt: DateTime(0)),
-    );
-    if (already.id.isNotEmpty) return; // exists
-
-    final req = Friendship(
-      id: _uuid.v4(),
-      requesterId: fromUserId,
-      addresseeId: toUserId,
-      status: FriendshipStatus.pending,
-      createdAt: DateTime.now(),
-    );
-    await _friendships.put(req.id, req);
-  }
-
-  @override
-  Future<void> respondFriendRequest({required String requestId, required bool accept}) async {
-    final req = _friendships.get(requestId);
-    if (req == null) return;
-    final updated = Friendship(
-      id: req.id,
-      requesterId: req.requesterId,
-      addresseeId: req.addresseeId,
-      status: accept ? FriendshipStatus.accepted : FriendshipStatus.rejected,
-      createdAt: req.createdAt,
-    );
-    await _friendships.put(requestId, updated);
-  }
-
-  @override
-  Future<List<String>> listFriendIds(String meId) async {
-    final accepted = _friendships.values.where((f) => f.status == FriendshipStatus.accepted);
-    final ids = <String>[];
-    for (final f in accepted) {
-      if (f.requesterId == meId) ids.add(f.addresseeId);
-      if (f.addresseeId == meId) ids.add(f.requesterId);
-    }
-    return ids;
-  }
-
-  @override
-  Future<void> likeComment({required String commentId, required String userId}) async {
-    final existing = _commentLikes.values.firstWhere(
-      (l) => l.commentId == commentId && l.userId == userId,
-      orElse: () => CommentLike(id: '', commentId: '', userId: '', createdAt: DateTime.now()),
-    );
-    if (existing.id.isNotEmpty) return; // already liked
-    
-    final like = CommentLike(
-      id: _uuid.v4(),
-      commentId: commentId,
-      userId: userId,
-      createdAt: DateTime.now(),
-    );
-    await _commentLikes.put(like.id, like);
-  }
-
-  @override
-  Future<void> unlikeComment({required String commentId, required String userId}) async {
-    final existing = _commentLikes.values.firstWhere(
-      (l) => l.commentId == commentId && l.userId == userId,
-      orElse: () => CommentLike(id: '', commentId: '', userId: '', createdAt: DateTime.now()),
-    );
-    if (existing.id.isEmpty) return; // not liked
-    await _commentLikes.delete(existing.id);
-  }
-
-  @override
-  Future<List<CommentLike>> getCommentLikes(String commentId) async {
-    return _commentLikes.values.where((l) => l.commentId == commentId).toList();
+    return (rows as List).map<Comment>((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      return Comment(
+        id: m['id'] as String,
+        postId: m['post_id'] as String,
+        authorId: m['author_id'] as String,
+        content: (m['content'] ?? '').toString(),
+        createdAt: DateTime.parse(m['created_at'] as String),
+        parentCommentId: m['parent_comment_id'] as String?,
+      );
+    }).toList();
   }
 
   @override
   Future<void> updateComment(Comment comment) async {
-    await _comments.put(comment.id, comment);
+    await _supa
+        .from('comments')
+        .update({'content': comment.content})
+        .eq('id', comment.id);
   }
 
-  Future<void> clearAllData() async {
-    await _users.clear();
-    await _posts.clear();
-    await _comments.clear();
-    await _likes.clear();
-    await _commentLikes.clear();
-    await _friendships.clear();
+  // --- FRIENDS -------------------------------------------------------------
+
+  @override
+  Future<void> sendFriendRequest({
+    required String fromUserId,
+    required String toUserId,
+  }) async {
+    // prevent duplicates
+    final existing = await _supa
+        .from('friendships')
+        .select('id')
+        .or('and(requester_id.eq.$fromUserId,addressee_id.eq.$toUserId),and(requester_id.eq.$toUserId,addressee_id.eq.$fromUserId)')
+        .maybeSingle();
+
+    if (existing != null) return;
+
+    await _supa.from('friendships').insert({
+      'requester_id': fromUserId,
+      'addressee_id': toUserId,
+      'status': 'pending',
+    });
+    await _createNotification(
+      senderId: fromUserId,
+      receiverId: toUserId,
+      type: 'friend_request',
+);
+
+  }
+
+  @override
+  Future<void> respondFriendRequest({
+    required String requestId,
+    required bool accept,
+  }) async {
+    await _supa
+        .from('friendships')
+        .update({'status': accept ? 'accepted' : 'rejected'})
+        .eq('id', requestId);
+  }
+
+  @override
+  Future<List<String>> listFriendIds(String meId) async {
+    final req = await _supa
+        .from('friendships')
+        .select('addressee_id')
+        .eq('requester_id', meId)
+        .eq('status', 'accepted');
+
+    final add = await _supa
+        .from('friendships')
+        .select('requester_id')
+        .eq('addressee_id', meId)
+        .eq('status', 'accepted');
+
+    return <String>[
+      for (final r in (req as List)) (r['addressee_id'] as String),
+      for (final r in (add as List)) (r['requester_id'] as String),
+    ];
+  }
+
+
+  // --- REACTIONS (POST / COMMENT) -----------------------------------------
+
+  @override
+Future<void> likePost({required String postId, required String userId}) async {
+  // 1) Write like (ignore duplicates)
+  final exists = await _supa
+      .from('post_likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .maybeSingle();
+  if (exists == null) {
+    await _supa.from('post_likes').insert({
+      'post_id': postId,
+      'user_id': userId,
+    });
+  }
+
+  // 2) Notify post author (if not self) and avoid duplicate notifications
+  try {
+    final post = await _supa
+        .from('posts')
+        .select('author_id')
+        .eq('id', postId)
+        .single();
+
+    final receiverId = (post['author_id'] as String?) ?? '';
+    if (receiverId.isEmpty || receiverId == userId) return;
+
+    // avoid duplicate like notifications for the same sender/post/receiver
+    final dup = await _supa
+        .from('notifications_social')
+        .select('id')
+        .eq('type', 'like')
+        .eq('sender_id', userId)
+        .eq('receiver_id', receiverId)
+        .eq('post_id', postId)
+        .maybeSingle();
+
+    if (dup == null) {
+      await _createNotification(
+        senderId: userId,
+        receiverId: receiverId,
+        type: 'like',
+        postId: postId,
+      );
+    }
+  } catch (_) {
+    // fail-soft on notification
   }
 }
 
 
+  @override
+  Future<void> unlikePost({required String postId, required String userId}) async {
+    await _supa
+        .from('post_likes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', userId);
+  }
+
+  @override
+  Future<void> likeComment({
+    required String commentId,
+    required String userId,
+  }) async {
+    final exists = await _supa
+        .from('comment_likes')
+        .select('id')
+        .eq('comment_id', commentId)
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (exists != null) return;
+
+    await _supa.from('comment_likes').insert({
+      'comment_id': commentId,
+      'user_id': userId,
+    });
+  }
+
+  @override
+  Future<void> unlikeComment({
+    required String commentId,
+    required String userId,
+  }) async {
+    await _supa
+        .from('comment_likes')
+        .delete()
+        .eq('comment_id', commentId)
+        .eq('user_id', userId);
+  }
+
+  @override
+  Future<List<CommentLike>> getCommentLikes(String commentId) async {
+    final rows = await _supa
+        .from('comment_likes')
+        .select('id, comment_id, user_id, created_at')
+        .eq('comment_id', commentId);
+    return (rows as List).map<CommentLike>((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      return CommentLike(
+        id: m['id'] as String,
+        commentId: m['comment_id'] as String,
+        userId: m['user_id'] as String,
+        createdAt: DateTime.parse(m['created_at'] as String),
+      );
+    }).toList();
+  }
+
+  // --- SEARCH / SUGGEST ----------------------------------------------------
+
+  @override
+  Future<List<SocialUser>> suggestUsers(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return const <SocialUser>[];
+
+    // Try multiple fields; you can tailor this for your schema
+    final rows = await _supa
+        .from('profiles')
+        .select('id, name, surname, display_name, full_name, username, avatar_url, email')
+        .or('name.ilike.%$q%,surname.ilike.%$q%,display_name.ilike.%$q%,full_name.ilike.%$q%,username.ilike.%$q%')
+        .limit(10);
+
+    final list = <SocialUser>[];
+    for (final r in (rows as List)) {
+      final map = Map<String, dynamic>.from(r as Map);
+      final id = map['id'] as String;
+
+      final name = (map['name'] as String?)?.trim();
+      final surname = (map['surname'] as String?)?.trim();
+      final display = (map['display_name'] as String?)?.trim();
+      final full = (map['full_name'] as String?)?.trim();
+      final username = (map['username'] as String?)?.trim();
+      final email = (map['email'] as String?)?.trim();
+
+      String displayName = 'User';
+      if ((name != null && name.isNotEmpty) || (surname != null && surname.isNotEmpty)) {
+        displayName = [name, surname].where((s) => s != null && s!.isNotEmpty).join(' ').trim();
+      } else if (display != null && display.isNotEmpty) {
+        displayName = display;
+      } else if (full != null && full.isNotEmpty) {
+        displayName = full;
+      } else if (username != null && username.isNotEmpty) {
+        displayName = username;
+      } else if (email != null && email.isNotEmpty) {
+        displayName = email.split('@').first;
+      }
+
+      final avatar = (map['avatar_url'] as String?);
+      list.add(SocialUser(id: id, displayName: displayName, avatarUrl: avatar));
+    }
+    return list;
+  }
+
+  // --- MISC ----------------------------------------------------------------
+
+  @override
+  Future<void> clearAllData() async {
+    // No-op for Supabase (client cannot truncate server tables safely).
+  }
+
+// ======================
+// Notifications (notifications_social)
+// ======================
+
+@override
+Future<List<Map<String, dynamic>>> getNotifications(String userId) async {
+  final supa = Supabase.instance.client;
+  final rows = await supa
+      .from('notifications_social')
+      .select('''
+        id,
+        type,
+        sender_id,
+        receiver_id,
+        post_id,
+        comment_id,
+        is_read,
+        created_at,
+        sender:profiles!sender_id(display_name,name,surname, avatar_url)
+      ''')
+      .eq('receiver_id', userId)
+      .order('created_at', ascending: false);
+
+  // Ensure a clean List<Map<String,dynamic>>
+  return List<Map<String, dynamic>>.from(rows as List);
+}
+
+@override
+Future<void> markNotificationRead(String id) async {
+  final supa = Supabase.instance.client;
+  await supa
+      .from('notifications_social')
+      .update({'is_read': true})
+      .eq('id', id);
+}
+
+
+// Optional: call this where you create likes/comments/friend-requests
+Future<void> createNotification({
+  required String senderId,
+  required String receiverId,
+  required String type, // 'friend_request' | 'like' | 'comment'
+  String? postId,
+}) async {
+  final supa = Supabase.instance.client;
+  await supa.from('notifications_social').insert({
+    'sender_id': senderId,
+    'receiver_id': receiverId,
+    'type': type,
+    if (postId != null) 'post_id': postId,
+  });
+}
+Future<void> _createNotification({
+  required String senderId,
+  required String receiverId,
+  required String type, // 'friend_request' | 'comment' | 'reply' | 'like'
+  String? postId,
+}) async {
+  await _supa.from('notifications_social').insert({
+    'sender_id': senderId,
+    'receiver_id': receiverId,
+    'type': type,
+    if (postId != null) 'post_id': postId,
+  });
+}
+
+
+
+}
