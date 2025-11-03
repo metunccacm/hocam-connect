@@ -19,16 +19,51 @@ import 'spost_detail_view.dart';
 import 'social_notifications_view.dart';
 import 'edit_spost_view.dart';
 
-class SocialView extends StatelessWidget {
+class SocialView extends StatefulWidget {
   const SocialView({super.key});
 
   @override
+  State<SocialView> createState() => _SocialViewState();
+}
+
+class _SocialViewState extends State<SocialView> {
+  late final SocialViewModel _viewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewModel = SocialViewModel(
+      repository: SupabaseSocialRepository(),
+      service: SocialService(),
+    );
+    // Load data after first frame to ensure widget is fully mounted
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
+  }
+
+  Future<void> _loadData() async {
+    if (!mounted) return;
+    try {
+      debugPrint('🚀 SocialView: Starting initial load...');
+      await _viewModel.load();
+      debugPrint('✅ SocialView: Initial load completed');
+    } catch (e) {
+      debugPrint('❌ SocialView: Failed to load social feed: $e');
+      // ViewModel already handles the error and sets isLoading = false
+    }
+  }
+
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<SocialViewModel>(
-      create: (_) => SocialViewModel(
-        repository: SupabaseSocialRepository(),
-        service: SocialService(),
-      )..load(),
+    return ChangeNotifierProvider<SocialViewModel>.value(
+      value: _viewModel,
       child: const _SocialViewBody(),
     );
   }
