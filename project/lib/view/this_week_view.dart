@@ -74,7 +74,7 @@ class _ThisWeekViewState extends State<ThisWeekView>
 
   Future<void> _checkConnectionAndLoad() async {
     final result = await Connectivity().checkConnectivity();
-    if (result == ConnectivityResult.none) {
+    if (result.contains(ConnectivityResult.none)) {
       setState(() {
         _hasConnection = false;
       });
