@@ -262,32 +262,38 @@ class _WebmailViewState extends State<WebmailView> {
           // Function to capture and send credentials
           function captureCredentials() {
             if (credentialsSent) {
+              console.log('⏭️ Credentials already sent, skipping');
               return false;
             }
             
             // Try multiple selectors
             var username = document.querySelector('input[name="user"]') || 
                           document.querySelector('input[id="user"]') ||
-                          document.querySelector('input[type="text"]') ||
                           document.querySelector('input[name="username"]') ||
-                          document.querySelector('input[id="username"]');
+                          document.querySelector('input[id="username"]') ||
+                          document.querySelector('input[type="text"]');
                           
             var password = document.querySelector('input[name="pass"]') ||
                           document.querySelector('input[id="pass"]') ||
-                          document.querySelector('input[type="password"]') ||
                           document.querySelector('input[name="password"]') ||
-                          document.querySelector('input[id="password"]');
+                          document.querySelector('input[id="password"]') ||
+                          document.querySelector('input[type="password"]');
             
-            if (username && password && username.value && password.value) {
-              // Check if values have changed (to avoid sending same credentials multiple times)
-              if (username.value !== lastUsername || password.value !== lastPassword) {
-                console.log('✅ New credentials detected, sending to Flutter...');
-                lastUsername = username.value;
-                lastPassword = password.value;
+            console.log('🔍 Checking credentials - username:', !!username, 'password:', !!password);
+            
+            if (username && password) {
+              var usernameVal = username.value.trim();
+              var passwordVal = password.value.trim();
+              
+              console.log('📊 Values - username length:', usernameVal.length, 'password length:', passwordVal.length);
+              
+              // Both fields must be filled and have reasonable lengths
+              if (usernameVal.length >= 3 && passwordVal.length >= 3) {
+                console.log('✅ Valid credentials detected, sending to Flutter...');
                 
                 try {
                   if (typeof SaveCredentials !== 'undefined') {
-                    SaveCredentials.postMessage(username.value + '|||' + password.value);
+                    SaveCredentials.postMessage(usernameVal + '|||' + passwordVal);
                     console.log('✅ Credentials sent successfully!');
                     credentialsSent = true;
                     return true;
@@ -297,56 +303,51 @@ class _WebmailViewState extends State<WebmailView> {
                 } catch (err) {
                   console.log('❌ Error sending credentials:', err);
                 }
+              } else {
+                console.log('⚠️ Credentials too short, not sending');
               }
             }
             return false;
           }
           
           // Try to find and attach to button/form
-          var loginButton = document.querySelector('input[type="submit"], button[type="submit"]');
+          // Look for login button with various selectors
+          var loginButton = document.querySelector('input[type="submit"]') ||
+                           document.querySelector('button[type="submit"]') ||
+                           document.querySelector('button[name="submit"]') ||
+                           document.querySelector('input[name="submit"]') ||
+                           document.querySelector('input[value*="Login"]') ||
+                           document.querySelector('input[value*="login"]') ||
+                           document.querySelector('button');
+          
           var forms = document.querySelectorAll('form');
           
           console.log('Found ' + forms.length + ' forms');
-          console.log('Found login button:', loginButton);
+          console.log('Found login button:', !!loginButton);
           
           if (loginButton) {
-            // Attach to all mouse events on the button
-            ['mousedown', 'mouseup', 'click', 'touchstart'].forEach(function(eventType) {
-              loginButton.addEventListener(eventType, function(e) {
-                console.log('🖱️ Login button ' + eventType + '!');
-                setTimeout(captureCredentials, 50);
-              }, true);
-            });
+            console.log('🔘 Attaching to login button');
+            // Attach to click event on the button (capture phase to ensure we catch it)
+            loginButton.addEventListener('click', function(e) {
+              console.log('🖱️ Login button clicked!');
+              // Small delay to ensure form values are set
+              setTimeout(captureCredentials, 100);
+            }, true);
           }
           
-          // Attach to forms
-          forms.forEach(function(form) {
-            ['submit', 'click'].forEach(function(eventType) {
-              form.addEventListener(eventType, function(e) {
-                console.log('📝 Form ' + eventType + '!');
-                setTimeout(captureCredentials, 50);
-              }, true);
-            });
+          // Attach to form submit events (most reliable)
+          forms.forEach(function(form, index) {
+            console.log('📝 Attaching to form ' + index);
+            form.addEventListener('submit', function(e) {
+              console.log('📝 Form submitted!');
+              // Capture immediately on submit
+              captureCredentials();
+            }, true);
           });
           
-          // Poll every 500ms to check if both fields are filled
-          // This will catch the credentials shortly after the user fills them in
-          var pollCount = 0;
-          var maxPolls = 120; // Poll for 60 seconds max
-          
-          var pollInterval = setInterval(function() {
-            pollCount++;
-            
-            if (credentialsSent || pollCount > maxPolls) {
-              console.log('Stopping polling (sent=' + credentialsSent + ', count=' + pollCount + ')');
-              clearInterval(pollInterval);
-              return;
-            }
-            
-            if (captureCredentials()) {
-              clearInterval(pollInterval);
-            }
-          }, 500);
+          // DON'T poll automatically - only capture on button click/form submit
+          // This prevents showing the save dialog while user is still typing
+          console.log('✅ Login detection setup complete - waiting for button click or form submit');
           
           console.log('✅ Login capture setup complete with polling');
         })();
