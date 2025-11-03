@@ -18,3 +18,5 @@ project/ios/Podfile
 project/pubspec.lock
 project/devtools_options.yaml
 .vscode/settings.json
+project/*.sql
+*.sql
