@@ -20,3 +20,5 @@ project/devtools_options.yaml
 .vscode/settings.json
 project/*.sql
 *.sql
+*.md
+project/*.md
