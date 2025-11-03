@@ -390,7 +390,8 @@ class _WebmailViewState extends State<WebmailView> {
             if (value == 'clear_credentials') {
               await _clearCredentials();
             } else if (value == 'refresh') {
-              _controller.reload();
+              // Reload and redirect to main login page
+              await _controller.loadRequest(Uri.parse('https://webmail.metu.edu.tr/'));
             }
           },
           itemBuilder: (context) => [
@@ -477,7 +478,7 @@ class _WebmailViewState extends State<WebmailView> {
     );
   }
 
-  /// Clear saved credentials
+  /// Clear saved credentials and redirect to login page
   Future<void> _clearCredentials() async {
     final hasCredentials = await _credentialsService.hasCredentials();
     if (!hasCredentials) {
@@ -512,9 +513,18 @@ class _WebmailViewState extends State<WebmailView> {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
+              // Close the dialog first
+              Navigator.of(context).pop();
+              
               await _credentialsService.clearCredentials();
+              
+              // Reset auto-login flag so it won't try to auto-login again
+              _hasAttemptedAutoLogin = false;
+              
+              // Redirect to main webmail login page
+              await _controller.loadRequest(Uri.parse('https://webmail.metu.edu.tr/'));
+              
               if (context.mounted) {
-                Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('✅ Saved credentials cleared'),
