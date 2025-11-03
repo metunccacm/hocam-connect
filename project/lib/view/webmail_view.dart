@@ -20,6 +20,10 @@ class _WebmailViewState extends State<WebmailView> {
   bool _hasAttemptedAutoLogin = false;
   bool _showRememberDialog = false;
   final _usernameController = TextEditingController();
+  
+  // Constants for credential validation
+  static const int _minUsernameLength = 3;
+  static const int _minPasswordLength = 3;
   final _passwordController = TextEditingController();
 
   @override
@@ -35,16 +39,31 @@ class _WebmailViewState extends State<WebmailView> {
     _controller.addJavaScriptChannel(
       'SaveCredentials',
       onMessageReceived: (JavaScriptMessage message) {
-        debugPrint('📧 Received credentials via JS channel: ${message.message}');
-        // Parse username and password from message
-        final parts = message.message.split('|||');
-        if (parts.length == 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
-          debugPrint('✅ Valid credentials received: ${parts[0]}');
-          _usernameController.text = parts[0];
-          _passwordController.text = parts[1];
-          _showRememberCredentialsDialog();
-        } else {
-          debugPrint('❌ Invalid message format: ${message.message}');
+        debugPrint('📧 Received credentials via JS channel');
+        try {
+          // Parse JSON message safely
+          final decoded = message.message;
+          // Simple JSON parsing for {"username":"...","password":"..."}
+          final usernameMatch = RegExp(r'"username"\s*:\s*"([^"]*)"').firstMatch(decoded);
+          final passwordMatch = RegExp(r'"password"\s*:\s*"([^"]*)"').firstMatch(decoded);
+          
+          if (usernameMatch != null && passwordMatch != null) {
+            final username = usernameMatch.group(1) ?? '';
+            final password = passwordMatch.group(1) ?? '';
+            
+            if (username.isNotEmpty && password.isNotEmpty) {
+              debugPrint('✅ Valid credentials received');
+              _usernameController.text = username;
+              _passwordController.text = password;
+              _showRememberCredentialsDialog();
+            } else {
+              debugPrint('❌ Empty credentials');
+            }
+          } else {
+            debugPrint('❌ Invalid JSON format');
+          }
+        } catch (e) {
+          debugPrint('❌ Error parsing credentials: $e');
         }
       },
     );
@@ -153,7 +172,11 @@ class _WebmailViewState extends State<WebmailView> {
       // Wait a bit for page to fully load
       await Future.delayed(const Duration(milliseconds: 500));
       
-      // Fill and submit login form
+      // Safely escape credentials for JavaScript injection
+      final username = _escapeJavaScriptString(credentials['username'] ?? '');
+      final password = _escapeJavaScriptString(credentials['password'] ?? '');
+      
+      // Fill and submit login form with properly escaped credentials
       await _controller.runJavaScript('''
         (function() {
           var usernameField = document.querySelector('input[name="user"], input[type="text"]');
@@ -161,8 +184,8 @@ class _WebmailViewState extends State<WebmailView> {
           var loginForm = document.querySelector('form');
           
           if (usernameField && passwordField && loginForm) {
-            usernameField.value = "${credentials['username']}";
-            passwordField.value = "${credentials['password']}";
+            usernameField.value = "$username";
+            passwordField.value = "$password";
             loginForm.submit();
             return true;
           }
@@ -174,6 +197,17 @@ class _WebmailViewState extends State<WebmailView> {
     } catch (e) {
       debugPrint('❌ Error during auto-login: $e');
     }
+  }
+  
+  /// Escape a string for safe injection into JavaScript
+  String _escapeJavaScriptString(String input) {
+    return input
+        .replaceAll('\\', '\\\\')  // Escape backslashes first
+        .replaceAll('"', '\\"')     // Escape double quotes
+        .replaceAll("'", "\\'")     // Escape single quotes
+        .replaceAll('\n', '\\n')    // Escape newlines
+        .replaceAll('\r', '\\r')    // Escape carriage returns
+        .replaceAll('\t', '\\t');   // Escape tabs
   }
 
   /// Setup login form detection to capture credentials
@@ -222,12 +256,12 @@ class _WebmailViewState extends State<WebmailView> {
               console.log('📊 Values - username length:', usernameVal.length, 'password length:', passwordVal.length);
               
               // Both fields must be filled and have reasonable lengths
-              if (usernameVal.length >= 3 && passwordVal.length >= 3) {
+              if (usernameVal.length >= $_minUsernameLength && passwordVal.length >= $_minPasswordLength) {
                 console.log('✅ Valid credentials detected, sending to Flutter...');
                 
                 try {
                   if (typeof SaveCredentials !== 'undefined') {
-                    SaveCredentials.postMessage(usernameVal + '|||' + passwordVal);
+                    SaveCredentials.postMessage(JSON.stringify({ username: usernameVal, password: passwordVal }));
                     console.log('✅ Credentials sent successfully!');
                     credentialsSent = true;
                     return true;
