@@ -35,16 +35,16 @@ class _WebmailViewState extends State<WebmailView> {
     _controller.addJavaScriptChannel(
       'SaveCredentials',
       onMessageReceived: (JavaScriptMessage message) {
-        print('📧 Received credentials via JS channel: ${message.message}');
+        debugPrint('📧 Received credentials via JS channel: ${message.message}');
         // Parse username and password from message
         final parts = message.message.split('|||');
         if (parts.length == 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
-          print('✅ Valid credentials received: ${parts[0]}');
+          debugPrint('✅ Valid credentials received: ${parts[0]}');
           _usernameController.text = parts[0];
           _passwordController.text = parts[1];
           _showRememberCredentialsDialog();
         } else {
-          print('❌ Invalid message format: ${message.message}');
+          debugPrint('❌ Invalid message format: ${message.message}');
         }
       },
     );
@@ -62,12 +62,12 @@ class _WebmailViewState extends State<WebmailView> {
             _isLoading = false;
           });
           
-          print('📄 Page finished loading: $url');
+          debugPrint('📄 Page finished loading: $url');
           
           if (url.contains('webmail.metu.edu.tr')) {
             // Check if we're on the login page
             final isLoginPage = await _isOnLoginPage();
-            print('📄 Is login page: $isLoginPage');
+            debugPrint('📄 Is login page: $isLoginPage');
             
             if (isLoginPage) {
               // Always setup login detection when on login page
@@ -106,7 +106,7 @@ class _WebmailViewState extends State<WebmailView> {
 
   Future<void> _checkConnectionAndLoad() async {
     final result = await Connectivity().checkConnectivity();
-    if (result == ConnectivityResult.none) {
+    if (result.contains(ConnectivityResult.none)) {
       setState(() {
         _hasConnection = false;
       });
@@ -144,11 +144,11 @@ class _WebmailViewState extends State<WebmailView> {
     try {
       final credentials = await _credentialsService.getCredentials();
       if (credentials == null) {
-        print('📧 No saved webmail credentials');
+        debugPrint('📧 No saved webmail credentials');
         return;
       }
 
-      print('📧 Attempting webmail auto-login...');
+      debugPrint('📧 Attempting webmail auto-login...');
       
       // Wait a bit for page to fully load
       await Future.delayed(const Duration(milliseconds: 500));
@@ -170,82 +170,16 @@ class _WebmailViewState extends State<WebmailView> {
         })();
       ''');
       
-      print('✅ Auto-login attempted');
+      debugPrint('✅ Auto-login attempted');
     } catch (e) {
-      print('❌ Error during auto-login: $e');
-    }
-  }
-
-  /// Test credential capture by manually extracting form values
-  Future<void> _testCredentialCapture() async {
-    try {
-      print('🧪 Testing credential capture...');
-      
-      final result = await _controller.runJavaScriptReturningResult('''
-        (function() {
-          console.log('🧪 Manual test capture triggered');
-          
-          // Find all input fields
-          var allInputs = document.querySelectorAll('input');
-          var result = {
-            inputs: allInputs.length,
-            types: []
-          };
-          
-          allInputs.forEach(function(input) {
-            result.types.push(input.type + ':' + input.name + ':' + input.id);
-          });
-          
-          // Try to find username and password
-          var username = document.querySelector('input[name="user"]') || 
-                        document.querySelector('input[id="user"]') ||
-                        document.querySelector('input[type="text"]');
-                        
-          var password = document.querySelector('input[name="pass"]') ||
-                        document.querySelector('input[id="pass"]') ||
-                        document.querySelector('input[type="password"]');
-          
-          if (username && password && username.value && password.value) {
-            console.log('✅ Found credentials, sending to Flutter...');
-            if (typeof SaveCredentials !== 'undefined') {
-              SaveCredentials.postMessage(username.value + '|||' + password.value);
-              return 'success';
-            } else {
-              return 'channel_not_found';
-            }
-          } else {
-            return 'fields_empty_or_not_found: username=' + (username ? 'found' : 'not_found') + ', password=' + (password ? 'found' : 'not_found');
-          }
-        })();
-      ''');
-      
-      print('🧪 Test result: $result');
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Test result: $result'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      print('❌ Test error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Test error: $e'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      debugPrint('❌ Error during auto-login: $e');
     }
   }
 
   /// Setup login form detection to capture credentials
   Future<void> _setupLoginDetection() async {
     try {
-      print('📧 Setting up login detection...');
+      debugPrint('📧 Setting up login detection...');
       
       // Wait a bit for the page to fully render
       await Future.delayed(const Duration(milliseconds: 500));
@@ -348,14 +282,12 @@ class _WebmailViewState extends State<WebmailView> {
           // DON'T poll automatically - only capture on button click/form submit
           // This prevents showing the save dialog while user is still typing
           console.log('✅ Login detection setup complete - waiting for button click or form submit');
-          
-          console.log('✅ Login capture setup complete with polling');
         })();
       ''');
       
-      print('✅ Login detection setup complete');
+      debugPrint('✅ Login detection setup complete');
     } catch (e) {
-      print('❌ Error setting up login detection: $e');
+      debugPrint('❌ Error setting up login detection: $e');
     }
   }
 
@@ -386,6 +318,10 @@ class _WebmailViewState extends State<WebmailView> {
           ),
           ElevatedButton(
             onPressed: () async {
+              // Capture the navigator and messenger before async gap
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+              
               await _credentialsService.saveCredentials(
                 username: _usernameController.text,
                 password: _passwordController.text,
@@ -393,13 +329,15 @@ class _WebmailViewState extends State<WebmailView> {
               setState(() {
                 _showRememberDialog = false;
               });
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('✅ Credentials saved securely'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
+              if (mounted) {
+                navigator.pop();
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Credentials saved securely'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
             },
             child: const Text('Yes, Save'),
           ),
@@ -419,8 +357,6 @@ class _WebmailViewState extends State<WebmailView> {
               await _clearCredentials();
             } else if (value == 'refresh') {
               _controller.reload();
-            } else if (value == 'test_capture') {
-              await _testCredentialCapture();
             }
           },
           itemBuilder: (context) => [
@@ -431,16 +367,6 @@ class _WebmailViewState extends State<WebmailView> {
                   Icon(Icons.refresh),
                   SizedBox(width: 8),
                   Text('Refresh'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'test_capture',
-              child: Row(
-                children: [
-                  Icon(Icons.bug_report, color: Colors.orange),
-                  SizedBox(width: 8),
-                  Text('Test Capture (Debug)'),
                 ],
               ),
             ),
@@ -521,15 +447,19 @@ class _WebmailViewState extends State<WebmailView> {
   Future<void> _clearCredentials() async {
     final hasCredentials = await _credentialsService.hasCredentials();
     if (!hasCredentials) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No saved credentials to clear'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No saved credentials to clear'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
       return;
     }
 
+    if (!mounted) return;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -549,13 +479,15 @@ class _WebmailViewState extends State<WebmailView> {
             ),
             onPressed: () async {
               await _credentialsService.clearCredentials();
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('✅ Saved credentials cleared'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
+              if (context.mounted) {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Saved credentials cleared'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
             },
             child: const Text('Clear'),
           ),

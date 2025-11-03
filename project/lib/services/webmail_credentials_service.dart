@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Service to securely store and retrieve webmail credentials
@@ -21,9 +22,9 @@ class WebmailCredentialsService {
       await _storage.write(key: _usernameKey, value: username);
       await _storage.write(key: _passwordKey, value: password);
       await _storage.write(key: _rememberKey, value: 'true');
-      print('✅ Webmail credentials saved securely');
+      debugPrint('✅ Webmail credentials saved securely');
     } catch (e) {
-      print('❌ Error saving webmail credentials: $e');
+      debugPrint('❌ Error saving webmail credentials: $e');
       rethrow;
     }
   }
@@ -40,7 +41,7 @@ class WebmailCredentialsService {
       final password = await _storage.read(key: _passwordKey);
 
       if (username != null && password != null) {
-        print('✅ Webmail credentials retrieved');
+        debugPrint('✅ Webmail credentials retrieved');
         return {
           'username': username,
           'password': password,
@@ -48,7 +49,7 @@ class WebmailCredentialsService {
       }
       return null;
     } catch (e) {
-      print('❌ Error retrieving webmail credentials: $e');
+      debugPrint('❌ Error retrieving webmail credentials: $e');
       return null;
     }
   }
@@ -69,9 +70,9 @@ class WebmailCredentialsService {
       await _storage.delete(key: _usernameKey);
       await _storage.delete(key: _passwordKey);
       await _storage.delete(key: _rememberKey);
-      print('✅ Webmail credentials cleared');
+      debugPrint('✅ Webmail credentials cleared');
     } catch (e) {
-      print('❌ Error clearing webmail credentials: $e');
+      debugPrint('❌ Error clearing webmail credentials: $e');
       rethrow;
     }
   }
