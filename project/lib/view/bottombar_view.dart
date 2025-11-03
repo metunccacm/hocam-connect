@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:project/view/chat_list_view.dart';
 import 'package:project/view/gpa_calculator_view.dart';
 
 import 'package:project/view/home_view.dart';
@@ -7,9 +6,9 @@ import 'package:project/view/marketplace_view.dart';
 import 'package:project/view/settings_view.dart';
 import 'package:project/view/this_week_view.dart';
 import 'package:project/view/hitchike_view.dart';
+import 'package:project/view/webmail_view.dart';
 
 import 'dart:math' as math;
-
 
 class MainTabView extends StatefulWidget {
   final int initialIndex;
@@ -43,7 +42,7 @@ class _MainTabViewState extends State<MainTabView>
   static const List<Widget> _pages = <Widget>[
     HomeView(),
     MarketplaceView(),
-    ChatListView(),
+    WebmailView(),
     ThisWeekView(),
   ];
 
@@ -118,7 +117,7 @@ class _MainTabViewState extends State<MainTabView>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   _buildTabItem(
-                      icon: Icons.chat_bubble_outline, label: 'Chats', index: 2),
+                      icon: Icons.email_outlined, label: 'Webmail', index: 2),
                   _buildTabItem(
                       icon: Icons.star_border, label: 'TWOC', index: 3),
                 ],
@@ -218,8 +217,9 @@ class _MainTabViewState extends State<MainTabView>
     final y = radius * math.sin(angle * math.pi / 180);
 
     return Positioned(
-      bottom: - y, // Position above the FAB
-      left: MediaQuery.of(context).size.width / 2 - 20 + x, // Center horizontally
+      bottom: -y, // Position above the FAB
+      left:
+          MediaQuery.of(context).size.width / 2 - 20 + x, // Center horizontally
       child: Transform.scale(
         scale: animationValue,
         child: FloatingActionButton(

@@ -56,16 +56,22 @@ class _HitchikeViewState extends State<HitchikeView> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
+    // Check if we can pop (i.e., if there's a previous route)
+    final canPop = Navigator.of(context).canPop();
+
     return Scaffold(
       backgroundColor: cs.background,
       appBar: HCAppBar(
         automaticallyImplyLeading: false,
         backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
         elevation: 1,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: canPop
+            ? IconButton(
+                icon: Icon(Icons.arrow_back,
+                    color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         titleWidget: _isSearching
             ? TextField(
                 controller: _searchController,
@@ -74,7 +80,8 @@ class _HitchikeViewState extends State<HitchikeView> {
                   hintText: 'Search rides...',
                   border: InputBorder.none,
                   hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                    color: (theme.appBarTheme.foregroundColor ?? cs.onSurface).withOpacity(0.6),
+                    color: (theme.appBarTheme.foregroundColor ?? cs.onSurface)
+                        .withOpacity(0.6),
                   ),
                 ),
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -106,11 +113,13 @@ class _HitchikeViewState extends State<HitchikeView> {
             },
           ),
           IconButton(
-            icon: Icon(Icons.search, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+            icon: Icon(Icons.search,
+                color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
             onPressed: _toggleSearch,
           ),
           IconButton(
-            icon: Icon(Icons.add, color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+            icon: Icon(Icons.add,
+                color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
             onPressed: () {
               Navigator.push(
                 context,
@@ -205,7 +214,8 @@ class _HitchikeViewState extends State<HitchikeView> {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: cs.surfaceVariant, // tema-uyumlu kart arka planı
+                            color: cs
+                                .surfaceVariant, // tema-uyumlu kart arka planı
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
@@ -219,7 +229,9 @@ class _HitchikeViewState extends State<HitchikeView> {
                                     : null,
                                 child: (p.ownerImageUrl == null ||
                                         p.ownerImageUrl!.isEmpty)
-                                    ? Icon(Icons.person, size: 20, color: cs.onSecondaryContainer)
+                                    ? Icon(Icons.person,
+                                        size: 20,
+                                        color: cs.onSecondaryContainer)
                                     : null,
                               ),
                               const SizedBox(width: 12),
@@ -232,7 +244,8 @@ class _HitchikeViewState extends State<HitchikeView> {
                                       '${p.fromLocation} - ${p.toLocation}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodyLarge?.copyWith(
+                                      style:
+                                          theme.textTheme.bodyLarge?.copyWith(
                                         fontWeight: FontWeight.w600,
                                         color: cs.onSurface,
                                       ),
@@ -244,7 +257,8 @@ class _HitchikeViewState extends State<HitchikeView> {
                                       '${p.dateTime.minute.toString().padLeft(2, '0')}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
                                         color: cs.onSurfaceVariant,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -252,7 +266,8 @@ class _HitchikeViewState extends State<HitchikeView> {
                                     // Fuel
                                     Text(
                                       fuelText,
-                                      style: theme.textTheme.labelSmall?.copyWith(
+                                      style:
+                                          theme.textTheme.labelSmall?.copyWith(
                                         color: cs.onSurfaceVariant,
                                       ),
                                     ),
@@ -328,7 +343,8 @@ class _MyHitchikePostsView extends StatelessWidget {
                 padding: const EdgeInsets.all(24.0),
                 child: Text(
                   'You need to sign in to see your posts.',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurface),
+                  style:
+                      theme.textTheme.bodyMedium?.copyWith(color: cs.onSurface),
                 ),
               ),
             );
@@ -409,15 +425,18 @@ class _MyHitchikePostsView extends StatelessWidget {
                       'From ${p.fromLocation} - ${p.toLocation} at ${p.dateTime}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurface),
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: cs.onSurface),
                     ),
                     subtitle: Text(
                       (p.fuelShared == 1)
                           ? 'Fuel will be shared'
                           : 'Fuel will not be shared',
-                      style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
                     ),
-                    trailing: Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+                    trailing:
+                        Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
                     onTap: () {
                       Navigator.push(
                         context,
