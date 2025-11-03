@@ -50,6 +50,7 @@ class SocialViewModel extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
+      debugPrint('🔄 SocialViewModel: Starting load...');
       // Ensure current user exists & has a human-readable name
       final me = await repository.getUser(meId);
       if (me == null) {
@@ -124,12 +125,14 @@ class SocialViewModel extends ChangeNotifier {
         }
       }
 
-      // Load feed
+      // Load feed - just the posts first
       feed = currentTab == SocialTab.explore
           ? await repository.listExplore()
           : await repository.listFriendsFeed(meId);
 
-      // Refresh counts and like state
+      debugPrint('📝 Loaded ${feed.length} posts from ${currentTab == SocialTab.explore ? "explore" : "friends"}');
+
+      // Clear old state
       _likeCounts.clear();
       _commentCounts.clear();
       _likedByMe.clear();
@@ -137,71 +140,90 @@ class SocialViewModel extends ChangeNotifier {
       _commentLikedByMe.clear();
       _userNames.clear();
 
-      for (final p in feed) {
-        final likes = await repository.getLikes(p.id);
-        _likeCounts[p.id] = likes.length;
-        if (likes.any((l) => l.userId == meId)) {
-          _likedByMe.add(p.id);
-        }
+      // CRITICAL: Set isLoading = false IMMEDIATELY so UI can show posts
+      // Then load metadata in background
+      isLoading = false;
+      notifyListeners();
+      
+      debugPrint('🚀 Posts loaded, now loading metadata in background...');
 
-        final comments = await repository.getComments(p.id);
-        _commentCounts[p.id] = comments.length;
-
-        // comment likes for top-level + replies
-        for (final c in comments) {
-          final cl = await repository.getCommentLikes(c.id);
-          _commentLikeCounts[c.id] = cl.length;
-          if (cl.any((l) => l.userId == meId)) {
-            _commentLikedByMe.add(c.id);
-          }
-
-          final replies = await repository.getReplies(c.id);
-          for (final r in replies) {
-            final rl = await repository.getCommentLikes(r.id);
-            _commentLikeCounts[r.id] = rl.length;
-            if (rl.any((l) => l.userId == meId)) {
-              _commentLikedByMe.add(r.id);
+      // OPTIMIZATION: Load metadata in background, in batches
+      // Process in chunks of 10 to avoid overwhelming the network
+      const chunkSize = 10;
+      for (var i = 0; i < feed.length; i += chunkSize) {
+        final chunk = feed.skip(i).take(chunkSize);
+        await Future.wait(
+          chunk.map((p) async {
+            try {
+              // Load post author name
+              final author = await repository.getUser(p.authorId);
+              _userNames[p.authorId] = author?.displayName ?? 'User';
+              
+              // Load likes
+              final likes = await repository.getLikes(p.id);
+              _likeCounts[p.id] = likes.length;
+              if (likes.any((l) => l.userId == meId)) {
+                _likedByMe.add(p.id);
+              }
+              
+              // Load comment count only (not full comment data yet)
+              final comments = await repository.getComments(p.id);
+              _commentCounts[p.id] = comments.length;
+            } catch (e) {
+              debugPrint('⚠️ Error loading metadata for post ${p.id}: $e');
             }
-          }
-        }
+          }),
+        );
+        // Notify after each chunk so UI updates progressively
+        notifyListeners();
+        debugPrint('📊 Loaded metadata for ${i + chunk.length}/${feed.length} posts');
+      }
+      
+      debugPrint('✅ All metadata loaded!');
 
-        // Cache names - post author
-        _userNames[p.authorId] = (await repository.getUser(p.authorId))?.displayName ?? 'User';
-        
-        // Cache names - all comment authors
-        for (final c in comments) {
-          if (!_userNames.containsKey(c.authorId)) {
-            _userNames[c.authorId] = (await repository.getUser(c.authorId))?.displayName ?? 'User';
-          }
-          
-          // Cache names - all reply authors
-          final replies = await repository.getReplies(c.id);
-          for (final r in replies) {
-            if (!_userNames.containsKey(r.authorId)) {
-              _userNames[r.authorId] = (await repository.getUser(r.authorId))?.displayName ?? 'User';
-            }
-          }
-        }
+      // Load friends (for @mention suggestions) - also in background
+      try {
+        final friendIds = await repository.listFriendIds(meId);
+        final friendUsers = await repository.getUsersByIds(friendIds);
+        _friends
+          ..clear()
+          ..addEntries(friendUsers.map((u) => MapEntry(u.id, u)));
+        notifyListeners();
+      } catch (e) {
+        debugPrint('⚠️ Error loading friends: $e');
       }
 
-      // Load friends (for @mention suggestions)
-      final friendIds = await repository.listFriendIds(meId);
-      final friendUsers = await repository.getUsersByIds(friendIds);
-      _friends
-        ..clear()
-        ..addEntries(friendUsers.map((u) => MapEntry(u.id, u)));
-
       // Cache my name
-      final currentUser = await repository.getUser(meId);
-      if (currentUser != null) {
-        _userNames[meId] = currentUser.displayName;
+      try {
+        final currentUser = await repository.getUser(meId);
+        if (currentUser != null) {
+          _userNames[meId] = currentUser.displayName;
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error loading current user: $e');
       }
 
       // Prefetch hashtags from Supabase to support synchronous suggestions
       await _prefetchHashtags();
+      
+      debugPrint('✅ SocialViewModel: Load completed successfully. Feed has ${feed.length} posts.');
+    } catch (e, stack) {
+      debugPrint('❌ SocialViewModel: Load failed with error: $e');
+      debugPrint('Stack trace: $stack');
+      // Don't rethrow - we want to show empty feed instead of crashing
+      // Make sure to set isLoading = false even on error
+      if (isLoading) {
+        isLoading = false;
+        notifyListeners();
+      }
     } finally {
-      isLoading = false;
-      notifyListeners();
+      // Only set to false if it's still true (in case we already set it during the try block)
+      if (isLoading) {
+        isLoading = false;
+        debugPrint('🏁 SocialViewModel: Finally block - setting isLoading = false');
+        notifyListeners();
+      }
     }
   }
 
@@ -592,7 +614,7 @@ Future<void> deletePostById(String postId) async {
     final candidates = <String?>[
       // Prefer explicit name + surname if present
       ((name?.isNotEmpty ?? false) || (surname?.isNotEmpty ?? false))
-          ? [name, surname].where((s) => s != null && s!.isNotEmpty).join(' ').trim()
+          ? [name, surname].where((s) => s != null && s.isNotEmpty).join(' ').trim()
           : null,
       displayName,
       fullName,
