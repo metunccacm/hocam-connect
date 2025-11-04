@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
+import 'package:permission_handler/permission_handler.dart';
 import '../services/marketplace_service.dart';
 
 class AddItemViewModel extends ChangeNotifier {
@@ -61,6 +62,44 @@ class AddItemViewModel extends ChangeNotifier {
     try {
       isPickingImage = true;
       notifyListeners();
+
+      // Request required permissions before launching pickers
+      if (source == ImageSource.camera) {
+        var camStatus = await Permission.camera.status;
+        if (!camStatus.isGranted) {
+          camStatus = await Permission.camera.request();
+        }
+        if (!camStatus.isGranted) {
+          isPickingImage = false;
+          notifyListeners();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Camera permission is required to take photos.')),
+            );
+          }
+          return;
+        }
+      } else {
+        if (Platform.isIOS) {
+          // iOS requires Photos permission to pick from gallery
+          var photosStatus = await Permission.photos.status;
+          if (!photosStatus.isGranted) {
+            photosStatus = await Permission.photos.request();
+          }
+          // Accept granted or limited access on iOS
+          final allowed = photosStatus.isGranted || (photosStatus.isLimited == true);
+          if (!allowed) {
+            isPickingImage = false;
+            notifyListeners();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Photo library permission is required to choose images.')),
+              );
+            }
+            return;
+          }
+        }
+      }
 
       final picker = ImagePicker();
       final picked = await picker.pickImage(source: source, imageQuality: 85);
