@@ -87,7 +87,7 @@ class AddItemViewModel extends ChangeNotifier {
             photosStatus = await Permission.photos.request();
           }
           // Accept granted or limited access on iOS
-          final allowed = photosStatus.isGranted || (photosStatus.isLimited == true);
+          final allowed = photosStatus.isGranted || photosStatus.isLimited;
           if (!allowed) {
             isPickingImage = false;
             notifyListeners();
