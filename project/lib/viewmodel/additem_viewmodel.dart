@@ -98,6 +98,28 @@ class AddItemViewModel extends ChangeNotifier {
             }
             return;
           }
+        } else if (Platform.isAndroid) {
+          // Android <33 uses storage permission, >=33 uses photos permission
+          var galleryStatus = await Permission.photos.status;
+          if (!galleryStatus.isGranted) {
+            galleryStatus = await Permission.photos.request();
+          }
+          if (!galleryStatus.isGranted) {
+            galleryStatus = await Permission.storage.status;
+            if (!galleryStatus.isGranted) {
+              galleryStatus = await Permission.storage.request();
+            }
+          }
+          if (!galleryStatus.isGranted) {
+            isPickingImage = false;
+            notifyListeners();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Storage permission is required to choose images.')),
+              );
+            }
+            return;
+          }
         }
       }
 
