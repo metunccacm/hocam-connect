@@ -133,7 +133,7 @@ class AddItemViewModel extends ChangeNotifier {
       } else if (selectedSizeOption == 'NUMERIC') {
         sizeValue = (v['numeric_size'] as String? ?? '').trim();
       }
-      if (sizeType != null && (sizeValue == null || sizeValue.isEmpty) && selectedSizeOption != 'STANDARD') {
+      if ((sizeValue == null || sizeValue.isEmpty) && selectedSizeOption != 'STANDARD') {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select/enter size.')));
         }

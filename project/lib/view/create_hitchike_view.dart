@@ -24,7 +24,7 @@ class _CreateHitchikeViewState extends State<CreateHitchikeView> {
     final cs = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: cs.background,
+      backgroundColor: cs.surface,
       appBar: AppBar(
         centerTitle: true,
         title: Text(
@@ -161,7 +161,7 @@ class _CreateHitchikeViewState extends State<CreateHitchikeView> {
                 style: FilledButton.styleFrom(
                   backgroundColor: cs.primary,
                   foregroundColor: cs.onPrimary,
-                  disabledBackgroundColor: cs.surfaceVariant,
+                  disabledBackgroundColor: cs.surfaceContainerHighest,
                   disabledForegroundColor: cs.onSurfaceVariant,
                   minimumSize: const Size(double.infinity, 48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

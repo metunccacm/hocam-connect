@@ -123,7 +123,7 @@ class HitchikePost {
 
   /// Handy lowercased text to filter in ViewModel search
   String get searchableText =>
-      '${fromLocation} ${toLocation} ${ownerName ?? ''}'.toLowerCase();
+      '$fromLocation $toLocation ${ownerName ?? ''}'.toLowerCase();
 
   @override
   String toString() =>

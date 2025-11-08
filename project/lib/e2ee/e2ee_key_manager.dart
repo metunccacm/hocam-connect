@@ -232,11 +232,11 @@ class E2EEKeyManager {
     int length = 32,
   }) {
     final hashLen = 32;
-    final _salt = (salt == null || salt.isEmpty)
+    final salt0 = (salt == null || salt.isEmpty)
         ? Uint8List(hashLen) // zeros
         : Uint8List.fromList(salt);
 
-    final prk = crypto.Hmac(crypto.sha256, _salt).convert(ikm).bytes;
+    final prk = crypto.Hmac(crypto.sha256, salt0).convert(ikm).bytes;
 
     final List<int> okm = [];
     List<int> t = <int>[];
@@ -244,10 +244,7 @@ class E2EEKeyManager {
 
     while (okm.length < length) {
       final hmac = crypto.Hmac(crypto.sha256, prk);
-      final input = <int>[]
-        ..addAll(t)
-        ..addAll(info ?? const <int>[])
-        ..add(counter);
+      final input = <int>[...t, ...?info, counter];
       t = hmac.convert(input).bytes;
       okm.addAll(t);
       counter++;

@@ -67,8 +67,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
   Widget _shimmerRect(
       {double borderRadius = 0, double? width, double? height}) {
     final cs = Theme.of(context).colorScheme;
-    final base = cs.surfaceVariant.withOpacity(0.6);
-    final highlight = cs.surfaceVariant.withOpacity(0.85);
+    final base = cs.surfaceContainerHighest.withOpacity(0.6);
+    final highlight = cs.surfaceContainerHighest.withOpacity(0.85);
     return Shimmer.fromColors(
       baseColor: base,
       highlightColor: highlight,
@@ -76,7 +76,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: cs.surfaceVariant,
+          color: cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
       ),
@@ -85,8 +85,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
 
   Widget _shimmerCircle({double size = 24}) {
     final cs = Theme.of(context).colorScheme;
-    final base = cs.surfaceVariant.withOpacity(0.6);
-    final highlight = cs.surfaceVariant.withOpacity(0.85);
+    final base = cs.surfaceContainerHighest.withOpacity(0.6);
+    final highlight = cs.surfaceContainerHighest.withOpacity(0.85);
     return Shimmer.fromColors(
       baseColor: base,
       highlightColor: highlight,
@@ -94,7 +94,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: cs.surfaceVariant,
+          color: cs.surfaceContainerHighest,
           shape: BoxShape.circle,
         ),
       ),
@@ -125,7 +125,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
 
     return Scaffold(
       // ❗️Tema-tabanlı arka plan
-      backgroundColor: cs.background,
+      backgroundColor: cs.surface,
       appBar: HCAppBar(
         automaticallyImplyLeading: false,
         // ❗️AppBar'ı tema ile sür
@@ -289,7 +289,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
     final onSurface = cs.onSurface;
     final onSurfaceVariant = cs.onSurfaceVariant;
 
-    final coverOrPlaceholder = (List<String> urls) => urls.isNotEmpty
+    String coverOrPlaceholder(List<String> urls) => urls.isNotEmpty
         ? urls.first
         : 'https://via.placeholder.com/400x300?text=No+Image';
 
@@ -364,7 +364,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                         Expanded(
                           child: Container(
                             color: cs
-                                .surfaceVariant, // ❗️tema uyumlu placeholder arka plan
+                                .surfaceContainerHighest, // ❗️tema uyumlu placeholder arka plan
                             child: CachedNetworkImage(
                               imageUrl: cover,
                               cacheManager: _MarketplaceViewState._cacheManager,
@@ -429,7 +429,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                               else
                                 CircleAvatar(
                                   radius: 12,
-                                  backgroundColor: cs.surfaceVariant,
+                                  backgroundColor: cs.surfaceContainerHighest,
                                   child: Icon(Icons.person,
                                       size: 14, color: onSurfaceVariant),
                                 ),
@@ -618,9 +618,9 @@ class MyItemsView extends StatelessWidget {
   Widget _shimmerRect(BuildContext context, {double? height}) {
     final cs = Theme.of(context).colorScheme;
     return Shimmer.fromColors(
-      baseColor: cs.surfaceVariant.withOpacity(0.6),
-      highlightColor: cs.surfaceVariant.withOpacity(0.85),
-      child: Container(height: height ?? 160, color: cs.surfaceVariant),
+      baseColor: cs.surfaceContainerHighest.withOpacity(0.6),
+      highlightColor: cs.surfaceContainerHighest.withOpacity(0.85),
+      child: Container(height: height ?? 160, color: cs.surfaceContainerHighest),
     );
   }
 
@@ -658,13 +658,9 @@ class MyItemsView extends StatelessWidget {
         .eq('product_id', p.id);
 
     final urls = <String>[];
-    if (rows is List) {
-      for (final r in rows) {
-        final u = (r as Map<String, dynamic>)['url']?.toString();
-        if (u != null && u.isNotEmpty) urls.add(u);
-      }
-    } else {
-      urls.addAll(p.imageUrls);
+    for (final r in rows) {
+      final u = r['url']?.toString();
+      if (u != null && u.isNotEmpty) urls.add(u);
     }
 
     await _tryDeleteFromUrls(urls);
@@ -675,10 +671,23 @@ class MyItemsView extends StatelessWidget {
   Future<void> _confirmAndMarkAsSold(BuildContext context, Product p) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => const AlertDialog(
-        title: Text('Mark as sold?'),
-        content:
-            Text('This will remove the product and its images permanently.'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Mark as sold?'),
+        content: const Text('This will remove the product and its images permanently.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2ECC71),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Mark as Sold'),
+          ),
+        ],
       ),
     );
     if (ok != true) return;
@@ -699,9 +708,23 @@ class MyItemsView extends StatelessWidget {
   Future<void> _confirmAndDelete(BuildContext context, Product p) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => const AlertDialog(
-        title: Text('Delete post?'),
-        content: Text('This will permanently delete the post and its images.'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete post?'),
+        content: const Text('This will permanently delete the post and its images.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE74C3C),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
     if (ok != true) return;

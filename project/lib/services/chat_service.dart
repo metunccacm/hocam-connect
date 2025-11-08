@@ -296,7 +296,7 @@ class ChatService {
   ) {
     final ch = supa.channel('presence:$conversationId');
 
-    void _consumeMeta(dynamic meta, Set<String> out) {
+    void consumeMeta(dynamic meta, Set<String> out) {
       String? uid;
       bool isTyping = false;
 
@@ -319,7 +319,7 @@ class ChatService {
           for (final metas in (state as Map).values) {
             if (metas is List) {
               for (final meta in metas) {
-                _consumeMeta(meta, typing);
+                consumeMeta(meta, typing);
               }
             }
           }
@@ -331,11 +331,12 @@ class ChatService {
             try { metas ??= (d.payload as List?); } catch (_) {}
             if (metas != null) {
               for (final meta in metas) {
-                _consumeMeta(meta, typing);
+                consumeMeta(meta, typing);
               }
             }
           }
         }
+      
         onSync(typing);
       })
       ..subscribe();

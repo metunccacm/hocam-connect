@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/social_repository.dart';
-import 'user_profile_view.dart';
 import 'spost_detail_view.dart';
 
 class SocialNotificationsView extends StatefulWidget {

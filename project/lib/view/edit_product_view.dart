@@ -316,7 +316,7 @@ class _EditProductViewState extends State<EditProductView> {
               hasInitial ? cats.firstWhere((c) => _norm(c) == _norm(initCat)) : null;
 
           return Scaffold(
-            backgroundColor: Colors.grey[100],
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             appBar: AppBar(
               title: const Text('Edit Product', style: TextStyle(color: Colors.white)),
               centerTitle: true,
@@ -501,15 +501,15 @@ class _EditProductViewState extends State<EditProductView> {
                                 width: getProportionateScreenWidth(100),
                                 height: getProportionateScreenWidth(100),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFC5C5C5),
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                   borderRadius:
                                       BorderRadius.circular(getProportionateScreenWidth(8)),
-                                  border: Border.all(color: Colors.grey),
+                                  border: Border.all(color: Theme.of(context).colorScheme.outline),
                                 ),
                                 child: Center(
                                   child: vm.isPickingImage
                                       ? const CircularProgressIndicator()
-                                      : const Icon(Icons.add, color: Colors.black),
+                                      : Icon(Icons.add, color: Theme.of(context).colorScheme.onSurface),
                                 ),
                               ),
                             ),
@@ -538,12 +538,12 @@ class _EditProductViewState extends State<EditProductView> {
           ),
           child: Text(
             title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
           ),
         ),
         ...children,
         SizedBox(height: getProportionateScreenHeight(16)),
-        const Divider(height: 1, color: Colors.grey),
+        Divider(height: 1, color: Theme.of(context).colorScheme.outline),
       ],
     );
   }
@@ -556,7 +556,7 @@ class _EditProductViewState extends State<EditProductView> {
         borderSide: BorderSide.none,
       ),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: Theme.of(context).colorScheme.surface,
       contentPadding: EdgeInsets.symmetric(
         horizontal: getProportionateScreenWidth(16),
         vertical: getProportionateScreenHeight(12),
@@ -582,7 +582,7 @@ class _EditProductViewState extends State<EditProductView> {
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: Theme.of(context).colorScheme.surface,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: getProportionateScreenWidth(16),
                 vertical: getProportionateScreenHeight(12),
@@ -616,7 +616,7 @@ class _EditProductViewState extends State<EditProductView> {
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: Theme.of(context).colorScheme.surface,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: getProportionateScreenWidth(16),
                 vertical: getProportionateScreenHeight(12),
@@ -701,8 +701,8 @@ class _EditProductViewState extends State<EditProductView> {
     return ElevatedButton(
       onPressed: () => vm.onSizeOptionChanged(label),
       style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected ? acmBlue : const Color(0xFFC5C5C5),
-        foregroundColor: isSelected ? Colors.white : Colors.black,
+        backgroundColor: isSelected ? acmBlue : Theme.of(context).colorScheme.surfaceContainerHighest,
+        foregroundColor: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
         shape: const StadiumBorder(),
         elevation: 0,
         padding: EdgeInsets.symmetric(

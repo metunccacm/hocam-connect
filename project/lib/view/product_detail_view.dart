@@ -16,12 +16,12 @@ class _ShimmerBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final base = cs.surfaceVariant.withOpacity(0.6);
-    final highlight = cs.surfaceVariant.withOpacity(0.85);
+    final base = cs.surfaceContainerHighest.withOpacity(0.6);
+    final highlight = cs.surfaceContainerHighest.withOpacity(0.85);
     return Shimmer.fromColors(
       baseColor: base,
       highlightColor: highlight,
-      child: Container(color: cs.surfaceVariant),
+      child: Container(color: cs.surfaceContainerHighest),
     );
   }
 }
@@ -154,7 +154,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
-              value: selected,
+              initialValue: selected,
               items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
               onChanged: (v) => selected = v ?? selected,
               decoration: const InputDecoration(labelText: 'Reason'),
@@ -347,9 +347,23 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     if (_busy) return;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => const AlertDialog(
-        title: Text('Mark as sold?'),
-        content: Text('This will remove the product and its images permanently.'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Mark as sold?'),
+        content: const Text('This will remove the product and its images permanently.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2ECC71),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Mark as Sold'),
+          ),
+        ],
       ),
     );
     if (ok != true) return;
@@ -365,13 +379,9 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           .eq('product_id', widget.product.id);
 
       final urls = <String>[];
-      if (imagesRows is List) {
-        for (final r in imagesRows) {
-          final u = (r as Map<String, dynamic>)['url']?.toString();
-          if (u != null && u.isNotEmpty) urls.add(u);
-        }
-      } else {
-        urls.addAll(_imageUrls);
+      for (final r in imagesRows) {
+        final u = r['url']?.toString();
+        if (u != null && u.isNotEmpty) urls.add(u);
       }
 
       await _tryDeleteFromUrls(urls);
@@ -434,7 +444,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     final onSurfaceVariant = cs.onSurfaceVariant;
 
     return Scaffold(
-      backgroundColor: cs.background,
+      backgroundColor: cs.surface,
       appBar: AppBar(
         title: Text(
           _title,
@@ -502,44 +512,57 @@ class _ProductDetailViewState extends State<ProductDetailView> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: hasImgs
-                    ? Stack(
-                        alignment: Alignment.bottomCenter,
-                        children: [
-                          PageView.builder(
-                            controller: _pager,
-                            itemCount: imgs.length,
-                            itemBuilder: (_, i) => CachedNetworkImage(
-                              imageUrl: imgs[i],
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => const _ShimmerBox(),
-                              errorWidget: (_, __, ___) =>
-                                  Center(child: Icon(Icons.broken_image_outlined, size: 32, color: onSurfaceVariant)),
-                            ),
-                          ),
-                          if (imgs.length > 1)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: List.generate(imgs.length, (i) {
-                                  final active = i == safePageIx;
-                                  return AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                                    width: active ? 10 : 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: _dotsColor(active: active),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  );
-                                }),
+                    ? GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => _FullscreenImageViewer(
+                                imageUrls: imgs,
+                                initialIndex: safePageIx,
                               ),
                             ),
-                        ],
+                          );
+                        },
+                        child: Stack(
+                          alignment: Alignment.bottomCenter,
+                          children: [
+                            PageView.builder(
+                              controller: _pager,
+                              itemCount: imgs.length,
+                              itemBuilder: (_, i) => CachedNetworkImage(
+                                imageUrl: imgs[i],
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => const _ShimmerBox(),
+                                errorWidget: (_, __, ___) =>
+                                    Center(child: Icon(Icons.broken_image_outlined, size: 32, color: onSurfaceVariant)),
+                              ),
+                            ),
+                            if (imgs.length > 1)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: List.generate(imgs.length, (i) {
+                                    final active = i == safePageIx;
+                                    return AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                                      width: active ? 10 : 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: _dotsColor(active: active),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              ),
+                          ],
+                        ),
                       )
                     : Container(
-                        color: cs.surfaceVariant,
+                        color: cs.surfaceContainerHighest,
                         child: Icon(Icons.image, size: 40, color: onSurfaceVariant),
                       ),
               ),
@@ -578,7 +601,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: cs.surfaceVariant,
+                  backgroundColor: cs.surfaceContainerHighest,
                   backgroundImage: _sellerImageUrl.isNotEmpty ? NetworkImage(_sellerImageUrl) : null,
                   child: _sellerImageUrl.isEmpty
                       ? Icon(Icons.person, color: onSurfaceVariant)
@@ -607,6 +630,180 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Fullscreen image viewer with swipe support
+class _FullscreenImageViewer extends StatefulWidget {
+  final List<String> imageUrls;
+  final int initialIndex;
+
+  const _FullscreenImageViewer({
+    required this.imageUrls,
+    this.initialIndex = 0,
+  });
+
+  @override
+  State<_FullscreenImageViewer> createState() => _FullscreenImageViewerState();
+}
+
+class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
+  late PageController _pageController;
+  late int _currentIndex;
+  final TransformationController _transformationController = TransformationController();
+  bool _isZoomed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+    
+    // Listen to zoom changes
+    _transformationController.addListener(_onTransformationChanged);
+  }
+
+  @override
+  void dispose() {
+    _transformationController.removeListener(_onTransformationChanged);
+    _pageController.dispose();
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _onTransformationChanged() {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final zoomed = scale > 1.0;
+    if (zoomed != _isZoomed) {
+      setState(() {
+        _isZoomed = zoomed;
+      });
+    }
+  }
+
+  // Handle double-tap to zoom in/out
+  // ignore: unused_element
+  void _handleDoubleTap(TapDownDetails details, BuildContext context) {
+    // Get the position where user tapped
+    final position = details.localPosition;
+    
+    // Check current scale
+    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    
+    if (currentScale > 1.0) {
+      // If zoomed in, reset to normal
+      _transformationController.value = Matrix4.identity();
+    } else {
+      // If not zoomed, zoom to 2.5x at tap position
+      final double scale = 2.5;
+      
+      // Calculate the focal point for zoom
+      final x = -position.dx * (scale - 1);
+      final y = -position.dy * (scale - 1);
+      
+      _transformationController.value = Matrix4.identity()
+        ..translate(x, y, 0)
+        ..scale(scale, scale, 1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasMultiple = widget.imageUrls.length > 1;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: hasMultiple
+            ? Text(
+                '${_currentIndex + 1} / ${widget.imageUrls.length}',
+                style: const TextStyle(color: Colors.white),
+              )
+            : null,
+        centerTitle: true,
+      ),
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.imageUrls.length,
+            physics: _isZoomed ? const NeverScrollableScrollPhysics() : const PageScrollPhysics(),
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+                // Reset zoom when changing pages
+                _transformationController.value = Matrix4.identity();
+              });
+            },
+            itemBuilder: (context, index) {
+              return GestureDetector(
+                onDoubleTapDown: (details) => _handleDoubleTap(details, context),
+                child: InteractiveViewer(
+                  transformationController: _transformationController,
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  panEnabled: true,
+                  scaleEnabled: true,
+                  boundaryMargin: const EdgeInsets.all(double.infinity),
+                  child: Center(
+                    child: CachedNetworkImage(
+                      imageUrl: widget.imageUrls[index],
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) => const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => const Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: Colors.white54,
+                          size: 64,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          
+          // Page indicator dots (only if multiple images)
+          if (hasMultiple)
+            Positioned(
+              bottom: 32,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  widget.imageUrls.length,
+                  (index) {
+                    final isActive = index == _currentIndex;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: isActive ? 12 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: isActive ? Colors.white : Colors.white54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
