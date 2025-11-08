@@ -1,7 +1,6 @@
 // lib/view/create_spost_view.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -395,7 +394,7 @@ class _ReorderableWrapState extends State<ReorderableWrap> {
           childWhenDragging: Opacity(opacity: 0.4, child: child),
           child: DragTarget<int>(
             builder: (context, candidate, rejected) => child,
-            onAccept: (from) => widget.onReorder(from, i),
+            onAcceptWithDetails: (details) => widget.onReorder(details.data, i),
           ),
         ),
       );

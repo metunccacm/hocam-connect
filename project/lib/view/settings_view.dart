@@ -18,7 +18,6 @@ class _SettingsViewState extends State<SettingsView> {
   bool _busy = false;
 
   // Supabase
-  static const _bucket = 'profile'; // storage bucket adın
   final _supa = Supabase.instance.client;
 
   // THEME
@@ -78,10 +77,6 @@ Future<void> _deleteAccount() async {
     if (!context.mounted) return;
     Navigator.of(context, rootNavigator: true)
     .pushNamedAndRemoveUntil('/welcome', (route) => false);
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Your account was deleted.')));
-    Navigator.of(context).popUntil((r) => r.isFirst);
   } catch (e) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Deletion failed: $e')));

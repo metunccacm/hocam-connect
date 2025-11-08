@@ -60,7 +60,7 @@ class _HitchikeViewState extends State<HitchikeView> {
     final canPop = Navigator.of(context).canPop();
 
     return Scaffold(
-      backgroundColor: cs.background,
+      backgroundColor: cs.surface,
       appBar: HCAppBar(
         automaticallyImplyLeading: false,
         backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
@@ -136,7 +136,7 @@ class _HitchikeViewState extends State<HitchikeView> {
             'Posts',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: cs.onBackground,
+              color: cs.onSurface,
             ),
           ),
           const SizedBox(height: 8),
@@ -156,7 +156,7 @@ class _HitchikeViewState extends State<HitchikeView> {
                       itemBuilder: (_, __) => Container(
                         height: 64,
                         decoration: BoxDecoration(
-                          color: cs.surfaceVariant,
+                          color: cs.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
@@ -215,7 +215,7 @@ class _HitchikeViewState extends State<HitchikeView> {
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: cs
-                                .surfaceVariant, // tema-uyumlu kart arka planı
+                                .surfaceContainerHighest, // tema-uyumlu kart arka planı
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
@@ -361,7 +361,7 @@ class _MyHitchikePostsView extends StatelessWidget {
               itemBuilder: (_, __) => Container(
                 height: 64,
                 decoration: BoxDecoration(
-                  color: cs.surfaceVariant,
+                  color: cs.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
@@ -417,7 +417,7 @@ class _MyHitchikePostsView extends StatelessWidget {
                     ],
                   ),
                   child: ListTile(
-                    tileColor: cs.surfaceVariant,
+                    tileColor: cs.surfaceContainerHighest,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

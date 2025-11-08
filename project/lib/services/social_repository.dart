@@ -669,7 +669,7 @@ Future<void> likePost({required String postId, required String userId}) async {
 
       String displayName = 'User';
       if ((name != null && name.isNotEmpty) || (surname != null && surname.isNotEmpty)) {
-        displayName = [name, surname].where((s) => s != null && s!.isNotEmpty).join(' ').trim();
+        displayName = [name, surname].where((s) => s != null && s.isNotEmpty).join(' ').trim();
       } else if (display != null && display.isNotEmpty) {
         displayName = display;
       } else if (full != null && full.isNotEmpty) {

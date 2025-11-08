@@ -176,7 +176,7 @@ Future<void> _reportAfterBlock(String conversationId) async {
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<String>(
-            value: selected,
+            initialValue: selected,
             items: _reportReasons
                 .map((r) => DropdownMenuItem(value: r, child: Text(r)))
                 .toList(),

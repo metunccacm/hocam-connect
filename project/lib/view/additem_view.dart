@@ -27,7 +27,7 @@ class _AddItemViewState extends State<AddItemView> {
       child: Consumer<AddItemViewModel>(
         builder: (context, viewModel, child) {
           return Scaffold(
-            backgroundColor: Colors.grey[100],
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             appBar: const HCAppBar(
               title: 'List Product',
               centerTitle: true,
@@ -146,16 +146,16 @@ class _AddItemViewState extends State<AddItemView> {
           padding: EdgeInsets.only(top: getProportionateScreenHeight(16), bottom: getProportionateScreenHeight(8)),
           child: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ),
         ...children,
         SizedBox(height: getProportionateScreenHeight(16)),
-        const Divider(height: 1, color: Colors.grey),
+        Divider(height: 1, color: Theme.of(context).colorScheme.outline),
       ],
     );
   }
@@ -168,7 +168,7 @@ class _AddItemViewState extends State<AddItemView> {
         borderSide: BorderSide.none,
       ),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: Theme.of(context).colorScheme.surface,
       contentPadding: EdgeInsets.symmetric(horizontal: getProportionateScreenWidth(16), vertical: getProportionateScreenHeight(12)),
     );
   }
@@ -190,7 +190,7 @@ class _AddItemViewState extends State<AddItemView> {
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: Theme.of(context).colorScheme.surface,
               contentPadding: EdgeInsets.symmetric(horizontal: getProportionateScreenWidth(16), vertical: getProportionateScreenHeight(12)),
             ),
             keyboardType: TextInputType.number,
@@ -219,7 +219,7 @@ class _AddItemViewState extends State<AddItemView> {
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: Theme.of(context).colorScheme.surface,
               contentPadding: EdgeInsets.symmetric(horizontal: getProportionateScreenWidth(16), vertical: getProportionateScreenHeight(12)),
             ),
             initialValue: 'TL',
@@ -310,8 +310,8 @@ class _AddItemViewState extends State<AddItemView> {
     return ElevatedButton(
       onPressed: () => viewModel.onSizeOptionChanged(label),
       style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected ? acmBlue : const Color(0xFFC5C5C5),
-        foregroundColor: isSelected ? Colors.white : Colors.black,
+        backgroundColor: isSelected ? acmBlue : Theme.of(context).colorScheme.surfaceContainerHighest,
+        foregroundColor: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
         shape: const StadiumBorder(),
         elevation: 0,
         padding: EdgeInsets.symmetric(
@@ -375,7 +375,7 @@ class _AddItemViewState extends State<AddItemView> {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
               if (viewModel.selectedImages.length < 4)
                 GestureDetector(
                   onTap: viewModel.isPickingImage ? null : () => _showImageSourceSheet(context, viewModel),
@@ -383,14 +383,14 @@ class _AddItemViewState extends State<AddItemView> {
                     width: getProportionateScreenWidth(80),
                     height: getProportionateScreenWidth(80),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFC5C5C5),
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(getProportionateScreenWidth(8)),
-                      border: Border.all(color: Colors.grey),
+                      border: Border.all(color: Theme.of(context).colorScheme.outline),
                     ),
                     child: Center(
                       child: viewModel.isPickingImage
                           ? const CircularProgressIndicator()
-                          : const Icon(Icons.add, color: Colors.black),
+                          : Icon(Icons.add, color: Theme.of(context).colorScheme.onSurface),
                     ),
                   ),
                 ),
@@ -443,10 +443,10 @@ class _AddItemViewState extends State<AddItemView> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.bold,
-        color: Colors.black87,
+        color: Theme.of(context).colorScheme.onSurface,
       ),
     );
   }

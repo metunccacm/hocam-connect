@@ -141,6 +141,7 @@ class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProvi
     );
   }
 
+  // ignore: unused_element
   Future<void> _openCreatePost() async {
     final vm = context.read<SocialViewModel>();
     final postId = await Navigator.push<String?>(
@@ -1447,6 +1448,7 @@ class _ImagesGridNet extends StatelessWidget {
  * Bottom Bar
  * ========================= */
 
+// ignore: unused_element
 class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1824,9 +1826,10 @@ class _ImagesGrid extends StatelessWidget {
         childWhenDragging: Opacity(opacity: 0.6, child: tile),
         child: DragTarget<int>(
           builder: (context, candidate, rejected) => tile,
-          onAccept: (from) {
+          onAcceptWithDetails: (details) {
             // Reorder within composer list
             final vm = context.read<SocialViewModel>();
+            final from = details.data;
             if (vm.pendingImagePaths.length >= index + 1 && vm.pendingImagePaths.length >= from + 1) {
               vm.reorderPendingImages(from, index);
             }

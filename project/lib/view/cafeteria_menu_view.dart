@@ -639,7 +639,7 @@ class _SectionWidget extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        ...items.map((l) => _PriceRow(line: l)).toList(),
+        ...items.map((l) => _PriceRow(line: l)),
       ],
     );
   }

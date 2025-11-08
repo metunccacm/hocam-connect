@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as p;
 import 'dart:io' show Platform;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -258,6 +257,7 @@ Future<void> _reportBug() async {
   String selected = _bugReasons.first;
   _bugDetailsCtrl.clear();
 
+  if (!context.mounted) return;
   final ok = await showDialog<bool>(
     context: context,
     builder: (_) => AlertDialog(
@@ -266,7 +266,7 @@ Future<void> _reportBug() async {
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<String>(
-            value: selected,
+            initialValue: selected,
             items: _bugReasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
             onChanged: (v) => selected = v ?? selected,
             decoration: const InputDecoration(labelText: 'Reason'),
@@ -397,23 +397,6 @@ Future<void> _reportBug() async {
     }
   }
 
-  String _mimeFromPath(String path) {
-    final ext = path.split('.').last.toLowerCase();
-    switch (ext) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'webp':
-        return 'image/webp';
-      case 'heic':
-        return 'image/heic';
-      default:
-        return 'application/octet-stream';
-    }
-  }
-
   Future<void> pickImage() async {
     try {
       final picker = ImagePicker();
@@ -426,7 +409,7 @@ Future<void> _reportBug() async {
       final bytes = await picked.readAsBytes();
 
       // Derive extension + content type
-      final ext = p.extension(picked.path).toLowerCase().replaceFirst('.', '');
+      final ext = picked.path.split('.').last.toLowerCase();
 
       // Always include a filename
       final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
@@ -598,7 +581,7 @@ Future<void> _reportBug() async {
                     // Department: Edit modunda dropdown, görüntü modunda satır
                     isEditing
                         ? DropdownButtonFormField<String>(
-                            value: _departments.contains(_selectedDepartment)
+                            initialValue: _departments.contains(_selectedDepartment)
                                 ? _selectedDepartment
                                 : (_selectedDepartment == null ||
                                         _selectedDepartment!.isEmpty)

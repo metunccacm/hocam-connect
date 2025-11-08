@@ -3,7 +3,6 @@ import 'package:project/view/gpa_calculator_view.dart';
 import 'package:project/view/hitchike_view.dart';
 import 'package:project/view/marketplace_view.dart';
 import 'package:project/view/student_handbook_eng_view.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -117,7 +116,7 @@ class _HomeViewState extends State<HomeView> {
         style: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.onBackground,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );

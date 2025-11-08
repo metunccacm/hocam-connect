@@ -140,8 +140,9 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
         ..writeln('• To: $_to')
         ..writeln('• When: ${_fmtDateTime(context)}')
         ..writeln('• Empty seats: $_seats');
-      if (_fuelShared == 1) sb.writeln('• Fuel will be shared');
-      else if (_fuelShared == 0) sb.writeln('• Fuel will NOT be shared');
+      if (_fuelShared == 1) {
+        sb.writeln('• Fuel will be shared');
+      } else if (_fuelShared == 0) sb.writeln('• Fuel will NOT be shared');
 
       await _svc.sendTextEncrypted(conversationId: convId, text: sb.toString());
 
@@ -167,7 +168,7 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
     final whenText = _fmtDateTime(context);
 
     return Scaffold(
-      backgroundColor: cs.background,
+      backgroundColor: cs.surface,
       appBar: AppBar(
         title: Text(
           'Hitchhike',
@@ -203,7 +204,7 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: cs.primary,
                 foregroundColor: cs.onPrimary,
-                disabledBackgroundColor: cs.surfaceVariant,
+                disabledBackgroundColor: cs.surfaceContainerHighest,
                 disabledForegroundColor: onSurfaceVariant,
                 minimumSize: const Size(double.infinity, 48),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -295,7 +296,7 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: cs.surfaceVariant,
+                  backgroundColor: cs.surfaceContainerHighest,
                   backgroundImage: (_driverImageUrl != null && _driverImageUrl!.isNotEmpty)
                       ? NetworkImage(_driverImageUrl!)
                       : null,
