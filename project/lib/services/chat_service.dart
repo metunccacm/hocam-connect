@@ -323,14 +323,16 @@ class ChatService {
               }
             }
           }
-        } else        for (final item in (state as List)) {
-          final dynamic d = item;
-          List<dynamic>? metas;
-          try { metas = (d.metas as List?); } catch (_) {}
-          try { metas ??= (d.payload as List?); } catch (_) {}
-          if (metas != null) {
-            for (final meta in metas) {
-              consumeMeta(meta, typing);
+        } else if (state is List) {
+          for (final item in (state as List)) {
+            final dynamic d = item;
+            List<dynamic>? metas;
+            try { metas = (d.metas as List?); } catch (_) {}
+            try { metas ??= (d.payload as List?); } catch (_) {}
+            if (metas != null) {
+              for (final meta in metas) {
+                consumeMeta(meta, typing);
+              }
             }
           }
         }

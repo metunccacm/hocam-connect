@@ -244,10 +244,7 @@ class E2EEKeyManager {
 
     while (okm.length < length) {
       final hmac = crypto.Hmac(crypto.sha256, prk);
-      final input = <int>[...t, ...?info, counter]
-        
-        
-        ;
+      final input = <int>[...t, ...?info, counter];
       t = hmac.convert(input).bytes;
       okm.addAll(t);
       counter++;
