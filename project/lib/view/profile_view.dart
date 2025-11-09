@@ -54,7 +54,7 @@ class _ProfileViewState extends State<ProfileView> {
     'PGE',
     'SNG',
     'GPC',
-    'TEFL'
+    'EFL'
   ];
   String? _selectedDepartment; // null ise hiç seçilmemiş demektir (hint görünsün)
 
