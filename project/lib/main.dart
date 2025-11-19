@@ -15,6 +15,7 @@ import 'view/register_view.dart';
 import 'view/welcome_view.dart';
 import 'view/gpa_calculator_view.dart';
 import 'view/cafeteria_menu_view.dart';
+import 'view/chat_view.dart';
 
 import 'viewmodel/login_viewmodel.dart';
 import 'viewmodel/marketplace_viewmodel.dart';
@@ -51,8 +52,86 @@ const supabaseUrl = 'https://supa-api.hocamconnect.com.tr';
 const supabaseAnonKey =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzM1Njg5NjAwLCJleHAiOjIwMTUyMjI0MDB9.PPxdhq14kCFj1YBSat9ZLlfcwH5_kdOD09pmXnWNr4Q';
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    // Check for pending navigation from notification tap
+    _checkPendingNavigation();
+  }
+
+  Future<void> _checkPendingNavigation() async {
+    // Wait a bit for the app to fully initialize
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    if (!mounted) return;
+    
+    // Check if there's a pending chat navigation
+    final conversationId = NotificationService().getPendingChatNavigation();
+    if (conversationId != null) {
+      debugPrint('📍 Navigating to conversation: $conversationId');
+      
+      // Wait for authentication to complete
+      final auth = Supabase.instance.client.auth;
+      if (auth.currentSession != null) {
+        // Navigate to chat view
+        _navigateToChat(conversationId);
+      }
+    }
+  }
+
+  Future<void> _navigateToChat(String conversationId) async {
+    // Import chat_view at the top of this file first
+    // Then navigate
+    if (!mounted) return;
+    
+    try {
+      // Get conversation details to show proper title
+      final supa = Supabase.instance.client;
+      final currentUserId = supa.auth.currentUser!.id;
+      
+      // Get other participant's info
+      final participants = await supa
+          .from('participants')
+          .select('user_id')
+          .eq('conversation_id', conversationId)
+          .neq('user_id', currentUserId);
+      
+      if (participants.isNotEmpty) {
+        final otherUserId = participants[0]['user_id'] as String;
+        
+        // Get other user's profile
+        final profile = await supa
+            .from('profiles')
+            .select('name, surname')
+            .eq('id', otherUserId)
+            .maybeSingle();
+        
+        final title = profile != null
+            ? '${profile['name'] ?? ''} ${profile['surname'] ?? ''}'.trim()
+            : 'Chat';
+        
+        // Navigate to chat
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ChatView(
+              conversationId: conversationId,
+              title: title,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error navigating to chat: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -143,8 +222,11 @@ void main() async {
     debugPrint('⚠️ Notification service initialization skipped: $e');
   }
 
-  // Global navigatorKey (used by password recovery)
+  // Global navigatorKey (used by password recovery and notifications)
   final navigatorKey = GlobalKey<NavigatorState>();
+  
+  // Set navigator key for notification service
+  NotificationService().setNavigatorKey(navigatorKey);
 
   // Listen to auth state changes for password recovery and FCM token handling
   Supabase.instance.client.auth.onAuthStateChange.listen((data) {

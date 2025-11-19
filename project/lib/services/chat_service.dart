@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../e2ee/e2ee_key_manager.dart';
+import 'notification_repository.dart';
 
 final supa = Supabase.instance.client;
 final _uuid = const Uuid();
@@ -234,6 +235,8 @@ class ChatService {
     required String conversationId,
     required String text,
   }) async {
+    final currentUserId = supa.auth.currentUser!.id;
+    
     final cek = await getMyCek(conversationId);
     final enc = await _keys.encryptMessage(
       cekBytes32: cek,
@@ -243,7 +246,7 @@ class ChatService {
 
     await supa.from('messages').insert({
       'conversation_id': conversationId,
-      'sender_id': supa.auth.currentUser!.id,
+      'sender_id': currentUserId,
       'body_ciphertext_base64': enc['ct_b64'],
       'body_nonce_base64': enc['nonce_b64'],
       'body_mac_base64': enc['mac_b64'],
@@ -254,6 +257,50 @@ class ChatService {
         .from('conversations')
         .update({'last_message_at': DateTime.now().toIso8601String()}).eq(
             'id', conversationId);
+    
+    // Send push notifications to other participants
+    try {
+      // Get other participants (excluding sender)
+      final participantsResponse = await supa
+          .from('participants')
+          .select('user_id')
+          .eq('conversation_id', conversationId)
+          .neq('user_id', currentUserId);
+      
+      final recipientIds = (participantsResponse as List)
+          .map((p) => p['user_id'] as String)
+          .toList();
+      
+      if (recipientIds.isNotEmpty) {
+        // Get sender's name for notification
+        final senderProfile = await supa
+            .from('profiles')
+            .select('name, surname')
+            .eq('id', currentUserId)
+            .maybeSingle();
+        
+        final senderName = senderProfile != null
+            ? '${senderProfile['name'] ?? ''} ${senderProfile['surname'] ?? ''}'.trim()
+            : 'Someone';
+        
+        // Send push notification via edge function (no decrypted content!)
+        await NotificationRepository.sendDirect(
+          userIds: recipientIds,
+          title: senderName,
+          body: 'Sent you a message', // Generic message for E2EE
+          data: {
+            'type': 'chat',
+            'conversation_id': conversationId,
+            'sender_id': currentUserId,
+          },
+        );
+        
+        print('✅ Push notification sent to ${recipientIds.length} recipient(s)');
+      }
+    } catch (e) {
+      // Don't fail the message send if notification fails
+      print('⚠️ Failed to send push notification: $e');
+    }
   }
 
   Future<String> decryptMessageForUi(ChatMessage m) async {
