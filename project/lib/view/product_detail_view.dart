@@ -172,7 +172,9 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Submit'),
@@ -196,18 +198,23 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         'reporter_id': me,
         'reported_user_id': _sellerId,
         'reason': selected,
-        'details': _reportDetailsCtrl.text.trim().isEmpty ? null : _reportDetailsCtrl.text.trim(),
+        'details': _reportDetailsCtrl.text.trim().isEmpty
+            ? null
+            : _reportDetailsCtrl.text.trim(),
       };
 
       await supa.from('abuse_reports').insert(payload);
 
       if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('Report submitted. Thank you.')));
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Report submitted. Thank you.')));
     } on PostgrestException catch (e) {
       if (e.code == '23505') {
-        messenger.showSnackBar(const SnackBar(content: Text('You already reported this listing.')));
+        messenger.showSnackBar(const SnackBar(
+            content: Text('You already reported this listing.')));
       } else {
-        messenger.showSnackBar(SnackBar(content: Text('Could not submit: ${e.message}')));
+        messenger.showSnackBar(
+            SnackBar(content: Text('Could not submit: ${e.message}')));
       }
     } catch (e) {
       if (!mounted) return;
@@ -227,15 +234,11 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   Future<void> _reloadFromServer() async {
     try {
       final supa = Supabase.instance.client;
-      final row = await supa
-          .from('marketplace_products')
-          .select('''
+      final row = await supa.from('marketplace_products').select('''
             title, description, price, currency, category, size_value,
             seller_id, seller_name, seller_image_url,
             marketplace_images ( url )
-          ''')
-          .eq('id', widget.product.id)
-          .maybeSingle();
+          ''').eq('id', widget.product.id).maybeSingle();
 
       if (row is Map<String, dynamic>) {
         final imgs = <String>[];
@@ -256,7 +259,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           _sizeValue = (row['size_value'] as String?) ?? _sizeValue;
           _sellerId = (row['seller_id'] as String?) ?? _sellerId;
           _sellerName = (row['seller_name'] as String?) ?? _sellerName;
-          _sellerImageUrl = (row['seller_image_url'] as String?) ?? _sellerImageUrl;
+          _sellerImageUrl =
+              (row['seller_image_url'] as String?) ?? _sellerImageUrl;
           _imageUrls = imgs;
         });
 
@@ -385,14 +389,22 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       }
 
       await _tryDeleteFromUrls(urls);
-      await supa.from('marketplace_images').delete().eq('product_id', widget.product.id);
-      await supa.from('marketplace_products').delete().eq('id', widget.product.id);
+      await supa
+          .from('marketplace_images')
+          .delete()
+          .eq('product_id', widget.product.id);
+      await supa
+          .from('marketplace_products')
+          .delete()
+          .eq('id', widget.product.id);
 
       if (!mounted) return;
       Navigator.of(context).pop();
-      messenger.showSnackBar(const SnackBar(content: Text('Listing marked as sold.')));
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Listing marked as sold.')));
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not mark as sold: $e')));
+      messenger
+          .showSnackBar(SnackBar(content: Text('Could not mark as sold: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -479,8 +491,11 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _busy ? null : (_isMine ? _markAsSold : _contactSeller),
-              icon: Icon(_isMine ? Icons.check_circle_outline : Icons.send_rounded, size: 20),
+              onPressed:
+                  _busy ? null : (_isMine ? _markAsSold : _contactSeller),
+              icon: Icon(
+                  _isMine ? Icons.check_circle_outline : Icons.send_rounded,
+                  size: 20),
               label: Text(
                 _isMine ? 'Mark as sold' : 'Contact Hocam',
                 style: const TextStyle(fontWeight: FontWeight.w600),
@@ -490,7 +505,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                 foregroundColor: _isMine ? cs.onError : cs.onPrimary,
                 minimumSize: const Size(double.infinity, 48),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -504,7 +520,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         backgroundColor: cs.surface,
         onRefresh: _reloadFromServer,
         child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics()),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           children: [
             AspectRatio(
@@ -567,9 +584,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                       ),
               ),
             ),
-
             const SizedBox(height: 12),
-
             Text(
               _title,
               style: theme.textTheme.titleLarge?.copyWith(
@@ -577,9 +592,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                 color: onSurface,
               ),
             ),
-
             const SizedBox(height: 6),
-
             Text(
               _fmtPrice(),
               style: theme.textTheme.titleMedium?.copyWith(
@@ -587,17 +600,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                 color: onSurface,
               ),
             ),
-
             const SizedBox(height: 12),
-
             if (_description.isNotEmpty)
               Text(
                 _description,
                 style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
               ),
-
             const SizedBox(height: 16),
-
             Row(
               children: [
                 CircleAvatar(
@@ -613,20 +622,20 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                     _sellerName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+                    style:
+                        theme.textTheme.bodyMedium?.copyWith(color: onSurface),
                   ),
                 ),
               ],
             ),
-
             if ((_sizeValue ?? '').isNotEmpty) ...[
               const SizedBox(height: 16),
               Text(
                 'Size: $_sizeValue',
-                style: theme.textTheme.bodyMedium?.copyWith(color: onSurfaceVariant),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: onSurfaceVariant),
               ),
             ],
-
             const SizedBox(height: 8),
           ],
         ),

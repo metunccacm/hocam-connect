@@ -30,7 +30,8 @@ class RegistrationViewModel extends ChangeNotifier {
       } catch (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid date format. Use dd/MM/yyyy')),
+            const SnackBar(
+                content: Text('Invalid date format. Use dd/MM/yyyy')),
           );
         }
         isLoading = false;
@@ -53,8 +54,7 @@ class RegistrationViewModel extends ChangeNotifier {
 
     try {
       // Kayıt: signUp sonucu user döndürür ama çoğu projede session dönmez (email confirm açıkken)
-      final signUpRes =
-          await _auth.signUp(email.trim(), password, data: meta);
+      final signUpRes = await _auth.signUp(email.trim(), password, data: meta);
 
       final uid = signUpRes.user?.id;
       if (uid == null) {
@@ -85,7 +85,8 @@ class RegistrationViewModel extends ChangeNotifier {
 
       // (İsteğe bağlı) Auth metadata’yı güncelle: email confirm'den sonra da eşit kalsın
       try {
-        await Supabase.instance.client.auth.updateUser(UserAttributes(data: meta));
+        await Supabase.instance.client.auth
+            .updateUser(UserAttributes(data: meta));
       } catch (_) {
         // Sessiz geç; önemli olan profiles upsert'ı
       }

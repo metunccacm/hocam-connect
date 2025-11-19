@@ -11,10 +11,10 @@ import '../utils/network_error_handler.dart';
 
 class E2EEKeyManager {
   static const _privKeyKey = 'lt_priv_x25519_b64';
-  static const _pubKeyKey  = 'lt_pub_x25519_b64';
+  static const _pubKeyKey = 'lt_pub_x25519_b64';
 
   static const String _wrapInfo = 'cek-wrap-v1';
-  static const String _wrapAad  = 'cek-wrap';
+  static const String _wrapAad = 'cek-wrap';
 
   final _storage = const FlutterSecureStorage();
   final AesGcm _aead = AesGcm.with256bits();
@@ -26,11 +26,11 @@ class E2EEKeyManager {
 
   Future<void> loadKeyPairFromStorage() async {
     final privB64 = await _storage.read(key: _privKeyKey);
-    final pubB64  = await _storage.read(key: _pubKeyKey);
+    final pubB64 = await _storage.read(key: _pubKeyKey);
 
     if (privB64 != null && pubB64 != null) {
       final privBytes = base64Decode(privB64);
-      final pubBytes  = base64Decode(pubB64);
+      final pubBytes = base64Decode(pubB64);
       _myKeyPair = SimpleKeyPairData(
         privBytes,
         publicKey: SimplePublicKey(pubBytes, type: KeyPairType.x25519),
@@ -38,16 +38,16 @@ class E2EEKeyManager {
       );
       _myPubB64 = pubB64;
     } else {
-      final kp  = await X25519().newKeyPair();
-      final pk  = await kp.extractPublicKey();
+      final kp = await X25519().newKeyPair();
+      final pk = await kp.extractPublicKey();
       final pub = base64Encode(pk.bytes);
       final prv = base64Encode(await kp.extractPrivateKeyBytes());
 
       await _storage.write(key: _privKeyKey, value: prv);
-      await _storage.write(key: _pubKeyKey,  value: pub);
+      await _storage.write(key: _pubKeyKey, value: pub);
 
       _myKeyPair = kp;
-      _myPubB64  = pub;
+      _myPubB64 = pub;
     }
 
     final uid = Supabase.instance.client.auth.currentUser!.id;
@@ -78,7 +78,8 @@ class E2EEKeyManager {
       context: 'Failed to fetch recipient encryption key',
     );
 
-    if (row == null || (row['public_key_base64'] as String?)?.isNotEmpty != true) {
+    if (row == null ||
+        (row['public_key_base64'] as String?)?.isNotEmpty != true) {
       throw Exception('Public key not found for user $userId');
     }
     return row['public_key_base64'] as String;
@@ -101,8 +102,8 @@ class E2EEKeyManager {
 
     final eph = await X25519().newKeyPair();
 
-    final shared = await X25519()
-        .sharedSecretKey(keyPair: eph, remotePublicKey: recipPub);
+    final shared =
+        await X25519().sharedSecretKey(keyPair: eph, remotePublicKey: recipPub);
     final sharedBytes = await shared.extractBytes();
 
     final wrapBytes = _hkdfSha256(
@@ -141,8 +142,8 @@ class E2EEKeyManager {
       type: KeyPairType.x25519,
     );
 
-    final shared = await X25519()
-        .sharedSecretKey(keyPair: kp, remotePublicKey: ephPub);
+    final shared =
+        await X25519().sharedSecretKey(keyPair: kp, remotePublicKey: ephPub);
     final sharedBytes = await shared.extractBytes();
 
     final wrapBytes = _hkdfSha256(
@@ -153,10 +154,10 @@ class E2EEKeyManager {
     final wrapKey = await _aead.newSecretKeyFromBytes(wrapBytes);
 
     final nonce = base64Decode(wrappedNonceB64);
-    final data  = base64Decode(wrappedCtB64);
+    final data = base64Decode(wrappedCtB64);
 
     final mac = Mac(data.sublist(data.length - 16));
-    final ct  = data.sublist(0, data.length - 16);
+    final ct = data.sublist(0, data.length - 16);
 
     final plain = await _aead.decrypt(
       SecretBox(ct, nonce: nonce, mac: mac),
@@ -179,7 +180,7 @@ class E2EEKeyManager {
     if (cekBytes32.length != 32) {
       throw ArgumentError('CEK must be 32 bytes, got ${cekBytes32.length}');
     }
-    final key   = await _aead.newSecretKeyFromBytes(
+    final key = await _aead.newSecretKeyFromBytes(
       Uint8List.fromList(cekBytes32),
     );
     final nonce = _randomBytes(12);

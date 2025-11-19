@@ -65,7 +65,7 @@ class _SplashViewState extends State<SplashView> {
 
   Future<void> _checkConnection() async {
     setState(() => _checking = true);
-    
+
     try {
       final results = await Connectivity().checkConnectivity();
       final hasAny = results.contains(ConnectivityResult.wifi) ||
@@ -132,11 +132,12 @@ class _SplashViewState extends State<SplashView> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                
+
                 // Status
                 if (_checking) ...[
                   const CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF007BFF)),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xFF007BFF)),
                   ),
                   const SizedBox(height: 24),
                   Text(

@@ -82,7 +82,9 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
         semesters
           ..clear()
           ..addAll(vm.semesters.isEmpty
-              ? [SemesterModel(courses: [Course.empty()], colorIndex: 0)]
+              ? [
+                  SemesterModel(courses: [Course.empty()], colorIndex: 0)
+                ]
               : vm.semesters);
         _isLoading = false;
       });
@@ -246,7 +248,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
     for (final c in active) {
       // Skip non-credit courses in GPA calculation
       if (c.credits == 0) continue;
-      
+
       final pts = gradeToPoint[c.grade] ?? 0.0;
       qp += pts * c.credits;
       cr += c.credits;
@@ -263,10 +265,10 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
         final c = semesters[si].courses[ci];
         if (!_isActive(c)) continue;
         if (excluded.contains((si, ci))) continue;
-        
+
         // Skip non-credit courses in CGPA calculation
         if (c.credits == 0) continue;
-        
+
         final pts = gradeToPoint[c.grade] ?? 0.0;
         qp += pts * c.credits;
         cr += c.credits;
@@ -293,8 +295,12 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
         title: const Text('Delete semester?'),
         content: const Text('This will remove the semester and its courses.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -386,7 +392,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
   }
 
   // ---- Auto-save (silent, no UI feedback) ------------------------------------
-  
+
   Future<void> _autoSave() async {
     // Silent save without UI updates
     vm.setSemestersFromUi(semesters);
@@ -431,31 +437,33 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
       // Handle error cases
       if (result.hasError) {
         final error = result.error!;
-        
+
         switch (error.type) {
           case SyncErrorType.notAuthenticated:
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Not authenticated. Please log in.')),
+              const SnackBar(
+                  content: Text('Not authenticated. Please log in.')),
             );
             break;
-            
+
           case SyncErrorType.profileNotFound:
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Profile not found. Please contact support.')),
+              const SnackBar(
+                  content: Text('Profile not found. Please contact support.')),
             );
             break;
-            
+
           case SyncErrorType.departmentNotSet:
             // Show dialog prompting user to set department in profile
             await _showDepartmentNotSetDialog();
             break;
-            
+
           case SyncErrorType.noCoursesFound:
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(error.message)),
             );
             break;
-            
+
           case SyncErrorType.unknown:
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Sync failed: ${error.message}')),
@@ -467,7 +475,7 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
 
       // Success case - we have semesters
       final newSemesters = result.semesters!;
-      
+
       if (newSemesters.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No courses found to sync')),
@@ -492,7 +500,8 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Synced ${newSemesters.length} semesters successfully'),
+            content:
+                Text('Synced ${newSemesters.length} semesters successfully'),
           ),
         );
       }
@@ -592,7 +601,8 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                   key: ObjectKey(semesters[sIdx]),
                   margin: EdgeInsets.zero,
                   elevation: 2,
-                  color: _getSemesterColor(s.colorIndex, context), // Use semester's colorIndex
+                  color: _getSemesterColor(
+                      s.colorIndex, context), // Use semester's colorIndex
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
@@ -652,17 +662,19 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                                 icon: const Icon(Icons.arrow_upward),
                                 tooltip: 'Move semester up',
                                 iconSize: 20,
-                                onPressed: sIdx > 0 ? () => _moveSemesterUp(sIdx) : null,
+                                onPressed: sIdx > 0
+                                    ? () => _moveSemesterUp(sIdx)
+                                    : null,
                               ),
                               IconButton(
                                 icon: const Icon(Icons.arrow_downward),
                                 tooltip: 'Move semester down',
                                 iconSize: 20,
-                                onPressed: sIdx < semesters.length - 1 
-                                    ? () => _moveSemesterDown(sIdx) 
+                                onPressed: sIdx < semesters.length - 1
+                                    ? () => _moveSemesterDown(sIdx)
                                     : null,
                               ),
-                             
+
                               IconButton(
                                 icon: const Icon(Icons.delete_outline),
                                 tooltip: 'Delete semester',
@@ -683,9 +695,12 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                                 flex: 5,
                                 child: Text(
                                   'Course Name',
-                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -693,9 +708,12 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                                 flex: 3,
                                 child: Text(
                                   'Grade',
-                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -703,9 +721,12 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                                 flex: 2,
                                 child: Text(
                                   'Credits',
-                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -722,7 +743,8 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                             key: ObjectKey(semesters[sIdx].courses[cIdx]),
                             course: semesters[sIdx].courses[cIdx],
                             creditGrades: gradeToPoint.keys.toList(),
-                            nonCreditGrades: nonCreditGradeToPoint.keys.toList(),
+                            nonCreditGrades:
+                                nonCreditGradeToPoint.keys.toList(),
                             onChanged: () => setState(() {}),
                             onDelete: () => _removeCourse(sIdx, cIdx),
                           ),
@@ -750,11 +772,9 @@ class _GpaCalculatorViewState extends State<GpaCalculatorView> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('GPA: ${gpa.toStringAsFixed(2)}',
-                                style:
-                                    Theme.of(context).textTheme.titleMedium),
+                                style: Theme.of(context).textTheme.titleMedium),
                             Text('CGPA: ${cgpa.toStringAsFixed(2)}',
-                                style:
-                                    Theme.of(context).textTheme.titleMedium),
+                                style: Theme.of(context).textTheme.titleMedium),
                           ],
                         ),
                       ],
@@ -792,7 +812,7 @@ class _ReplacementNote extends StatelessWidget {
 
   final bool isLatestOverall;
   final List<String> replacesSemesters; // names (or "Semester #N")
-  final String? laterSemesterName;      // name of later semester, if any
+  final String? laterSemesterName; // name of later semester, if any
 
   @override
   Widget build(BuildContext context) {
@@ -866,15 +886,18 @@ class _CourseRow extends StatelessWidget {
   InputDecoration boxDeco([String? hint]) => InputDecoration(
         hintText: hint,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(kRadius)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border:
+            OutlineInputBorder(borderRadius: BorderRadius.circular(kRadius)),
       );
 
   OutlinedButtonThemeData outlinedTheme(BuildContext ctx) =>
       OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(kFieldHeight),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         ),
       );
 
@@ -883,7 +906,7 @@ class _CourseRow extends StatelessWidget {
     // Determine which grade list to use based on credits
     final isNonCredit = course.credits == 0;
     final availableGrades = isNonCredit ? nonCreditGrades : creditGrades;
-    
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -909,9 +932,11 @@ class _CourseRow extends StatelessWidget {
           child: SizedBox(
             height: kFieldHeight,
             child: DropdownButtonFormField<String>(
-              initialValue: availableGrades.contains(course.grade) ? course.grade : null,
+              initialValue:
+                  availableGrades.contains(course.grade) ? course.grade : null,
               decoration: boxDeco().copyWith(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               ),
               hint: const Text('XX'),
               isExpanded: true,
@@ -943,12 +968,12 @@ class _CourseRow extends StatelessWidget {
                 final newCredits = int.tryParse(v) ?? 0;
                 final oldCredits = course.credits;
                 course.credits = newCredits;
-                
+
                 // If switching between credit/non-credit, reset grade
                 if ((oldCredits == 0) != (newCredits == 0)) {
                   course.grade = null;
                 }
-                
+
                 onChanged();
               },
             ),

@@ -1,0 +1,772 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:math';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Background message handler (must be top-level function)
+/// Handles push notifications when app is in background or terminated
+/// Note: Notifications are already shown by Firebase automatically
+/// This handler is for additional processing (e.g., updating local state, badges)
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Background handlers run in their own isolate. Keep logic minimal.
+  if (kDebugMode) {
+    print('🌙 Background message received: ${message.messageId}');
+    print('   Title: ${message.notification?.title}');
+    print('   Body: ${message.notification?.body}');
+    print('   Data: ${message.data}');
+  }
+
+  try {
+    // Create a fresh local notifications plugin instance for the background isolate
+    final FlutterLocalNotificationsPlugin bgLocalNotifications =
+        FlutterLocalNotificationsPlugin();
+
+    const AndroidInitializationSettings androidInit =
+        AndroidInitializationSettings('@drawable/hc_logo');
+    const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
+
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+    );
+
+    await bgLocalNotifications.initialize(initSettings);
+
+    // Ensure channel exists on Android
+    if (Platform.isAndroid) {
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'high_importance_channel',
+        'High Importance Notifications',
+        description: 'This channel is used for important notifications.',
+        importance: Importance.high,
+      );
+
+      await bgLocalNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
+    }
+
+    // Prepare notification content
+    final String? title = message.notification?.title ?? message.data['title'];
+    final String? body = message.notification?.body ?? message.data['body'];
+
+    final androidDetails = AndroidNotificationDetails(
+      'high_importance_channel',
+      'High Importance Notifications',
+      channelDescription: 'This channel is used for important notifications.',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      icon: '@drawable/hc_logo',  // Use PNG logo as small icon
+      largeIcon: const DrawableResourceAndroidBitmap('hc_logo'),  // Use PNG as large icon
+      styleInformation: BigTextStyleInformation(body ?? ''),
+    );
+
+    final notificationDetails = NotificationDetails(android: androidDetails);
+
+    // Show notification
+    await bgLocalNotifications.show(
+      message.hashCode & 0x7fffffff,
+      title ?? 'Notification',
+      body ?? '',
+      notificationDetails,
+      payload: message.data.isNotEmpty ? message.data.toString() : null,
+    );
+  } catch (e) {
+    if (kDebugMode) {
+      print('❌ Error in background message handler: $e');
+    }
+  }
+}
+
+class NotificationService {
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
+
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  static const String _notificationEnabledKey = 'notifications_enabled';
+  static const String _fcmTokenKey = 'fcm_token';
+
+  String? _currentToken;
+  bool _isInitialized = false;
+  
+  // Store navigator key for navigation from notifications
+  GlobalKey<NavigatorState>? _navigatorKey;
+  
+  /// Set the navigator key for navigation from notifications
+  void setNavigatorKey(GlobalKey<NavigatorState> key) {
+    _navigatorKey = key;
+  }
+
+  /// Initialize the notification service
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+
+    try {
+      // Check if Firebase is initialized
+      if (Firebase.apps.isEmpty) {
+        if (kDebugMode) {
+          print(
+              '⚠️ Firebase not initialized. Skipping notification service setup.');
+          print(
+              '📝 Add Firebase configuration files to enable push notifications.');
+        }
+        return;
+      }
+
+      if (kDebugMode) {
+        print('🚀 Starting notification service initialization...');
+        print('📱 Platform: ${Platform.isIOS ? "iOS" : "Android"}');
+      }
+
+      // Initialize local notifications
+      await _initializeLocalNotifications();
+
+      // Request permission
+      if (kDebugMode) {
+        print('🔔 Requesting notification permissions...');
+      }
+      final notificationSettings = await _requestPermission();
+
+      if (kDebugMode) {
+        print(
+            '🔔 Permission status: ${notificationSettings.authorizationStatus}');
+      }
+
+      if (notificationSettings.authorizationStatus ==
+          AuthorizationStatus.authorized) {
+        if (kDebugMode) {
+          print('✅ Notification permission granted, getting FCM token...');
+        }
+
+        // Get FCM token
+        await _getFCMToken();
+
+        // Register background message handler (ensure this is set once)
+        if (kDebugMode) {
+          print('🛠 Registering background message handler...');
+        }
+        FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+        // Setup notification tap handling (when app is opened from background/terminated)
+        if (kDebugMode) {
+          print('🎯 Setting up onMessageOpenedApp listener...');
+        }
+        FirebaseMessaging.onMessageOpenedApp.listen((message) {
+          if (kDebugMode) {
+            print('🔔 onMessageOpenedApp triggered!');
+          }
+          _handleNotificationTap(message);
+        });
+
+        // Handle notification that opened the app from terminated state
+        if (kDebugMode) {
+          print('🔍 Checking for initial message (app opened from terminated)...');
+        }
+        final initialMessage =
+            await FirebaseMessaging.instance.getInitialMessage();
+        if (initialMessage != null) {
+          if (kDebugMode) {
+            print('✅ Found initial message!');
+          }
+          _handleNotificationTap(initialMessage);
+        } else {
+          if (kDebugMode) {
+            print('ℹ️ No initial message found');
+          }
+        }
+
+        // Listen for token refresh
+        FirebaseMessaging.instance.onTokenRefresh.listen(_onTokenRefresh);
+
+        _isInitialized = true;
+        if (kDebugMode) {
+          print('NotificationService initialized successfully');
+        }
+      } else {
+        if (kDebugMode) {
+          print('Notification permission not granted');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error initializing notification service: $e');
+      }
+    }
+  }
+
+  /// Initialize local notifications for foreground display
+  Future<void> _initializeLocalNotifications() async {
+    const androidSettings =
+        AndroidInitializationSettings('@drawable/hc_logo');
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _localNotifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: _onNotificationTapped,
+    );
+
+    // Create Android notification channel
+    if (Platform.isAndroid) {
+      const channel = AndroidNotificationChannel(
+        'high_importance_channel',
+        'High Importance Notifications',
+        description: 'This channel is used for important notifications.',
+        importance: Importance.high,
+      );
+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
+    }
+  }
+
+  /// Request notification permission
+  Future<NotificationSettings> _requestPermission() async {
+    return await _firebaseMessaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    );
+  }
+
+  /// Get FCM token and save it
+  Future<void> _getFCMToken() async {
+    try {
+      if (kDebugMode) {
+        print('🔑 _getFCMToken() called');
+      }
+
+      // For iOS, we need to wait for APNS token first
+      if (Platform.isIOS) {
+        if (kDebugMode) {
+          print('🍎 iOS detected - checking for APNS token...');
+        }
+
+        // Try multiple times with increasing delays
+        String? apnsToken;
+        for (int i = 0; i < 3; i++) {
+          if (kDebugMode) {
+            print('🔍 Attempt ${i + 1}/3: Calling getAPNSToken()...');
+          }
+
+          try {
+            apnsToken = await _firebaseMessaging.getAPNSToken();
+            if (kDebugMode) {
+              if (apnsToken != null) {
+                print(
+                    '✅ APNS token received on attempt ${i + 1}: ${apnsToken.substring(0, min(20, apnsToken.length))}...');
+              } else {
+                print('❌ APNS token is null on attempt ${i + 1}');
+              }
+            }
+            if (apnsToken != null) break;
+          } catch (e) {
+            if (kDebugMode) {
+              print('❌ Error getting APNS token on attempt ${i + 1}: $e');
+            }
+          }
+
+          if (apnsToken == null && i < 2) {
+            if (kDebugMode) {
+              print('⏳ Waiting ${2 + i} seconds before retry...');
+            }
+            await Future.delayed(Duration(seconds: 2 + i)); // 2s, 3s, 4s
+          }
+        }
+
+        if (apnsToken == null) {
+          if (kDebugMode) {
+            print(
+                '⚠️ APNS token not available after 3 attempts. Will retry in background...');
+            print('💡 Make sure:');
+            print('   1. You\'re testing on a REAL iOS device (not simulator)');
+            print('   2. Push Notifications capability is enabled in Xcode');
+            print('   3. APNs is configured in Firebase Console');
+            print('   4. Runner.entitlements has aps-environment key');
+          }
+          // Set up background retry mechanism
+          _setupAPNSTokenListener();
+          return;
+        }
+
+        if (kDebugMode) {
+          print(
+              '✅ APNS token available: ${apnsToken.substring(0, min(20, apnsToken.length))}...');
+        }
+      }
+
+      final token = await _firebaseMessaging.getToken();
+      if (token != null) {
+        _currentToken = token;
+        await _saveTokenLocally(token);
+
+        // Save token to Supabase if user is logged in
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user != null) {
+          await _saveTokenToSupabase(token, user.id);
+        }
+
+        if (kDebugMode) {
+          print('FCM Token: $token');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting FCM token: $e');
+      }
+    }
+  }
+
+  /// Setup listener for APNS token on iOS
+  void _setupAPNSTokenListener() {
+    if (Platform.isIOS) {
+      _retryGetFCMToken(attempts: 0, maxAttempts: 5);
+    }
+  }
+
+  /// Retry getting FCM token with exponential backoff
+  Future<void> _retryGetFCMToken(
+      {required int attempts, required int maxAttempts}) async {
+    if (attempts >= maxAttempts) {
+      if (kDebugMode) {
+        print(
+            '⚠️ Max attempts reached. FCM token will be retrieved on next app launch.');
+      }
+      return;
+    }
+
+    // Exponential backoff: 3s, 5s, 10s, 15s, 20s
+    final delays = [3, 5, 10, 15, 20];
+    final delay =
+        delays[attempts < delays.length ? attempts : delays.length - 1];
+
+    await Future.delayed(Duration(seconds: delay));
+
+    try {
+      final apnsToken = await _firebaseMessaging.getAPNSToken();
+      if (apnsToken != null) {
+        if (kDebugMode) {
+          print(
+              '✅ APNS token now available (attempt ${attempts + 1}), getting FCM token...');
+        }
+
+        // Try to get FCM token
+        final token = await _firebaseMessaging.getToken();
+        if (token != null) {
+          _currentToken = token;
+          await _saveTokenLocally(token);
+
+          // Save token to Supabase if user is logged in
+          final user = Supabase.instance.client.auth.currentUser;
+          if (user != null) {
+            await _saveTokenToSupabase(token, user.id);
+          }
+
+          if (kDebugMode) {
+            print('✅ FCM Token retrieved: $token');
+          }
+          return; // Success!
+        }
+      } else {
+        if (kDebugMode) {
+          print(
+              '⏳ Still waiting for APNS token (attempt ${attempts + 1}/$maxAttempts)...');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error during retry attempt ${attempts + 1}: $e');
+      }
+    }
+
+    // Retry again
+    await _retryGetFCMToken(attempts: attempts + 1, maxAttempts: maxAttempts);
+  }
+
+  /// Save token locally
+  Future<void> _saveTokenLocally(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_fcmTokenKey, token);
+  }
+
+  /// Get locally saved token
+  Future<String?> getLocalToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_fcmTokenKey);
+  }
+
+  /// Save token to Supabase profiles table
+  Future<void> _saveTokenToSupabase(String token, String userId) async {
+    try {
+      if (kDebugMode) {
+        print('💾 Saving FCM token to profiles table...');
+        print('   User ID: $userId');
+        print('   Token: ${token.substring(0, min(20, token.length))}...');
+        print('   Platform: ${Platform.isIOS ? 'ios' : 'android'}');
+      }
+
+      await Supabase.instance.client.from('profiles').update({
+        'fcm_token': token,
+        'fcm_platform': Platform.isIOS ? 'ios' : 'android',
+      }).eq('id', userId);
+
+      if (kDebugMode) {
+        print('✅ FCM token saved to profiles table successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error saving FCM token to Supabase profiles: $e');
+      }
+    }
+  }
+
+  /// Delete token from Supabase profiles table
+  Future<void> deleteTokenFromSupabase() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await Supabase.instance.client.from('profiles').update({
+          'fcm_token': null,
+          'fcm_platform': null,
+        }).eq('id', user.id);
+
+        if (kDebugMode) {
+          print('✅ FCM token cleared from profiles table');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting FCM token from Supabase: $e');
+      }
+    }
+  }
+
+  /// Save FCM token for currently logged-in user
+  /// Call this after user logs in to ensure their token is saved
+  Future<void> saveFCMTokenForCurrentUser() async {
+    try {
+      // Check if Firebase is initialized
+      if (Firebase.apps.isEmpty) {
+        if (kDebugMode) {
+          print('⚠️ Firebase not initialized. Cannot save FCM token.');
+        }
+        return;
+      }
+
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        if (kDebugMode) {
+          print('No user logged in, cannot save FCM token');
+        }
+        return;
+      }
+
+      // For iOS, check if APNS token is available
+      if (Platform.isIOS) {
+        final apnsToken = await _firebaseMessaging.getAPNSToken();
+        if (apnsToken == null) {
+          if (kDebugMode) {
+            print('⏳ APNS token not available yet. Will retry when available.');
+          }
+          // Setup retry mechanism
+          _setupAPNSTokenListener();
+          return;
+        }
+      }
+
+      // Get current token (from local storage or fetch new one)
+      String? token = _currentToken ?? await getLocalToken();
+
+      if (token == null) {
+        // Try to get fresh token from Firebase
+        token = await _firebaseMessaging.getToken();
+        if (token != null) {
+          _currentToken = token;
+          await _saveTokenLocally(token);
+        }
+      }
+
+      if (token != null) {
+        await _saveTokenToSupabase(token, user.id);
+        if (kDebugMode) {
+          print('✅ FCM token saved for user: ${user.id}');
+        }
+      } else {
+        if (kDebugMode) {
+          print('⚠️ No FCM token available to save');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving FCM token for current user: $e');
+      }
+    }
+  }
+
+  /// Handle token refresh
+  Future<void> _onTokenRefresh(String newToken) async {
+    _currentToken = newToken;
+    await _saveTokenLocally(newToken);
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      await _saveTokenToSupabase(newToken, user.id);
+    }
+  }
+
+  /// Handle notification tap (when app was in background/terminated)
+  void _handleNotificationTap(RemoteMessage message) {
+    if (kDebugMode) {
+      print('🔔 ========== NOTIFICATION TAPPED ==========');
+      print('   Message ID: ${message.messageId}');
+      print('   Notification: ${message.notification?.toMap()}');
+      print('   Data: ${message.data}');
+      print('   Data keys: ${message.data.keys.toList()}');
+      print('   Data values: ${message.data.values.toList()}');
+    }
+
+    // Navigate based on notification type
+    final type = message.data['type'] as String?;
+    final conversationId = message.data['conversation_id'] as String?;
+
+    if (kDebugMode) {
+      print('   Parsed type: $type');
+      print('   Parsed conversation_id: $conversationId');
+    }
+
+    if (type == 'chat' && conversationId != null) {
+      // Store navigation intent - will be handled by main app after it fully loads
+      _pendingChatNavigation = conversationId;
+      if (kDebugMode) {
+        print('✅ Pending navigation stored: $conversationId');
+        print('==========================================');
+      }
+      
+      // Try immediate navigation if navigator is available
+      _tryImmediateNavigation(conversationId);
+    } else {
+      if (kDebugMode) {
+        print('❌ Navigation NOT stored - type: $type, conversationId: $conversationId');
+        print('==========================================');
+      }
+    }
+
+    // TODO: Handle other notification types (social, marketplace, etc.)
+  }
+
+  /// Try to navigate immediately if the app is already running
+  Future<void> _tryImmediateNavigation(String conversationId) async {
+    if (kDebugMode) {
+      print('🚀 Attempting immediate navigation...');
+      print('   Navigator key available: ${_navigatorKey != null}');
+      print('   Current context: ${_navigatorKey?.currentContext != null}');
+    }
+
+    // Wait a brief moment for the app to come to foreground
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (_navigatorKey?.currentContext != null) {
+      if (kDebugMode) {
+        print('✅ Navigator context available, navigating now...');
+      }
+
+      try {
+        // Get conversation details
+        final supa = Supabase.instance.client;
+        final currentUserId = supa.auth.currentUser?.id;
+
+        if (currentUserId == null) {
+          if (kDebugMode) {
+            print('❌ No authenticated user');
+          }
+          return;
+        }
+
+        if (kDebugMode) {
+          print('📊 Fetching chat details for: $conversationId');
+        }
+
+        // Get other participant's info
+        final participants = await supa
+            .from('participants')
+            .select('user_id')
+            .eq('conversation_id', conversationId)
+            .neq('user_id', currentUserId);
+
+        if (participants.isEmpty) {
+          if (kDebugMode) {
+            print('❌ No participants found');
+          }
+          return;
+        }
+
+        final otherUserId = participants.first['user_id'] as String;
+        if (kDebugMode) {
+          print('👤 Other user ID: $otherUserId');
+        }
+
+        // Get other user's profile
+        final profile = await supa
+            .from('profiles')
+            .select('name, surname')
+            .eq('id', otherUserId)
+            .single();
+
+        final chatTitle = '${profile['name']} ${profile['surname']}';
+        if (kDebugMode) {
+          print('💬 Navigating to chat with: $chatTitle');
+        }
+
+        // Navigate to ChatView
+        // Import dynamically to avoid circular dependency
+        _navigatorKey!.currentState?.pushNamed(
+          '/chat',
+          arguments: {
+            'conversationId': conversationId,
+            'title': chatTitle,
+          },
+        );
+        
+        // Clear pending navigation since we handled it
+        _pendingChatNavigation = null;
+        
+        if (kDebugMode) {
+          print('✅ Navigation completed!');
+        }
+      } catch (e, stackTrace) {
+        if (kDebugMode) {
+          print('❌ Error during immediate navigation: $e');
+          print('   Stack trace: $stackTrace');
+          print('   Pending navigation will be handled by AuthGate');
+        }
+      }
+    } else {
+      if (kDebugMode) {
+        print('⏳ Navigator not ready, will be handled by AuthGate lifecycle');
+      }
+    }
+  }
+
+  // Store pending navigation for handling after app loads
+  String? _pendingChatNavigation;
+
+  /// Get and clear pending chat navigation
+  String? getPendingChatNavigation() {
+    if (kDebugMode) {
+      print('📞 getPendingChatNavigation() called');
+      print('   Current pending value: $_pendingChatNavigation');
+    }
+    final pending = _pendingChatNavigation;
+    _pendingChatNavigation = null;
+    if (kDebugMode) {
+      print('   Returning: $pending (pending cleared)');
+    }
+    return pending;
+  }
+
+  /// Handle local notification tap
+  void _onNotificationTapped(NotificationResponse response) {
+    if (kDebugMode) {
+      print('Local notification tapped: ${response.payload}');
+    }
+    // TODO: Handle navigation based on payload
+  }
+
+  /// Check if notifications are enabled
+  Future<bool> areNotificationsEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_notificationEnabledKey) ?? true; // Default to true
+  }
+
+  /// Enable notifications
+  Future<void> enableNotifications() async {
+    // Check if Firebase is initialized
+    if (Firebase.apps.isEmpty) {
+      if (kDebugMode) {
+        print('⚠️ Cannot enable notifications: Firebase not initialized');
+      }
+      throw Exception(
+          'Firebase not initialized. Add Firebase configuration files first.');
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_notificationEnabledKey, true);
+
+    // Re-register FCM token if not initialized
+    if (!_isInitialized) {
+      await initialize();
+    } else if (_currentToken != null) {
+      // Re-save token to Supabase
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await _saveTokenToSupabase(_currentToken!, user.id);
+      }
+    }
+  }
+
+  /// Disable notifications
+  Future<void> disableNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_notificationEnabledKey, false);
+
+    // Delete token from Supabase
+    await deleteTokenFromSupabase();
+
+    // Delete FCM token
+    await _firebaseMessaging.deleteToken();
+    _currentToken = null;
+  }
+
+  /// Get current FCM token
+  String? get currentToken => _currentToken;
+
+  /// Check notification permission status
+  Future<bool> hasPermission() async {
+    if (Firebase.apps.isEmpty) return false;
+
+    final settings = await _firebaseMessaging.getNotificationSettings();
+    return settings.authorizationStatus == AuthorizationStatus.authorized;
+  }
+
+  /// Request permission again (for when user manually disabled it)
+  Future<bool> requestPermissionAgain() async {
+    if (Firebase.apps.isEmpty) {
+      throw Exception(
+          'Firebase not initialized. Add Firebase configuration files first.');
+    }
+
+    final settings = await _requestPermission();
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      await initialize();
+      return true;
+    }
+    return false;
+  }
+}

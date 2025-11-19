@@ -76,7 +76,8 @@ class _SocialViewBody extends StatefulWidget {
   State<_SocialViewBody> createState() => _SocialViewBodyState();
 }
 
-class _SocialViewBodyState extends State<_SocialViewBody> with SingleTickerProviderStateMixin {
+class _SocialViewBodyState extends State<_SocialViewBody>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   final ScrollController _scrollController = ScrollController();
   bool _showQuickCompose = false;
@@ -781,6 +782,7 @@ class _FirstCommentOrMore extends StatelessWidget {
           return Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
+            child: TextButton(
               onPressed: () {
                 final vm = context.read<SocialViewModel>();
                 _openCommentsBottomSheet(context, post, vm);
@@ -811,11 +813,13 @@ class _FirstCommentOrMore extends StatelessWidget {
                           return CircleAvatar(
                             radius: 12,
                             backgroundColor: Colors.blue.shade100,
-                            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                                ? NetworkImage(avatarUrl)
-                                : null,
+                            backgroundImage:
+                                avatarUrl != null && avatarUrl.isNotEmpty
+                                    ? NetworkImage(avatarUrl)
+                                    : null,
                             child: (avatarUrl == null || avatarUrl.isEmpty)
-                                ? Icon(Icons.person, size: 14, color: Colors.blue.shade700)
+                                ? Icon(Icons.person,
+                                    size: 14, color: Colors.blue.shade700)
                                 : null,
                           );
                         },
@@ -858,7 +862,8 @@ class _FirstCommentOrMore extends StatelessWidget {
   }
 }
 
-void _openCommentsBottomSheet(BuildContext context, Post post, SocialViewModel vm) {
+void _openCommentsBottomSheet(
+    BuildContext context, Post post, SocialViewModel vm) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -947,11 +952,14 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                         final avatarUrl = user?.avatarUrl;
                                         return CircleAvatar(
                                           backgroundColor: Colors.blue.shade100,
-                                          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                          backgroundImage: avatarUrl != null &&
+                                                  avatarUrl.isNotEmpty
                                               ? NetworkImage(avatarUrl)
                                               : null,
-                                          child: (avatarUrl == null || avatarUrl.isEmpty)
-                                              ? Icon(Icons.person, color: Colors.blue.shade700)
+                                          child: (avatarUrl == null ||
+                                                  avatarUrl.isEmpty)
+                                              ? Icon(Icons.person,
+                                                  color: Colors.blue.shade700)
                                               : null,
                                         );
                                       },
@@ -1003,17 +1011,26 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                         final isMine = vm.meId == c.authorId;
                                         return PopupMenuButton<String>(
                                           onSelected: (v) {
-                                            if (v == 'report' && !isMine) _reportComment(ctx, c);
-                                            if (v == 'delete' && isMine) _deleteComment(ctx, c);
-                                            if (v == 'edit' && isMine) _editComment(ctx, c);
+                                            if (v == 'report' && !isMine)
+                                              _reportComment(ctx, c);
+                                            if (v == 'delete' && isMine)
+                                              _deleteComment(ctx, c);
+                                            if (v == 'edit' && isMine)
+                                              _editComment(ctx, c);
                                           },
                                           itemBuilder: (_) => [
                                             if (isMine)
-                                              const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                              const PopupMenuItem(
+                                                  value: 'edit',
+                                                  child: Text('Düzenle')),
                                             if (isMine)
-                                              const PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                              const PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Text('Sil')),
                                             if (!isMine)
-                                              const PopupMenuItem(value: 'report', child: Text('Bildir')),
+                                              const PopupMenuItem(
+                                                  value: 'report',
+                                                  child: Text('Bildir')),
                                           ],
                                         );
                                       },
@@ -1023,7 +1040,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               ],
                             ),
                             Padding(
-                              padding: const EdgeInsets.only(left: 16, bottom: 8),
+                              padding:
+                                  const EdgeInsets.only(left: 16, bottom: 8),
                               child: TextButton(
                                 onPressed: () async {
                                   // Get the author's display name for mention
@@ -1078,19 +1096,32 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                           children: [
                                             Expanded(
                                               child: ListTile(
-                                                leading: FutureBuilder<SocialUser?>(
-                                                  future: vm.repository.getUser(r.authorId),
+                                                leading:
+                                                    FutureBuilder<SocialUser?>(
+                                                  future: vm.repository
+                                                      .getUser(r.authorId),
                                                   builder: (context, snapshot) {
                                                     final user = snapshot.data;
-                                                    final avatarUrl = user?.avatarUrl;
+                                                    final avatarUrl =
+                                                        user?.avatarUrl;
                                                     return CircleAvatar(
                                                       radius: 12,
-                                                      backgroundColor: Colors.blue.shade100,
-                                                      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                                                          ? NetworkImage(avatarUrl)
-                                                          : null,
-                                                      child: (avatarUrl == null || avatarUrl.isEmpty)
-                                                          ? Icon(Icons.person, size: 16, color: Colors.blue.shade700)
+                                                      backgroundColor:
+                                                          Colors.blue.shade100,
+                                                      backgroundImage:
+                                                          avatarUrl != null &&
+                                                                  avatarUrl
+                                                                      .isNotEmpty
+                                                              ? NetworkImage(
+                                                                  avatarUrl)
+                                                              : null,
+                                                      child: (avatarUrl ==
+                                                                  null ||
+                                                              avatarUrl.isEmpty)
+                                                          ? Icon(Icons.person,
+                                                              size: 16,
+                                                              color: Colors.blue
+                                                                  .shade700)
                                                           : null,
                                                     );
                                                   },
@@ -1104,29 +1135,37 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                                 ),
                                                 subtitle: _MentionText(text: r.content, vm: vm),
                                                 dense: true,
-                                                trailing: Text(vm.timeAgo(r.createdAt), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                                trailing: Text(
+                                                    vm.timeAgo(r.createdAt),
+                                                    style: const TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.grey)),
                                               ),
                                             ),
                                             Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 GestureDetector(
-                                                  behavior: HitTestBehavior.opaque,
+                                                  behavior:
+                                                      HitTestBehavior.opaque,
                                                   onTap: () async {
                                                     await vm.toggleCommentLike(r.id);
                                                     setState(() {});
                                                   },
                                                   child: Container(
-                                                    padding: const EdgeInsets.all(4),
+                                                    padding:
+                                                        const EdgeInsets.all(4),
                                                     child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
                                                       children: [
                                                         Icon(
                                                           vm.isCommentLikedByMeLocal(r.id) ? Icons.favorite : Icons.favorite_border,
                                                           size: 14,
                                                           color: vm.isCommentLikedByMeLocal(r.id) ? Colors.red : Colors.grey,
                                                         ),
-                                                        const SizedBox(width: 2),
+                                                        const SizedBox(
+                                                            width: 2),
                                                         Text(
                                                           vm.compactCount(vm.commentLikeCountLocal(r.id)),
                                                           style: TextStyle(
@@ -1140,9 +1179,14 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                                 ),
                                                 TextButton(
                                                   style: TextButton.styleFrom(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                    minimumSize: const Size(0, 0),
-                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 4),
+                                                    minimumSize:
+                                                        const Size(0, 0),
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
                                                   ),
                                                   onPressed: () async {
                                                     // Get the reply author's display name for mention
@@ -1181,26 +1225,47 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                                       _replyFocusNode.requestFocus();
                                                     });
                                                   },
-                                                  child: const Text('Yanıtla', style: TextStyle(fontSize: 11)),
+                                                  child: const Text('Yanıtla',
+                                                      style: TextStyle(
+                                                          fontSize: 11)),
                                                 ),
                                                 Builder(
                                                   builder: (ctx) {
-                                                    final isMine = vm.meId == r.authorId;
-                                                    return PopupMenuButton<String>(
+                                                    final isMine =
+                                                        vm.meId == r.authorId;
+                                                    return PopupMenuButton<
+                                                        String>(
                                                       padding: EdgeInsets.zero,
                                                       splashRadius: 16,
                                                       onSelected: (v) {
-                                                        if (v == 'report' && !isMine) _reportComment(ctx, r);
-                                                        if (v == 'delete' && isMine) _deleteComment(ctx, r);
-                                                        if (v == 'edit' && isMine) _editComment(ctx, r);
+                                                        if (v == 'report' &&
+                                                            !isMine)
+                                                          _reportComment(
+                                                              ctx, r);
+                                                        if (v == 'delete' &&
+                                                            isMine)
+                                                          _deleteComment(
+                                                              ctx, r);
+                                                        if (v == 'edit' &&
+                                                            isMine)
+                                                          _editComment(ctx, r);
                                                       },
                                                       itemBuilder: (_) => [
                                                         if (isMine)
-                                                          const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                                          const PopupMenuItem(
+                                                              value: 'edit',
+                                                              child: Text(
+                                                                  'Düzenle')),
                                                         if (isMine)
-                                                          const PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                                          const PopupMenuItem(
+                                                              value: 'delete',
+                                                              child:
+                                                                  Text('Sil')),
                                                         if (!isMine)
-                                                          const PopupMenuItem(value: 'report', child: Text('Bildir')),
+                                                          const PopupMenuItem(
+                                                              value: 'report',
+                                                              child: Text(
+                                                                  'Bildir')),
                                                       ],
                                                     );
                                                   },
@@ -1232,7 +1297,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               decoration: const InputDecoration(
                                 hintText: 'Yorum yaz',
                                 border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
                               ),
                             )
                           : TextField(
@@ -1241,7 +1307,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               decoration: InputDecoration(
                                 hintText: 'Yanıt yaz',
                                 border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
                                 suffixIcon: IconButton(
                                   icon: const Icon(Icons.close),
                                   onPressed: () => setState(() { 
@@ -1261,7 +1328,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                           if (text.isEmpty) return;
                           final names = vm.extractMentionNames(text);
                           if (!vm.canMentionAllNames(names)) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Sadece arkadaşlarını etiketleyebilirsin.')));
                             return;
                           }
                           await vm.addComment(widget.post, text);
@@ -1271,7 +1341,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                           if (text.isEmpty) return;
                           final names = vm.extractMentionNames(text);
                           if (!vm.canMentionAllNames(names)) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sadece arkadaşlarını etiketleyebilirsin.')));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Sadece arkadaşlarını etiketleyebilirsin.')));
                             return;
                           }
                           final parentComment = Comment(id: _replyToCommentId!, postId: widget.post.id, authorId: vm.meId, content: '', createdAt: DateTime.now());
@@ -1549,20 +1622,25 @@ Future<void> _deleteComment(BuildContext context, Comment comment) async {
       title: const Text('Yorumu sil'),
       content: const Text('Bu yorumu silmek istediğine emin misin?'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç')),
+        FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sil')),
       ],
     ),
   );
   if (ok != true) return;
   await context.read<SocialViewModel>().deleteCommentById(comment.id);
-  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum silindi.')));
+  ScaffoldMessenger.of(context)
+      .showSnackBar(const SnackBar(content: Text('Yorum silindi.')));
 }
 
 Future<void> _editComment(BuildContext context, Comment comment) async {
   final vm = context.read<SocialViewModel>();
   final controller = TextEditingController(text: comment.content);
-  
+
   final updatedContent = await showDialog<String>(
     context: context,
     builder: (_) => AlertDialog(
@@ -1588,7 +1666,9 @@ Future<void> _editComment(BuildContext context, Comment comment) async {
     ),
   );
 
-  if (updatedContent != null && updatedContent.isNotEmpty && updatedContent != comment.content) {
+  if (updatedContent != null &&
+      updatedContent.isNotEmpty &&
+      updatedContent != comment.content) {
     final updatedComment = Comment(
       id: comment.id,
       postId: comment.postId,
@@ -1598,7 +1678,8 @@ Future<void> _editComment(BuildContext context, Comment comment) async {
       parentCommentId: comment.parentCommentId,
     );
     await vm.updateComment(updatedComment);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum güncellendi.')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Yorum güncellendi.')));
   }
 }
 

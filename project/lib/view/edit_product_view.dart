@@ -47,10 +47,10 @@ class _EditProductViewState extends State<EditProductView> {
   bool _busy = false;
 
   // Görsel state
-  final List<_ExistingImg> _existing = [];         // DB rows
-  final Set<String> _removedImageIds = {};         // rows to delete
-  final Set<String> _removedImageUrls = {};        // for storage key extraction
-  final List<File> _newFiles = [];                 // newly picked
+  final List<_ExistingImg> _existing = []; // DB rows
+  final Set<String> _removedImageIds = {}; // rows to delete
+  final Set<String> _removedImageUrls = {}; // for storage key extraction
+  final List<File> _newFiles = []; // newly picked
 
   // küçük bir normalizasyon helper’ı (dropdown initialValue için)
   String _norm(String s) => s.trim().toLowerCase();
@@ -197,23 +197,21 @@ class _EditProductViewState extends State<EditProductView> {
 
       final price = double.tryParse(priceStr.replaceAll(',', '.'));
       if (price == null) {
-        messenger.showSnackBar(const SnackBar(content: Text('Enter a valid price')));
+        messenger
+            .showSnackBar(const SnackBar(content: Text('Enter a valid price')));
         return;
       }
 
       // 1) Ürünü güncelle
-      await _supa
-          .from('marketplace_products')
-          .update({
-            'title': title,
-            'description': desc,
-            'category': category,
-            'price': price,
-            'currency': currency,
-            'size_value': sizeValue,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', widget.productId);
+      await _supa.from('marketplace_products').update({
+        'title': title,
+        'description': desc,
+        'category': category,
+        'price': price,
+        'currency': currency,
+        'size_value': sizeValue,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', widget.productId);
 
       // 2) Yeni görselleri yükle + row ekle
       if (_newFiles.isNotEmpty) {
@@ -312,13 +310,15 @@ class _EditProductViewState extends State<EditProductView> {
           final initCat = widget.initialCategory;
           final hasInitial =
               initCat.isNotEmpty && cats.any((c) => _norm(c) == _norm(initCat));
-          final safeInitial =
-              hasInitial ? cats.firstWhere((c) => _norm(c) == _norm(initCat)) : null;
+          final safeInitial = hasInitial
+              ? cats.firstWhere((c) => _norm(c) == _norm(initCat))
+              : null;
 
           return Scaffold(
             backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             appBar: AppBar(
-              title: const Text('Edit Product', style: TextStyle(color: Colors.white)),
+              title: const Text('Edit Product',
+                  style: TextStyle(color: Colors.white)),
               centerTitle: true,
               backgroundColor: acmBlue,
               elevation: 0,
@@ -345,7 +345,8 @@ class _EditProductViewState extends State<EditProductView> {
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
                           )
                         : const Text('Save Changes'),
                   ),
@@ -366,8 +367,9 @@ class _EditProductViewState extends State<EditProductView> {
                         name: 'title',
                         initialValue: widget.initialTitle,
                         decoration: _inputDecoration('Product Title'),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? '*Title field must be filled!' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? '*Title field must be filled!'
+                            : null,
                       ),
                       SizedBox(height: getProportionateScreenHeight(16)),
                       Row(
@@ -375,12 +377,14 @@ class _EditProductViewState extends State<EditProductView> {
                           Expanded(
                             flex: 1,
                             child: FormBuilderDropdown<String>(
-                              key: ValueKey('cat-${cats.length}-${hasInitial ? 1 : 0}'),
+                              key: ValueKey(
+                                  'cat-${cats.length}-${hasInitial ? 1 : 0}'),
                               name: 'category',
                               initialValue: safeInitial, // sadece listedeyse
                               decoration: _inputDecoration('Category'),
                               items: cats
-                                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                                  .map((c) => DropdownMenuItem(
+                                      value: c, child: Text(c)))
                                   .toList(),
                               onChanged: vm.onCategoryChanged,
                               validator: (value) {
@@ -421,16 +425,18 @@ class _EditProductViewState extends State<EditProductView> {
                               final ix = e.key;
                               final it = e.value;
                               return Padding(
-                                padding: EdgeInsets.only(right: getProportionateScreenWidth(12)),
+                                padding: EdgeInsets.only(
+                                    right: getProportionateScreenWidth(12)),
                                 child: Stack(
                                   children: [
                                     ClipRRect(
-                                      borderRadius:
-                                          BorderRadius.circular(getProportionateScreenWidth(8)),
+                                      borderRadius: BorderRadius.circular(
+                                          getProportionateScreenWidth(8)),
                                       child: Image.network(
                                         it.url,
                                         width: getProportionateScreenWidth(100),
-                                        height: getProportionateScreenWidth(100),
+                                        height:
+                                            getProportionateScreenWidth(100),
                                         fit: BoxFit.cover,
                                       ),
                                     ),
@@ -460,16 +466,18 @@ class _EditProductViewState extends State<EditProductView> {
                               final ix = e.key;
                               final file = e.value;
                               return Padding(
-                                padding: EdgeInsets.only(right: getProportionateScreenWidth(12)),
+                                padding: EdgeInsets.only(
+                                    right: getProportionateScreenWidth(12)),
                                 child: Stack(
                                   children: [
                                     ClipRRect(
-                                      borderRadius:
-                                          BorderRadius.circular(getProportionateScreenWidth(8)),
+                                      borderRadius: BorderRadius.circular(
+                                          getProportionateScreenWidth(8)),
                                       child: Image.file(
                                         file,
                                         width: getProportionateScreenWidth(100),
-                                        height: getProportionateScreenWidth(100),
+                                        height:
+                                            getProportionateScreenWidth(100),
                                         fit: BoxFit.cover,
                                       ),
                                     ),
@@ -594,7 +602,8 @@ class _EditProductViewState extends State<EditProductView> {
               LengthLimitingTextInputFormatter(10),
             ],
             validator: (value) {
-              if (value == null || value.trim().isEmpty) return '*Price must be filled!';
+              if (value == null || value.trim().isEmpty)
+                return '*Price must be filled!';
               final v = double.tryParse(value.replaceAll(',', '.'));
               if (v == null) return 'Enter a valid number';
               return null;
@@ -605,8 +614,9 @@ class _EditProductViewState extends State<EditProductView> {
           flex: 1,
           child: FormBuilderDropdown<String>(
             name: 'currency',
-            initialValue:
-                _currencies.contains(widget.initialCurrency) ? widget.initialCurrency : 'TL',
+            initialValue: _currencies.contains(widget.initialCurrency)
+                ? widget.initialCurrency
+                : 'TL',
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.only(
@@ -622,7 +632,9 @@ class _EditProductViewState extends State<EditProductView> {
                 vertical: getProportionateScreenHeight(12),
               ),
             ),
-            items: _currencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+            items: _currencies
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
           ),
         ),
       ],
@@ -632,7 +644,8 @@ class _EditProductViewState extends State<EditProductView> {
   Widget _buildSizeSection(AddItemViewModel vm) {
     final init = (widget.initialSizeValue ?? '').trim();
     final isDigits = RegExp(r'^\d+([.,]\d+)?$').hasMatch(init);
-    final isLetter = {'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'}.contains(init.toUpperCase());
+    final isLetter =
+        {'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'}.contains(init.toUpperCase());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -663,7 +676,8 @@ class _EditProductViewState extends State<EditProductView> {
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   validator: (value) {
                     if (vm.selectedSizeOption == 'NUMERIC') {
-                      if (value == null || value.isEmpty) return '*Size must be filled!';
+                      if (value == null || value.isEmpty)
+                        return '*Size must be filled!';
                     }
                     return null;
                   },
@@ -679,12 +693,13 @@ class _EditProductViewState extends State<EditProductView> {
                   name: 'letter_size',
                   initialValue: isLetter ? init.toUpperCase() : null,
                   decoration: _inputDecoration('Select Size'),
-                  items:
-                      const ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'].map((s) => DropdownMenuItem(
-                        value: s, child: Text(s))).toList(),
+                  items: const ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL']
+                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                      .toList(),
                   validator: (value) {
                     if (vm.selectedSizeOption == 'LETTER') {
-                      if (value == null || value.isEmpty) return '*Size must be selected!';
+                      if (value == null || value.isEmpty)
+                        return '*Size must be selected!';
                     }
                     return null;
                   },

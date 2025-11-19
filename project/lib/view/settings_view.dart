@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_controller.dart'; //Theme Controller
+import '../services/notification_service.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -16,9 +17,23 @@ class _SettingsViewState extends State<SettingsView> {
   bool notificationsEnabled = true;
   bool _isDark = ThemeController.instance.isDark;
   bool _busy = false;
+  bool _loadingNotifications = false;
 
   // Supabase
   final _supa = Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationState();
+  }
+
+  Future<void> _loadNotificationState() async {
+    final enabled = await NotificationService().areNotificationsEnabled();
+    if (mounted) {
+      setState(() => notificationsEnabled = enabled);
+    }
+  }
 
   // THEME
   Future<void> _toggleTheme(bool value) async {
@@ -35,42 +50,85 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  // NOTIFICATIONS (placeholder)
-  void _toggleNotifications(bool value) {
-    setState(() => notificationsEnabled = value);
-    // Bildirim entegrasyonunu burada yapacağız.
-  }
+  // NOTIFICATIONS
+  Future<void> _toggleNotifications(bool value) async {
+    setState(() => _loadingNotifications = true);
 
-Future<void> _deleteAccount() async {
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Delete Account'),
-      content: const Text(
-        'This will permanently delete your account and related data. This action cannot be undone.',
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
-      ],
-    ),
-  );
-  if (confirm != true) return;
+    try {
+      if (value) {
+        // Check if permission is granted
+        final hasPermission = await NotificationService().hasPermission();
+        if (!hasPermission) {
+          // Request permission
+          final granted = await NotificationService().requestPermissionAgain();
+          if (!granted) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Notification permission denied. Please enable it in system settings.'),
+              ),
+            );
+            setState(() => _loadingNotifications = false);
+            return;
+          }
+        }
+        await NotificationService().enableNotifications();
+      } else {
+        await NotificationService().disableNotifications();
+      }
 
-  final user = _supa.auth.currentUser;
-  if (user == null) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active user')));
-    return;
-  }
-
-  setState(() => _busy = true);
-  try {
-    // Edge Function call (uses user’s JWT automatically if signed in)
-    final resp = await _supa.functions.invoke('account-delete', body: {});
-    if (resp.status != 200) {
-      throw Exception('Function error: ${resp.data}');
+      if (mounted) {
+        setState(() {
+          notificationsEnabled = value;
+          _loadingNotifications = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error toggling notifications: $e')),
+        );
+        setState(() => _loadingNotifications = false);
+      }
     }
+  }
+
+  Future<void> _deleteAccount() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'This will permanently delete your account and related data. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final user = _supa.auth.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('No active user')));
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      // Edge Function call (uses user’s JWT automatically if signed in)
+      final resp = await _supa.functions.invoke('account-delete', body: {});
+      if (resp.status != 200) {
+        throw Exception('Function error: ${resp.data}');
+      }
 
     // Sign out locally (the auth user is already deleted server-side)
     await _supa.auth.signOut();
@@ -133,7 +191,8 @@ Future<void> _deleteAccount() async {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 16),
                         child: Column(
                           children: [
                             // THEME
@@ -146,7 +205,9 @@ Future<void> _deleteAccount() async {
                               subtitle: Text(
                                 mode == ThemeMode.system
                                     ? 'Following system'
-                                    : (mode == ThemeMode.dark ? 'Dark' : 'Light'),
+                                    : (mode == ThemeMode.dark
+                                        ? 'Dark'
+                                        : 'Light'),
                                 style: const TextStyle(fontSize: 12),
                               ),
                               trailing: Switch.adaptive(
@@ -158,7 +219,8 @@ Future<void> _deleteAccount() async {
                               alignment: Alignment.centerRight,
                               child: TextButton.icon(
                                 onPressed: _useSystemTheme,
-                                icon: const Icon(Icons.settings_suggest, size: 16),
+                                icon: const Icon(Icons.settings_suggest,
+                                    size: 16),
                                 label: const Text('Use system theme'),
                               ),
                             ),
@@ -167,20 +229,34 @@ Future<void> _deleteAccount() async {
                             ListTile(
                               leading: Icon(
                                 Icons.notifications,
-                                color: notificationsEnabled ? Colors.blue : Colors.grey,
+                                color: notificationsEnabled
+                                    ? Colors.blue
+                                    : Colors.grey,
                               ),
                               title: const Text('Notifications'),
-                              trailing: Switch.adaptive(
-                                value: notificationsEnabled,
-                                onChanged: _toggleNotifications,
+                              subtitle: const Text(
+                                'Receive push notifications',
+                                style: TextStyle(fontSize: 12),
                               ),
+                              trailing: _loadingNotifications
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : Switch.adaptive(
+                                      value: notificationsEnabled,
+                                      onChanged: _toggleNotifications,
+                                    ),
                             ),
 
                             const Divider(),
 
                             // DELETE ACCOUNT
                             ListTile(
-                              leading: const Icon(Icons.delete, color: Colors.red),
+                              leading:
+                                  const Icon(Icons.delete, color: Colors.red),
                               title: const Text('Delete Account'),
                               subtitle: const Text(
                                 'Deletes profile & avatar, then signs out',
@@ -199,7 +275,9 @@ Future<void> _deleteAccount() async {
                       'Hocam Connect by ACM v0.1',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: _isDark ? Colors.grey : Theme.of(context).primaryColorDark,
+                        color: _isDark
+                            ? Colors.grey
+                            : Theme.of(context).primaryColorDark,
                         fontSize: 16,
                       ),
                     ),
@@ -210,7 +288,9 @@ Future<void> _deleteAccount() async {
                         'Request new feature or report a bug',
                         style: TextStyle(
                           decoration: TextDecoration.underline,
-                          color: _isDark ? Colors.grey : Theme.of(context).primaryColorDark,
+                          color: _isDark
+                              ? Colors.grey
+                              : Theme.of(context).primaryColorDark,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                         ),

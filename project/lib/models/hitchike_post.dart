@@ -10,9 +10,9 @@ class HitchikePost {
   final String fromLocation;
   final String toLocation;
   final DateTime dateTime;
-  final int seats;       // 1..5
-  final int fuelShared;  // 0 or 1
-  final String? ownerName;   // resolved via join/view
+  final int seats; // 1..5
+  final int fuelShared; // 0 or 1
+  final String? ownerName; // resolved via join/view
   final String? ownerImageUrl;
   final DateTime? createdAt; // optional
 
@@ -132,7 +132,9 @@ class HitchikePost {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is HitchikePost && runtimeType == other.runtimeType && id == other.id;
+      other is HitchikePost &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
 
   @override
   int get hashCode => id.hashCode;

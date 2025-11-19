@@ -41,7 +41,8 @@ class _AddItemViewState extends State<AddItemView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    _buildSection('Basic Information',
+                    _buildSection(
+                      'Basic Information',
                       children: [
                         FormBuilderTextField(
                           name: 'title',
@@ -62,7 +63,8 @@ class _AddItemViewState extends State<AddItemView> {
                                 name: 'category',
                                 decoration: _inputDecoration('Category'),
                                 isExpanded: true,
-                                items: viewModel.categories.map((String category) {
+                                items:
+                                    viewModel.categories.map((String category) {
                                   return DropdownMenuItem(
                                     value: category,
                                     child: Text(category),
@@ -86,7 +88,8 @@ class _AddItemViewState extends State<AddItemView> {
                         ),
                       ],
                     ),
-                    _buildSection('Description',
+                    _buildSection(
+                      'Description',
                       children: [
                         FormBuilderTextField(
                           name: 'description',
@@ -97,9 +100,7 @@ class _AddItemViewState extends State<AddItemView> {
                     ),
                     if (viewModel.selectedCategory == 'Clothes')
                       _buildSizeSection(viewModel),
-
                     _buildImageSection(viewModel),
-
                     SizedBox(height: getProportionateScreenHeight(24)),
                     ElevatedButton(
                       onPressed: viewModel.isListing
@@ -108,9 +109,11 @@ class _AddItemViewState extends State<AddItemView> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: acmBlue,
                         foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: getProportionateScreenHeight(16)),
+                        padding: EdgeInsets.symmetric(
+                            vertical: getProportionateScreenHeight(16)),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(getProportionateScreenWidth(12)),
+                          borderRadius: BorderRadius.circular(
+                              getProportionateScreenWidth(12)),
                         ),
                         elevation: 4,
                       ),
@@ -125,7 +128,8 @@ class _AddItemViewState extends State<AddItemView> {
                             )
                           : const Text(
                               'List Product',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                     ),
                   ],
@@ -143,7 +147,9 @@ class _AddItemViewState extends State<AddItemView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: EdgeInsets.only(top: getProportionateScreenHeight(16), bottom: getProportionateScreenHeight(8)),
+          padding: EdgeInsets.only(
+              top: getProportionateScreenHeight(16),
+              bottom: getProportionateScreenHeight(8)),
           child: Text(
             title,
             style: TextStyle(
@@ -278,13 +284,16 @@ class _AddItemViewState extends State<AddItemView> {
         if (viewModel.selectedSizeOption == 'LETTER')
           Padding(
             padding: EdgeInsets.only(top: getProportionateScreenHeight(16)),
-            child: SizedBox( // Corrected by wrapping in a SizedBox
+            child: SizedBox(
+              // Corrected by wrapping in a SizedBox
               width: getProportionateScreenWidth(150), // Set the desired width
               child: FormBuilderDropdown<String>(
                 name: 'letter_size',
                 decoration: _inputDecoration('Select Size'),
-                isExpanded: true, // This is fine now because it's inside a SizedBox
-                items: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'].map((String size) {
+                isExpanded:
+                    true, // This is fine now because it's inside a SizedBox
+                items: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL']
+                    .map((String size) {
                   return DropdownMenuItem(
                     value: size,
                     child: Text(size),
@@ -336,18 +345,21 @@ class _AddItemViewState extends State<AddItemView> {
               ...viewModel.selectedImages.asMap().entries.map((entry) {
                 final imageFile = entry.value;
                 return Padding(
-                  padding: EdgeInsets.only(right: getProportionateScreenWidth(16)),
+                  padding:
+                      EdgeInsets.only(right: getProportionateScreenWidth(16)),
                   child: Stack(
                     children: [
                       Container(
                         width: getProportionateScreenWidth(80),
                         height: getProportionateScreenWidth(80),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(getProportionateScreenWidth(8)),
+                          borderRadius: BorderRadius.circular(
+                              getProportionateScreenWidth(8)),
                           border: Border.all(color: Colors.grey, width: 1),
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(getProportionateScreenWidth(8)),
+                          borderRadius: BorderRadius.circular(
+                              getProportionateScreenWidth(8)),
                           child: Image.file(
                             imageFile,
                             fit: BoxFit.cover,

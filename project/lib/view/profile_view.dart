@@ -56,7 +56,8 @@ class _ProfileViewState extends State<ProfileView> {
     'GPC',
     'EFL'
   ];
-  String? _selectedDepartment; // null ise hiç seçilmemiş demektir (hint görünsün)
+  String?
+      _selectedDepartment; // null ise hiç seçilmemiş demektir (hint görünsün)
 
   static const _bucket = 'profile'; // Supabase bucket to store avatars
 
@@ -115,66 +116,66 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
 // For bug metadata
-Future<Map<String, dynamic>> _collectBugMeta() async {
-  final meta = <String, dynamic>{};
+  Future<Map<String, dynamic>> _collectBugMeta() async {
+    final meta = <String, dynamic>{};
 
-  // app info
-  Map<String, dynamic> app = {
-    'name': 'Hocam Connect',
-    'version': 'unknown',
-    'build': 'unknown',
-  };
-  try {
-    final p = await PackageInfo.fromPlatform();
-    app = {'name': p.appName, 'version': p.version, 'build': p.buildNumber};
-  } catch (_) {
-    // keep defaults
-  }
-  meta['app'] = app;
-
-  // platform/device
-  final deviceInfo = DeviceInfoPlugin();
-  String platform = kIsWeb ? 'Web' : Platform.operatingSystem;
-  Map<String, dynamic> device = {'info': 'generic'};
-
-  try {
-    if (!kIsWeb && Platform.isIOS) {
-      final ios = await deviceInfo.iosInfo;
-      platform = 'iOS';
-      device = {
-        'name': ios.name,
-        'model': ios.model,
-        'machine': ios.utsname.machine,      // x86_64/arm64 on simulator
-        'systemName': ios.systemName,
-        'systemVersion': ios.systemVersion,
-        'isPhysicalDevice': ios.isPhysicalDevice,
-      };
-    } else if (!kIsWeb && Platform.isAndroid) {
-      final and = await deviceInfo.androidInfo;
-      platform = 'Android';
-      device = {
-        'brand': and.brand,
-        'model': and.model,
-        'device': and.device,
-        'version': and.version.release,
-        'sdkInt': and.version.sdkInt,
-        'isPhysicalDevice': and.isPhysicalDevice,
-      };
+    // app info
+    Map<String, dynamic> app = {
+      'name': 'Hocam Connect',
+      'version': 'unknown',
+      'build': 'unknown',
+    };
+    try {
+      final p = await PackageInfo.fromPlatform();
+      app = {'name': p.appName, 'version': p.version, 'build': p.buildNumber};
+    } catch (_) {
+      // keep defaults
     }
-  } catch (_) {/* keep generic */}
+    meta['app'] = app;
 
-  meta['platform'] = platform;
-  meta['device'] = device;
+    // platform/device
+    final deviceInfo = DeviceInfoPlugin();
+    String platform = kIsWeb ? 'Web' : Platform.operatingSystem;
+    Map<String, dynamic> device = {'info': 'generic'};
 
-  // locale + timestamp
-  try {
-    meta['locale'] = WidgetsBinding.instance.platformDispatcher.locale.toString();
-  } catch (_) {}
-  meta['ts'] = DateTime.now().toIso8601String();
+    try {
+      if (!kIsWeb && Platform.isIOS) {
+        final ios = await deviceInfo.iosInfo;
+        platform = 'iOS';
+        device = {
+          'name': ios.name,
+          'model': ios.model,
+          'machine': ios.utsname.machine, // x86_64/arm64 on simulator
+          'systemName': ios.systemName,
+          'systemVersion': ios.systemVersion,
+          'isPhysicalDevice': ios.isPhysicalDevice,
+        };
+      } else if (!kIsWeb && Platform.isAndroid) {
+        final and = await deviceInfo.androidInfo;
+        platform = 'Android';
+        device = {
+          'brand': and.brand,
+          'model': and.model,
+          'device': and.device,
+          'version': and.version.release,
+          'sdkInt': and.version.sdkInt,
+          'isPhysicalDevice': and.isPhysicalDevice,
+        };
+      }
+    } catch (_) {/* keep generic */}
 
-  return meta;
-}
+    meta['platform'] = platform;
+    meta['device'] = device;
 
+    // locale + timestamp
+    try {
+      meta['locale'] =
+          WidgetsBinding.instance.platformDispatcher.locale.toString();
+    } catch (_) {}
+    meta['ts'] = DateTime.now().toIso8601String();
+
+    return meta;
+  }
 
   Future<void> fetchProfile() async {
     final user = supa.auth.currentUser;
@@ -198,17 +199,21 @@ Future<Map<String, dynamic>> _collectBugMeta() async {
       // Get name and surname from profiles table (preferred source)
       final first = (data['name'] ?? '').toString().trim();
       final last = (data['surname'] ?? '').toString().trim();
-      
+
       // If profiles doesn't have name/surname, fallback to user metadata
       String firstName = first;
       String lastName = last;
-      
+
       if (firstName.isEmpty || lastName.isEmpty) {
         final meta = user.userMetadata ?? {};
-        firstName = firstName.isEmpty ? (meta['name'] ?? '').toString().trim() : firstName;
-        lastName = lastName.isEmpty ? (meta['surname'] ?? '').toString().trim() : lastName;
+        firstName = firstName.isEmpty
+            ? (meta['name'] ?? '').toString().trim()
+            : firstName;
+        lastName = lastName.isEmpty
+            ? (meta['surname'] ?? '').toString().trim()
+            : lastName;
       }
-      
+
       final fullName = '$firstName $lastName'.trim();
 
       final parsedDob = _parseDob(data['dob']);
@@ -217,7 +222,7 @@ Future<Map<String, dynamic>> _collectBugMeta() async {
       // Veritabanından gelen değer listedeyse onu seç, değilse null bırak (hint gözüksün)
       final normalized = dep.isEmpty ? null : dep;
       final inList = _departments.contains(normalized);
-      
+
       if (!mounted) return;
       setState(() {
         nameController.text = fullName;
@@ -234,7 +239,9 @@ Future<Map<String, dynamic>> _collectBugMeta() async {
           dobController.text = '';
         }
 
-        _selectedDepartment = inList ? normalized : normalized; // listedeyse de değilse de gösterelim; dropdown'da yoksa "Other" seçebilirsin
+        _selectedDepartment = inList
+            ? normalized
+            : normalized; // listedeyse de değilse de gösterelim; dropdown'da yoksa "Other" seçebilirsin
         profileImageUrl = (data['avatar_url'] ?? '').toString();
       });
     } on HC50Exception catch (e) {
@@ -249,13 +256,13 @@ Future<Map<String, dynamic>> _collectBugMeta() async {
   }
 
 // Report a bug
-Future<void> _reportBug() async {
-  final me = supa.auth.currentUser?.id;
-  final meta = await _collectBugMeta();
-  if (me == null) return;
+  Future<void> _reportBug() async {
+    final me = supa.auth.currentUser?.id;
+    final meta = await _collectBugMeta();
+    if (me == null) return;
 
-  String selected = _bugReasons.first;
-  _bugDetailsCtrl.clear();
+    String selected = _bugReasons.first;
+    _bugDetailsCtrl.clear();
 
   if (!context.mounted) return;
   final ok = await showDialog<bool>(
@@ -290,27 +297,31 @@ Future<void> _reportBug() async {
     ),
   );
 
-  if (ok != true) return;
+    if (ok != true) return;
 
-  try {
-    await supa.from('bug_reports').insert({
-      'reporter_id': me,
-      'screen': 'profile',
-      'reason': selected,
-      'details': _bugDetailsCtrl.text.trim().isEmpty ? null : _bugDetailsCtrl.text.trim(),
-       'meta': meta, 
-    });
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thanks! Bug reported.')));
-  } on PostgrestException catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Submit failed: ${e.message}')));
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Submit failed: $e')));
+    try {
+      await supa.from('bug_reports').insert({
+        'reporter_id': me,
+        'screen': 'profile',
+        'reason': selected,
+        'details': _bugDetailsCtrl.text.trim().isEmpty
+            ? null
+            : _bugDetailsCtrl.text.trim(),
+        'meta': meta,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Thanks! Bug reported.')));
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Submit failed: ${e.message}')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Submit failed: $e')));
+    }
   }
-}
-
 
   Future<void> _logout() async {
     final navigator = Navigator.of(context);
@@ -330,58 +341,58 @@ Future<void> _reportBug() async {
     if (user == null) return;
 
     try {
+      // Kullanıcı metin kutusuna manuel yazdıysa ve _dob null ise, kaydetmeden parse et.
+      if (_dob == null && dobController.text.trim().isNotEmpty) {
+        _dob = _parseDob(dobController.text.trim());
+      }
 
-    // Kullanıcı metin kutusuna manuel yazdıysa ve _dob null ise, kaydetmeden parse et.
-    if (_dob == null && dobController.text.trim().isNotEmpty) {
-      _dob = _parseDob(dobController.text.trim());
-    }
+      final fullName = nameController.text.trim();
+      final nameParts = fullName.split(' ');
+      final firstName = nameParts.isNotEmpty ? nameParts.first.trim() : '';
+      final lastName =
+          nameParts.length > 1 ? nameParts.sublist(1).join(' ').trim() : '';
 
-    final fullName = nameController.text.trim();
-    final nameParts = fullName.split(' ');
-    final firstName = nameParts.isNotEmpty ? nameParts.first.trim() : '';
-    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ').trim() : '';
+      // Update Auth metadata (this updates raw_user_meta_data which is displayed as Display Name)
+      final authResponse = await NetworkErrorHandler.handleNetworkCall(
+        () async {
+          return await supa.auth.updateUser(
+            UserAttributes(
+              data: {
+                'full_name': fullName,
+                'name': firstName,
+                'surname': lastName,
+              },
+            ),
+          );
+        },
+        context: 'Failed to update authentication profile',
+      );
 
-    // Update Auth metadata (this updates raw_user_meta_data which is displayed as Display Name)
-    final authResponse = await NetworkErrorHandler.handleNetworkCall(
-      () async {
-        return await supa.auth.updateUser(
-          UserAttributes(
-            data: {
-              'full_name': fullName,
-              'name': firstName,
-              'surname': lastName,
-            },
-          ),
-        );
-      },
-      context: 'Failed to update authentication profile',
-    );
-    
-    // Log for debugging
-    debugPrint('Auth update response: ${authResponse.user?.userMetadata}');
-    
-    // Force refresh the session to get updated user data
-    await supa.auth.refreshSession();
+      // Log for debugging
+      debugPrint('Auth update response: ${authResponse.user?.userMetadata}');
 
-    // Update profiles table with separate name and surname
-    final payload = <String, dynamic>{
-      'name': firstName,
-      'surname': lastName,
-      'avatar_url': profileImageUrl,
-      'department': (_selectedDepartment ?? '').trim(),
-    };
+      // Force refresh the session to get updated user data
+      await supa.auth.refreshSession();
 
-    // _dob yoksa DB’deki dob’u ezme
-    final dobIso = _fmtDateISO(_dob);
-    if (dobIso != null) payload['dob'] = dobIso;
+      // Update profiles table with separate name and surname
+      final payload = <String, dynamic>{
+        'name': firstName,
+        'surname': lastName,
+        'avatar_url': profileImageUrl,
+        'department': (_selectedDepartment ?? '').trim(),
+      };
 
-    await NetworkErrorHandler.handleNetworkCall(
-      () => supa.from('profiles').update(payload).eq('id', user.id),
-      context: 'Failed to update profile information',
-    );
+      // _dob yoksa DB’deki dob’u ezme
+      final dobIso = _fmtDateISO(_dob);
+      if (dobIso != null) payload['dob'] = dobIso;
 
-    if (!mounted) return;
-    setState(() => isEditing = false);
+      await NetworkErrorHandler.handleNetworkCall(
+        () => supa.from('profiles').update(payload).eq('id', user.id),
+        context: 'Failed to update profile information',
+      );
+
+      if (!mounted) return;
+      setState(() => isEditing = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile updated')),
@@ -422,7 +433,8 @@ Future<void> _reportBug() async {
             bytes,
             fileOptions: const FileOptions(
               upsert: true, // requires UPDATE policy if key already exists
-              contentType: 'image/jpeg', // isterseniz contentType değişkenini kullanın
+              contentType:
+                  'image/jpeg', // isterseniz contentType değişkenini kullanın
             ),
           );
 
@@ -440,7 +452,8 @@ Future<void> _reportBug() async {
       });
 
       await supa.from('profiles').update({
-        'avatar_url': urlWithTs, // (Tercihen DB'ye sadece objectPath yaz, okurken URL üret)
+        'avatar_url':
+            urlWithTs, // (Tercihen DB'ye sadece objectPath yaz, okurken URL üret)
       }).eq('id', user.id);
     } catch (e) {
       if (!mounted) return;
@@ -496,27 +509,26 @@ Future<void> _reportBug() async {
     );
 
     return Scaffold(
-     appBar: HCAppBar(
-      title: 'Profile',
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Navigator.pop(context),
-      ),
-      actions: [
-        if (isEditing)
-          IconButton(
-            icon: const Icon(Icons.save),
-            tooltip: 'Save Profile',
-            onPressed: updateProfile,
-          ),
-        IconButton(
-          icon: const Icon(Icons.logout),
-          tooltip: 'Logout',
-          onPressed: _logout,
+      appBar: HCAppBar(
+        title: 'Profile',
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
         ),
-      ],
-    ),
-
+        actions: [
+          if (isEditing)
+            IconButton(
+              icon: const Icon(Icons.save),
+              tooltip: 'Save Profile',
+              onPressed: updateProfile,
+            ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: _logout,
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -616,65 +628,68 @@ Future<void> _reportBug() async {
             ),
             const SizedBox(height: 32),
             Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.lock, size: 16, color: Colors.grey),
-              SizedBox(width: 6),
-              Text(
-                'All sensitive data is stored securely.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Çiplerin "onPressed"lerini state'e bağlayabilmek için Builder kullan:
-          Builder(
-            builder: (ctx) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ActionChip(
-                      avatar: const Icon(Icons.edit, size: 18),
-                      label: const Text('Edit Profile'),
-                      onPressed: () => setState(() => isEditing = true),
-                    ),
-                    ActionChip(
-                      avatar: const Icon(Icons.settings, size: 18),
-                      label: const Text('Settings'),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const SettingsView()),
-                        );
-                      },
-                    ),
-                  ],
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.lock, size: 16, color: Colors.grey),
+                SizedBox(width: 6),
+                Text(
+                  'All sensitive data is stored securely.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
-              );
-            },
-          ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Çiplerin "onPressed"lerini state'e bağlayabilmek için Builder kullan:
+            Builder(
+              builder: (ctx) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ActionChip(
+                        avatar: const Icon(Icons.edit, size: 18),
+                        label: const Text('Edit Profile'),
+                        onPressed: () => setState(() => isEditing = true),
+                      ),
+                      ActionChip(
+                        avatar: const Icon(Icons.settings, size: 18),
+                        label: const Text('Settings'),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const SettingsView()),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
 
-          // ⬇️ EKLE: Report a bug (tam genişlik, unobtrusive)
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.bug_report_outlined),
-                label: const Text('Report a bug'),
-                onPressed: _reportBug, // <-- yeni fonksiyon
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            // ⬇️ EKLE: Report a bug (tam genişlik, unobtrusive)
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.bug_report_outlined),
+                  label: const Text('Report a bug'),
+                  onPressed: _reportBug, // <-- yeni fonksiyon
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ),
             ),
-          ),
           ],
         ),
       ),

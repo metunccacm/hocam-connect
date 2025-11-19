@@ -54,9 +54,8 @@ class CreateHitchikeViewModel extends ChangeNotifier {
         final DateTime? d = v['date'] as DateTime?;
         final DateTime? t = v['time'] as DateTime?;
         if (d != null && t != null) {
-        dateTime = DateTime(d.year, d.month, d.day, t.hour, t.minute);
-}
-
+          dateTime = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+        }
       }
 
       final int? seats = (v['seats'] is int)

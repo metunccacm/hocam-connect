@@ -44,5 +44,3 @@ class SocialUserAdapter extends TypeAdapter<SocialUser> {
       ..write(obj.avatarUrl);
   }
 }
-
-

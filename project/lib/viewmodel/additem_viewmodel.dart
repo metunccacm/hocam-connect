@@ -74,7 +74,8 @@ class AddItemViewModel extends ChangeNotifier {
         isPickingImage = false;
         notifyListeners();
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You can upload up to 4 images.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('You can upload up to 4 images.')));
         }
         return;
       }
@@ -98,7 +99,8 @@ class AddItemViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> listProduct(BuildContext context, GlobalKey<FormBuilderState> formKey) async {
+  Future<void> listProduct(
+      BuildContext context, GlobalKey<FormBuilderState> formKey) async {
     if (isListing) return;
     setListingStatus(true);
 
@@ -118,7 +120,8 @@ class AddItemViewModel extends ChangeNotifier {
     final price = double.tryParse(priceStr);
     if (price == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Price must be numeric.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Price must be numeric.')));
       }
       setListingStatus(false);
       return;
@@ -135,7 +138,8 @@ class AddItemViewModel extends ChangeNotifier {
       }
       if ((sizeValue == null || sizeValue.isEmpty) && selectedSizeOption != 'STANDARD') {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select/enter size.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please select/enter size.')));
         }
         setListingStatus(false);
         return;
@@ -144,7 +148,8 @@ class AddItemViewModel extends ChangeNotifier {
 
     if (selectedImages.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add at least one image.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please add at least one image.')));
       }
       setListingStatus(false);
       return;
@@ -173,12 +178,14 @@ class AddItemViewModel extends ChangeNotifier {
       );
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product listed successfully.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Product listed successfully.')));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Listing failed: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Listing failed: $e')));
       }
     } finally {
       // Ensure the state is reset regardless of success or failure
@@ -186,3 +193,4 @@ class AddItemViewModel extends ChangeNotifier {
     }
   }
 }
+

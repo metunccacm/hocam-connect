@@ -18,6 +18,22 @@ project/ios/Podfile
 project/pubspec.lock
 project/devtools_options.yaml
 .vscode/settings.json
+
+# Firebase credentials and secrets
+**/google-services.json
+**/GoogleService-Info.plist
+**/service-account*.json
+**/firebase-adminsdk-*.json
+
+# Supabase Edge Function environment files
+supabase/functions/**/.env
+supabase/functions/**/.env.*
+supabase/.env
+
+# Environment files
+.env
+.env.local
+.env.*.local
 project/*.sql
 *.sql
 *.md

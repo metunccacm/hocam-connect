@@ -46,8 +46,8 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
     _dateTime = p.dateTime;
     _seats = p.seats;
     _fuelShared = p.fuelShared;
-    _driverUserId   = p.ownerId;
-    _driverName     = p.ownerName;
+    _driverUserId = p.ownerId;
+    _driverName = p.ownerName;
     _driverImageUrl = p.ownerImageUrl;
   }
 
@@ -72,16 +72,14 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
       final supa = Supabase.instance.client;
       final row = await supa
           .from('hitchike_posts_view')
-          .select(
-            'from_location,'
-            'to_location,'
-            'date_time,'
-            'seats,'
-            'fuel_shared,'
-            'owner_id,'
-            'owner_name,'
-            'owner_image_url:owner_image'
-          )
+          .select('from_location,'
+              'to_location,'
+              'date_time,'
+              'seats,'
+              'fuel_shared,'
+              'owner_id,'
+              'owner_name,'
+              'owner_image_url:owner_image')
           .eq('id', widget.post.id)
           .maybeSingle();
 
@@ -123,7 +121,8 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
       if (me == null) throw Exception('Not authenticated');
 
       if (_isMine) {
-        messenger.showSnackBar(const SnackBar(content: Text('This is your post.')));
+        messenger
+            .showSnackBar(const SnackBar(content: Text('This is your post.')));
         return;
       }
 
@@ -149,7 +148,8 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => ChatView(conversationId: convId, title: _driverName ?? 'Driver'),
+          builder: (_) =>
+              ChatView(conversationId: convId, title: _driverName ?? 'Driver'),
         ),
       );
     } catch (e) {
@@ -207,7 +207,8 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
                 disabledBackgroundColor: cs.surfaceContainerHighest,
                 disabledForegroundColor: onSurfaceVariant,
                 minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -219,7 +220,8 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
         backgroundColor: cs.surface,
         onRefresh: _reloadFromServer,
         child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics()),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           children: [
             // From / To
@@ -279,11 +281,13 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.local_gas_station, size: 18, color: onSurfaceVariant),
+                  Icon(Icons.local_gas_station,
+                      size: 18, color: onSurfaceVariant),
                   const SizedBox(width: 8),
                   Text(
                     'Fuel will be shared',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+                    style:
+                        theme.textTheme.bodyMedium?.copyWith(color: onSurface),
                   ),
                 ],
               ),
@@ -329,7 +333,8 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
                 ),
                 child: Text(
                   'This post has expired.',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: cs.onErrorContainer),
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: cs.onErrorContainer),
                 ),
               ),
             ],
@@ -343,7 +348,8 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
               ),
               child: Text(
                 '• This system is not designed for and cannot be used as a money earning system!',
-                style: theme.textTheme.bodyMedium?.copyWith(color: cs.onErrorContainer),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: cs.onErrorContainer),
               ),
             ),
           ],

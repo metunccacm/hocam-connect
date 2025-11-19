@@ -27,9 +27,9 @@ class NetworkErrorHandler {
   /// Check if an error is network-related
   static bool isNetworkError(dynamic error) {
     if (error is HC50Exception) return true;
-    
+
     final errorString = error.toString().toLowerCase();
-    
+
     // Common network error patterns
     return errorString.contains('socketexception') ||
         errorString.contains('failed host lookup') ||
@@ -108,7 +108,8 @@ class NetworkErrorHandler {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -128,7 +129,8 @@ class NetworkErrorHandler {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.red.shade700),
+                  Icon(Icons.info_outline,
+                      size: 16, color: Colors.red.shade700),
                   const SizedBox(width: 8),
                   Text(
                     'Error Code: HC-50',
@@ -237,7 +239,7 @@ class NetworkErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     if (compact) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -306,7 +308,8 @@ class NetworkErrorView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              message ?? 'Unable to connect to the server.\nPlease check your internet connection.',
+              message ??
+                  'Unable to connect to the server.\nPlease check your internet connection.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: Colors.black54,
               ),

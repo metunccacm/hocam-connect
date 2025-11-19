@@ -13,16 +13,25 @@ class ThemeController extends ChangeNotifier {
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     switch (prefs.getString(_key)) {
-      case 'light': _mode = ThemeMode.light; break;
-      case 'dark':  _mode = ThemeMode.dark;  break;
-      default:      _mode = ThemeMode.system;
+      case 'light':
+        _mode = ThemeMode.light;
+        break;
+      case 'dark':
+        _mode = ThemeMode.dark;
+        break;
+      default:
+        _mode = ThemeMode.system;
     }
     notifyListeners();
   }
 
   Future<void> _persist(ThemeMode m) async {
     final prefs = await SharedPreferences.getInstance();
-    final v = m == ThemeMode.light ? 'light' : m == ThemeMode.dark ? 'dark' : 'system';
+    final v = m == ThemeMode.light
+        ? 'light'
+        : m == ThemeMode.dark
+            ? 'dark'
+            : 'system';
     await prefs.setString(_key, v);
   }
 
@@ -32,6 +41,7 @@ class ThemeController extends ChangeNotifier {
     await _persist(m);
   }
 
-  Future<void> toggleDark(bool on) => set(on ? ThemeMode.dark : ThemeMode.light);
+  Future<void> toggleDark(bool on) =>
+      set(on ? ThemeMode.dark : ThemeMode.light);
   Future<void> useSystem() => set(ThemeMode.system);
 }

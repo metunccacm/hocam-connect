@@ -6,7 +6,7 @@ class SizeConfig {
   static late double screenHeight;
   static double? defaultSize;
   static Orientation? orientation;
-  
+
   static const double referenceWidth = 414;
   static const double referenceHeight = 896;
 

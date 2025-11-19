@@ -55,8 +55,9 @@ class _CreateHitchikeViewState extends State<CreateHitchikeView> {
                 items: locations
                     .map((d) => DropdownMenuItem(value: d, child: Text(d)))
                     .toList(),
-                validator: (v) =>
-                    (v == null || v.isEmpty) ? 'Please choose the origin of the hitchike.' : null,
+                validator: (v) => (v == null || v.isEmpty)
+                    ? 'Please choose the origin of the hitchike.'
+                    : null,
               ),
             ),
             const SizedBox(height: 16),
@@ -73,8 +74,9 @@ class _CreateHitchikeViewState extends State<CreateHitchikeView> {
                 items: locations
                     .map((d) => DropdownMenuItem(value: d, child: Text(d)))
                     .toList(),
-                validator: (v) =>
-                    (v == null || v.isEmpty) ? 'Please choose the destination of the hitchike.' : null,
+                validator: (v) => (v == null || v.isEmpty)
+                    ? 'Please choose the destination of the hitchike.'
+                    : null,
               ),
             ),
             const SizedBox(height: 16),
@@ -117,8 +119,9 @@ class _CreateHitchikeViewState extends State<CreateHitchikeView> {
                     .map((n) => DropdownMenuItem(value: n, child: Text('$n')))
                     .toList(),
                 initialValue: 1,
-                validator: (v) =>
-                    (v == null || v < 1 || v > 5) ? 'Choose 1 to 5 seats.' : null,
+                validator: (v) => (v == null || v < 1 || v > 5)
+                    ? 'Choose 1 to 5 seats.'
+                    : null,
               ),
             ),
             const SizedBox(height: 8),
@@ -128,7 +131,8 @@ class _CreateHitchikeViewState extends State<CreateHitchikeView> {
               name: 'fuel_shared',
               title: Text(
                 'Need fuel support?',
-                style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurface),
+                style:
+                    theme.textTheme.bodyMedium?.copyWith(color: cs.onSurface),
               ),
               checkColor: cs.onPrimary,
               activeColor: cs.primary,
@@ -145,7 +149,8 @@ class _CreateHitchikeViewState extends State<CreateHitchikeView> {
               child: Text(
                 '• Destination and origin entries are mandatory!\n'
                 '• This system is NOT designed for and cannot be used as a money earning system!',
-                style: theme.textTheme.bodyMedium?.copyWith(color: cs.onErrorContainer),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: cs.onErrorContainer),
               ),
             ),
 
@@ -164,7 +169,8 @@ class _CreateHitchikeViewState extends State<CreateHitchikeView> {
                   disabledBackgroundColor: cs.surfaceContainerHighest,
                   disabledForegroundColor: cs.onSurfaceVariant,
                   minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: vm.isListing
                     ? const SizedBox(

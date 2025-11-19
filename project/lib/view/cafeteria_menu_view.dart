@@ -44,7 +44,8 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
     // initial load (current week)
     vm.loadCurrentWeek();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelectedChip());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _scrollToSelectedChip());
   }
 
   @override
@@ -136,7 +137,8 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
                       gradient: LinearGradient(
                         colors: [
                           colors.primary.withAlpha((0.14 * 255).round()),
-                          colors.primaryContainer.withAlpha((0.10 * 255).round()),
+                          colors.primaryContainer
+                              .withAlpha((0.10 * 255).round()),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -166,11 +168,14 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
                               scrollDirection: Axis.horizontal,
                               physics: const BouncingScrollPhysics(),
                               child: Row(
-                                children: _dayNames.asMap().entries.map((entry) {
+                                children:
+                                    _dayNames.asMap().entries.map((entry) {
                                   final int index = entry.key;
                                   final String dayName = entry.value;
-                                  final bool isSelected = _selectedDayIndex == index;
-                                  final bool isToday = index == (DateTime.now().weekday - 1);
+                                  final bool isSelected =
+                                      _selectedDayIndex == index;
+                                  final bool isToday =
+                                      index == (DateTime.now().weekday - 1);
 
                                   return Padding(
                                     padding: const EdgeInsets.only(right: 8),
@@ -180,8 +185,10 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
                                       isSelected: isSelected,
                                       isToday: isToday,
                                       onTap: () {
-                                        setState(() => _selectedDayIndex = index);
-                                        WidgetsBinding.instance.addPostFrameCallback(
+                                        setState(
+                                            () => _selectedDayIndex = index);
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback(
                                           (_) => _scrollToSelectedChip(),
                                         );
                                       },
@@ -196,10 +203,14 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
                           Align(
                             alignment: Alignment.center,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
-                                color: colors.surface.withAlpha((0.6 * 255).round()),
-                                border: Border.all(color: colors.outline.withAlpha((0.5 * 255).round())),
+                                color: colors.surface
+                                    .withAlpha((0.6 * 255).round()),
+                                border: Border.all(
+                                    color: colors.outline
+                                        .withAlpha((0.5 * 255).round())),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -239,7 +250,8 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                      const Icon(Icons.error_outline,
+                          size: 64, color: Colors.red),
                       const SizedBox(height: 16),
                       Text(
                         'Hata: ${vm.errorMessage}',
@@ -304,7 +316,8 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: colors.primary,
                     borderRadius: BorderRadius.circular(25),
@@ -328,7 +341,8 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -430,7 +444,8 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: colors.primary.withAlpha((0.3 * 255).round()),
+                            color:
+                                colors.primary.withAlpha((0.3 * 255).round()),
                             blurRadius: 4,
                             offset: const Offset(0, 1),
                           ),
@@ -649,7 +664,10 @@ class _SectionWidget extends StatelessWidget {
     if (h.contains('alakart')) return Icons.restaurant_menu;
     if (h.contains('parça')) return Icons.list_alt;
     if (h.contains('tabldot')) return Icons.dinner_dining;
-    if (h.contains('kola') || h.contains('ayran') || h.contains('su') || h.contains('soda')) {
+    if (h.contains('kola') ||
+        h.contains('ayran') ||
+        h.contains('su') ||
+        h.contains('soda')) {
       return Icons.local_drink;
     }
     return Icons.info_outline;
@@ -670,7 +688,8 @@ class _PriceRow extends StatelessWidget {
     String left = line;
     String right = '';
 
-    final priceMatch = RegExp(r'(\d{1,3}(?:\.\d{3})*,\d{2}\s*TL)$').firstMatch(line);
+    final priceMatch =
+        RegExp(r'(\d{1,3}(?:\.\d{3})*,\d{2}\s*TL)$').firstMatch(line);
     if (priceMatch != null) {
       right = priceMatch.group(0) ?? '';
       left = line.substring(0, priceMatch.start).trimRight();

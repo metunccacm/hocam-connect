@@ -40,6 +40,7 @@ class PostAdapter extends TypeAdapter<Post> {
       createdAt: fields[4] as DateTime,
     );
   }
+
   @override
   void write(BinaryWriter writer, Post obj) {
     writer
@@ -101,6 +102,7 @@ class CommentAdapter extends TypeAdapter<Comment> {
       parentCommentId: fields[5] as String?,
     );
   }
+
   @override
   void write(BinaryWriter writer, Comment obj) {
     writer
@@ -156,6 +158,7 @@ class LikeAdapter extends TypeAdapter<Like> {
       createdAt: fields[3] as DateTime,
     );
   }
+
   @override
   void write(BinaryWriter writer, Like obj) {
     writer
@@ -221,6 +224,7 @@ class FriendshipAdapter extends TypeAdapter<Friendship> {
       createdAt: fields[4] as DateTime,
     );
   }
+
   @override
   void write(BinaryWriter writer, Friendship obj) {
     writer
@@ -324,5 +328,3 @@ class CommentLikeAdapter extends TypeAdapter<CommentLike> {
       ..write(obj.createdAt);
   }
 }
-
-

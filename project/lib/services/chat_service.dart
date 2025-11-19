@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../e2ee/e2ee_key_manager.dart';
+import 'notification_repository.dart';
 
 final supa = Supabase.instance.client;
 final _uuid = const Uuid();
@@ -33,7 +34,8 @@ class UserDisplay {
   final String userId;
   final String displayName;
   final String? avatarUrl;
-  UserDisplay({required this.userId, required this.displayName, this.avatarUrl});
+  UserDisplay(
+      {required this.userId, required this.displayName, this.avatarUrl});
   factory UserDisplay.fromJson(Map<String, dynamic> m) => UserDisplay(
         userId: m['user_id'] as String,
         displayName: (m['display_name'] as String?) ?? '',
@@ -45,7 +47,8 @@ class BlockStatus {
   final bool isDm;
   final bool iBlocked;
   final bool blockedMe;
-  BlockStatus({required this.isDm, required this.iBlocked, required this.blockedMe});
+  BlockStatus(
+      {required this.isDm, required this.iBlocked, required this.blockedMe});
 }
 
 class ChatService {
@@ -58,8 +61,6 @@ class ChatService {
   Future<void> ensureMyLongTermKey() async {
     await _keys.loadKeyPairFromStorage();
   }
-
-  
 
   // ---------- CEK BOOTSTRAP / GET ----------
 
@@ -116,8 +117,8 @@ class ChatService {
         .from('participants')
         .select(
             'cek_wrapped_ciphertext_base64, cek_wrapped_nonce_base64, cek_wrapped_ephemeral_pub_base64')
-        .match({'conversation_id': conversationId, 'user_id': me})
-        .maybeSingle();
+        .match(
+            {'conversation_id': conversationId, 'user_id': me}).maybeSingle();
 
     Future<List<int>> unwrapFn(Map<String, dynamic> r) async {
       final k = await _keys.unwrapCekForMe(
@@ -135,8 +136,8 @@ class ChatService {
           .from('participants')
           .select(
               'cek_wrapped_ciphertext_base64, cek_wrapped_nonce_base64, cek_wrapped_ephemeral_pub_base64')
-          .match({'conversation_id': conversationId, 'user_id': me})
-          .maybeSingle();
+          .match(
+              {'conversation_id': conversationId, 'user_id': me}).maybeSingle();
       if (row2 == null || row2['cek_wrapped_ciphertext_base64'] == null) {
         throw Exception('CEK not available for this conversation.');
       }
@@ -234,6 +235,8 @@ class ChatService {
     required String conversationId,
     required String text,
   }) async {
+    final currentUserId = supa.auth.currentUser!.id;
+    
     final cek = await getMyCek(conversationId);
     final enc = await _keys.encryptMessage(
       cekBytes32: cek,
@@ -243,7 +246,7 @@ class ChatService {
 
     await supa.from('messages').insert({
       'conversation_id': conversationId,
-      'sender_id': supa.auth.currentUser!.id,
+      'sender_id': currentUserId,
       'body_ciphertext_base64': enc['ct_b64'],
       'body_nonce_base64': enc['nonce_b64'],
       'body_mac_base64': enc['mac_b64'],
@@ -252,8 +255,54 @@ class ChatService {
 
     await supa
         .from('conversations')
-        .update({'last_message_at': DateTime.now().toIso8601String()})
-        .eq('id', conversationId);
+        .update({'last_message_at': DateTime.now().toIso8601String()}).eq(
+            'id', conversationId);
+    
+    // Send push notifications to other participants
+    try {
+      // Get other participants (excluding sender)
+      final participantsResponse = await supa
+          .from('participants')
+          .select('user_id')
+          .eq('conversation_id', conversationId)
+          .neq('user_id', currentUserId);
+      
+      final recipientIds = (participantsResponse as List)
+          .map((p) => p['user_id'] as String)
+          .toList();
+      
+      if (recipientIds.isNotEmpty) {
+        // Get sender's name for notification
+        final senderProfile = await supa
+            .from('profiles')
+            .select('name, surname')
+            .eq('id', currentUserId)
+            .maybeSingle();
+        
+        final senderName = senderProfile != null
+            ? '${senderProfile['name'] ?? ''} ${senderProfile['surname'] ?? ''}'.trim()
+            : 'Someone';
+        
+        // Send push notification via edge function (no decrypted content!)
+        // Logo is handled locally by the app's drawable resources (hc_logo)
+        await NotificationRepository.sendDirect(
+          userIds: recipientIds,
+          title: senderName,
+          body: 'Sent you a message', // Generic message for E2EE
+          data: {
+            'type': 'chat',
+            'conversation_id': conversationId,
+            'sender_id': currentUserId,
+          },
+          // No imageUrl - using local drawable instead
+        );
+        
+        print('✅ Push notification sent to ${recipientIds.length} recipient(s)');
+      }
+    } catch (e) {
+      // Don't fail the message send if notification fails
+      print('⚠️ Failed to send push notification: $e');
+    }
   }
 
   Future<String> decryptMessageForUi(ChatMessage m) async {
@@ -282,7 +331,8 @@ class ChatService {
           column: 'conversation_id',
           value: conversationId,
         ),
-        callback: (payload) => onInsert(ChatMessage.fromJson(payload.newRecord)),
+        callback: (payload) =>
+            onInsert(ChatMessage.fromJson(payload.newRecord)),
       )
       ..subscribe();
     return ch;
@@ -304,8 +354,12 @@ class ChatService {
         uid = meta['userId'] as String?;
         isTyping = meta['typing'] == true;
       } else {
-        try { uid = (meta as dynamic).userId as String?; } catch (_) {}
-        try { isTyping = (meta as dynamic).typing == true; } catch (_) {}
+        try {
+          uid = (meta as dynamic).userId as String?;
+        } catch (_) {}
+        try {
+          isTyping = (meta as dynamic).typing == true;
+        } catch (_) {}
       }
       if (isTyping && uid != null) out.add(uid);
     }
@@ -327,8 +381,12 @@ class ChatService {
           for (final item in (state as List)) {
             final dynamic d = item;
             List<dynamic>? metas;
-            try { metas = (d.metas as List?); } catch (_) {}
-            try { metas ??= (d.payload as List?); } catch (_) {}
+            try {
+              metas = (d.metas as List?);
+            } catch (_) {}
+            try {
+              metas ??= (d.payload as List?);
+            } catch (_) {}
             if (metas != null) {
               for (final meta in metas) {
                 consumeMeta(meta, typing);
@@ -383,11 +441,9 @@ class ChatService {
     }
   }
 
-  
-
   Future<BlockStatus> getBlockStatus(String conversationId) async {
-    final rows = await supa
-        .rpc('get_dm_block_status', params: {'_conversation_id': conversationId});
+    final rows = await supa.rpc('get_dm_block_status',
+        params: {'_conversation_id': conversationId});
     final data =
         (rows as List).isNotEmpty ? rows.first as Map<String, dynamic> : {};
     return BlockStatus(
@@ -398,7 +454,8 @@ class ChatService {
   }
 
   Future<void> blockInDm(String conversationId) async {
-    await supa.rpc('block_user_in_dm', params: {'_conversation_id': conversationId});
+    await supa
+        .rpc('block_user_in_dm', params: {'_conversation_id': conversationId});
   }
 
   Future<void> unblockInDm(String conversationId) async {
@@ -483,5 +540,3 @@ class ChatService {
     return ch;
   }
 }
-
-

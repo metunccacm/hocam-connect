@@ -20,7 +20,8 @@ class _AuthGateState extends State<AuthGate> {
     final auth = Supabase.instance.client.auth;
     _session = auth.currentSession;
     _sub = auth.onAuthStateChange.listen((s) {
-      debugPrint('AUTH EVENT: ${s.event} hasSession=${auth.currentSession != null}');
+      debugPrint(
+          'AUTH EVENT: ${s.event} hasSession=${auth.currentSession != null}');
       setState(() => _session = auth.currentSession);
     });
   }

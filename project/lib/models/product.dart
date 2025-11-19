@@ -7,10 +7,10 @@ class Product {
   final DateTime createdAt;
   final String category;
   final String sellerId;
-  final String sellerName;      // name + surname'dan üretilecek
-  final String sellerImageUrl;  // profiles.avatar_url
+  final String sellerName; // name + surname'dan üretilecek
+  final String sellerImageUrl; // profiles.avatar_url
   final String description;
-  final String? sizeType;       // 'LETTER' | 'NUMERIC' | 'STANDARD'
+  final String? sizeType; // 'LETTER' | 'NUMERIC' | 'STANDARD'
   final String? sizeValue;
 
   const Product({
@@ -36,7 +36,7 @@ class Product {
 
     final prof = (row['seller'] as Map<String, dynamic>? ?? {});
     final first = (prof['name'] ?? '').toString().trim();
-    final last  = (prof['surname'] ?? '').toString().trim();
+    final last = (prof['surname'] ?? '').toString().trim();
     final displayName =
         (first.isEmpty && last.isEmpty) ? 'User' : ('$first $last').trim();
 

@@ -12,7 +12,8 @@ class WelcomeView extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.symmetric(
             horizontal: getProportionateScreenWidth(24.0),
-            vertical: getProportionateScreenHeight(24.0), // daha az üst-alt padding
+            vertical:
+                getProportionateScreenHeight(24.0), // daha az üst-alt padding
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -20,7 +21,8 @@ class WelcomeView extends StatelessWidget {
               // --- ÜST BLOK: birbirine yakın ---
               Center(
                 child: SizedBox(
-                  height: getProportionateScreenHeight(550), // önceki 500 çok büyüktü
+                  height: getProportionateScreenHeight(
+                      550), // önceki 500 çok büyüktü
                   child: Image.asset(
                     'assets/images/hc_beta.png', // svg ile değişecek
                     fit: BoxFit.contain,

@@ -230,15 +230,15 @@ class _HomeViewState extends State<HomeView> {
           Color.fromARGB(255, 6, 153, 222),
           Color.fromARGB(255, 0, 133, 195)
         ],
-        onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const MarketplaceView())),
+        onTap: () => Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const MarketplaceView())),
       ),
       tile(
         icon: Icons.directions_car,
         label: 'Hitchhike',
         gradient: const [Color.fromARGB(255, 49, 255, 145), Color(0xFFF09819)],
-        onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const HitchikeView())),
+        onTap: () => Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const HitchikeView())),
       ),
       tile(
         icon: Icons.restaurant_menu_rounded,

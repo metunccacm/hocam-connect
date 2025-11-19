@@ -284,7 +284,8 @@ class SocialViewModel extends ChangeNotifier {
     final wasLiked = _likedByMe.contains(post.id);
     if (wasLiked) {
       _likedByMe.remove(post.id);
-      _likeCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
+      _likeCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30),
+          ifAbsent: () => 0);
       notifyListeners();
       try {
         await repository.unlikePost(postId: post.id, userId: meId);
@@ -301,7 +302,8 @@ class SocialViewModel extends ChangeNotifier {
         await repository.likePost(postId: post.id, userId: meId);
       } catch (_) {
         _likedByMe.remove(post.id);
-        _likeCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
+        _likeCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30),
+            ifAbsent: () => 0);
         notifyListeners();
       }
     }
@@ -322,7 +324,8 @@ class SocialViewModel extends ChangeNotifier {
     _commentCounts.update(post.id, (v) => v + 1, ifAbsent: () => 1);
     notifyListeners();
     try {
-      await repository.addComment(postId: post.id, authorId: meId, content: text);
+      await repository.addComment(
+          postId: post.id, authorId: meId, content: text);
     } catch (_) {
       _commentCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
       notifyListeners();
@@ -351,7 +354,8 @@ class SocialViewModel extends ChangeNotifier {
         content: text,
       );
     } catch (_) {
-      _commentCounts.update(parent.postId, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
+      _commentCounts.update(parent.postId, (v) => (v - 1).clamp(0, 1 << 30),
+          ifAbsent: () => 0);
       notifyListeners();
     }
   }
@@ -384,7 +388,8 @@ class SocialViewModel extends ChangeNotifier {
   void reorderPendingImages(int from, int to) {
     if (from == to) return;
     if (from < 0 || to < 0) return;
-    if (from >= pendingImagePaths.length || to >= pendingImagePaths.length) return;
+    if (from >= pendingImagePaths.length || to >= pendingImagePaths.length)
+      return;
     final tmp = pendingImagePaths[from];
     pendingImagePaths[from] = pendingImagePaths[to];
     pendingImagePaths[to] = tmp;
@@ -432,6 +437,7 @@ class SocialViewModel extends ChangeNotifier {
     }
     return n.toString();
   }
+
 
   String timeAgo(DateTime dt) {
     final now = DateTime.now();
@@ -523,8 +529,10 @@ class SocialViewModel extends ChangeNotifier {
   Future<void> updatePost() async {
     if (!isEditing || editingPostId == null) return;
 
+
     isPosting = true;
     notifyListeners();
+
 
     try {
       final existingIndex = feed.indexWhere((p) => p.id == editingPostId);
@@ -537,11 +545,13 @@ class SocialViewModel extends ChangeNotifier {
         createdAt: existing?.createdAt ?? DateTime.now(),
       );
 
+
       await repository.updatePost(post);
 
       if (existingIndex != -1) {
         feed[existingIndex] = post;
       }
+
 
       cancelEdit();
     } finally {

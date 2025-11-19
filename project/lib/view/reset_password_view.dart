@@ -24,18 +24,21 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
     super.dispose();
   }
 
-
   // Error state is derived via validators; no separate state needed.
   // Password validation
   bool _isPasswordValid(String password) {
     final hasUppercase = password.contains(RegExp(r'[A-Z]'));
     final hasLowercase = password.contains(RegExp(r'[a-z]'));
-  final hasDigit = password.contains(RegExp(r'[0-9]'));
+    final hasDigit = password.contains(RegExp(r'[0-9]'));
     final hasSpecialCharacter =
         password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
     final hasMinLength = password.length >= 8;
 
-  return hasUppercase && hasLowercase && hasDigit && hasSpecialCharacter && hasMinLength;
+    return hasUppercase &&
+        hasLowercase &&
+        hasDigit &&
+        hasSpecialCharacter &&
+        hasMinLength;
   }
 
   String? _validatePassword(String? value) {
@@ -71,7 +74,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
       await Supabase.instance.client.auth.signOut();
 
       // Navigate user back to your sign-in or root.
-  if (!mounted) return;
+      if (!mounted) return;
       Navigator.of(context).popUntil((route) => route.isFirst);
     } on AuthException catch (e) {
       if (!mounted) return;
@@ -112,7 +115,8 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
                   errorMaxLines: 3,
                   suffixIcon: IconButton(
                     onPressed: () => setState(() => _obscure1 = !_obscure1),
-                    icon: Icon(_obscure1 ? Icons.visibility : Icons.visibility_off),
+                    icon: Icon(
+                        _obscure1 ? Icons.visibility : Icons.visibility_off),
                   ),
                 ),
                 validator: _validatePassword,
@@ -129,7 +133,8 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
                   errorMaxLines: 2,
                   suffixIcon: IconButton(
                     onPressed: () => setState(() => _obscure2 = !_obscure2),
-                    icon: Icon(_obscure2 ? Icons.visibility : Icons.visibility_off),
+                    icon: Icon(
+                        _obscure2 ? Icons.visibility : Icons.visibility_off),
                   ),
                 ),
                 validator: _validateConfirm,
@@ -206,7 +211,8 @@ class _RuleRow extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+            style:
+                Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
           ),
         ),
       ],
