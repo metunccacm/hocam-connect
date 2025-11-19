@@ -29,15 +29,13 @@ class _RecoveryCodeViewState extends State<RecoveryCodeView> {
     if (!s.contains('@') || !s.contains('.')) return 'Enter a valid email';
     return null;
   }
-  
+
   String? _validateCode(String? v) {
     final s = v?.trim() ?? '';
     if (s.length != 6) return 'Enter 6 digits';
     if (!RegExp(r'^\d{6}$').hasMatch(s)) return 'Digits only';
     return null;
   }
-
-  
 
   @override
   void initState() {
@@ -58,7 +56,7 @@ class _RecoveryCodeViewState extends State<RecoveryCodeView> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _verifying = true);
     final email = _emailCtrl.text.trim();
-    final code  = _codeCtrl.text.trim();
+    final code = _codeCtrl.text.trim();
     try {
       final res = await Supabase.instance.client.auth.verifyOTP(
         email: email,
@@ -88,6 +86,7 @@ class _RecoveryCodeViewState extends State<RecoveryCodeView> {
       if (mounted) setState(() => _verifying = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

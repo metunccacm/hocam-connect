@@ -5,18 +5,15 @@ class AuthService {
 
   // Login
   Future<AuthResponse> signIn(String email, String password) async {
-    return await _client.auth.signInWithPassword(
-      email: email,
-      password: password
-      );
+    return await _client.auth
+        .signInWithPassword(email: email, password: password);
   }
+
   // Register
-  Future<AuthResponse> signUp(String email, String password, {Map<String, dynamic>? data}) async {
-    return await _client.auth.signUp(
-      email: email,
-      password: password,
-      data: data
-    );
+  Future<AuthResponse> signUp(String email, String password,
+      {Map<String, dynamic>? data}) async {
+    return await _client.auth
+        .signUp(email: email, password: password, data: data);
   }
 
   //Log out
@@ -34,6 +31,4 @@ class AuthService {
   //   final user = _client.auth.currentUser;
   //   return user?.name;
   // }
-
-
 }

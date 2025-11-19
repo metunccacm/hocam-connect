@@ -5,7 +5,8 @@ import '../services/social_repository.dart';
 class UserProfileView extends StatelessWidget {
   final String userId;
   final SocialRepository repository;
-  const UserProfileView({super.key, required this.userId, required this.repository});
+  const UserProfileView(
+      {super.key, required this.userId, required this.repository});
 
   @override
   Widget build(BuildContext context) {
@@ -31,9 +32,12 @@ class UserProfileView extends StatelessWidget {
                       : null,
                 ),
                 const SizedBox(height: 16),
-                Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(name,
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text('Kullanıcı ID: $userId', style: const TextStyle(color: Colors.grey)),
+                Text('Kullanıcı ID: $userId',
+                    style: const TextStyle(color: Colors.grey)),
               ],
             ),
           ),
@@ -42,5 +46,3 @@ class UserProfileView extends StatelessWidget {
     );
   }
 }
-
-

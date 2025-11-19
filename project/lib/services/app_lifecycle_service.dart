@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Service to track app lifecycle state and manage in-app notifications
-/// Used to determine whether to show full push notifications or in-app snackbars
+/// Service to track app lifecycle state
+/// Used to determine app state for notification handling
 class AppLifecycleService extends WidgetsBindingObserver {
   static final AppLifecycleService _instance = AppLifecycleService._internal();
   factory AppLifecycleService() => _instance;
@@ -17,8 +17,7 @@ class AppLifecycleService extends WidgetsBindingObserver {
   bool get isInForeground => _currentState == AppLifecycleState.resumed;
 
   /// Check if app is in background or terminated
-  bool get isInBackground =>
-      _currentState != AppLifecycleState.resumed;
+  bool get isInBackground => _currentState != AppLifecycleState.resumed;
 
   /// Initialize the service (call once in main.dart)
   void initialize() {
@@ -52,109 +51,4 @@ class AppLifecycleService extends WidgetsBindingObserver {
       listener(state);
     }
   }
-}
-
-/// Global context key for showing in-app notifications
-final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
-    GlobalKey<ScaffoldMessengerState>();
-
-/// Show in-app notification (WhatsApp-style snackbar)
-void showInAppNotification({
-  required String title,
-  required String message,
-  String? avatarUrl,
-  VoidCallback? onTap,
-  Duration duration = const Duration(seconds: 4),
-}) {
-  print('📢 showInAppNotification called:');
-  print('   - title: $title');
-  print('   - message: $message');
-  print('   - avatarUrl: $avatarUrl');
-  
-  final messenger = scaffoldMessengerKey.currentState;
-  
-  if (messenger == null) {
-    print('❌ ScaffoldMessenger is null - cannot show notification');
-    return;
-  }
-  
-  print('✅ ScaffoldMessenger found, showing notification...');
-
-  // Clear any existing snackbars
-  messenger.clearSnackBars();
-
-  messenger.showSnackBar(
-    SnackBar(
-      duration: duration,
-      padding: EdgeInsets.zero,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.only(top: 8, left: 8, right: 8, bottom: 600),
-      content: GestureDetector(
-        onTap: () {
-          messenger.hideCurrentSnackBar();
-          onTap?.call();
-        },
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Avatar
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: Colors.grey[300],
-                backgroundImage:
-                    avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                child: avatarUrl == null
-                    ? const Icon(Icons.person, size: 20, color: Colors.white)
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              // Message content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      message,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }

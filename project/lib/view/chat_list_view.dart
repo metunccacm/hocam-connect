@@ -47,7 +47,6 @@ class _ChatListViewState extends State<ChatListView> {
   RealtimeChannel? _blockChMine; // changes where I am blocker
   RealtimeChannel? _blockChOther; // changes where I am blocked
 
-
   final TextEditingController _chatReportCtrl = TextEditingController();
   final List<String> _reportReasons = const [
     'Harassment / Abuse',
@@ -89,7 +88,7 @@ class _ChatListViewState extends State<ChatListView> {
       _hasNetworkError = false;
       _errorMessage = null;
     });
-    
+
     try {
       // tüm konuşmalar
       List<String> convs = [];
@@ -161,76 +160,84 @@ class _ChatListViewState extends State<ChatListView> {
     return (others.length == 1) ? others.first : null; // only for DMs
   }
 
-Future<void> _reportAfterBlock(String conversationId) async {
-  final other = await _getOtherUserIdFor(conversationId);
-  if (other == null) return; // group or not resolvable -> silently skip
+  Future<void> _reportAfterBlock(String conversationId) async {
+    final other = await _getOtherUserIdFor(conversationId);
+    if (other == null) return; // group or not resolvable -> silently skip
 
-  String selected = _reportReasons.first;
-  _chatReportCtrl.clear();
+    String selected = _reportReasons.first;
+    _chatReportCtrl.clear();
 
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text('Report user'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<String>(
-            value: selected,
-            items: _reportReasons
-                .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                .toList(),
-            onChanged: (v) => selected = v ?? selected,
-            decoration: const InputDecoration(labelText: 'Reason'),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _chatReportCtrl,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Details (optional)',
-              hintText: 'Add any context (optional)…',
-              border: OutlineInputBorder(),
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Report user'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              value: selected,
+              items: _reportReasons
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .toList(),
+              onChanged: (v) => selected = v ?? selected,
+              decoration: const InputDecoration(labelText: 'Reason'),
             ),
-          ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _chatReportCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Details (optional)',
+                hintText: 'Add any context (optional)…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Submit')),
         ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit')),
-      ],
-    ),
-  );
+    );
 
-  if (ok != true) return;
+    if (ok != true) return;
 
-  final me = _supa.auth.currentUser?.id;
-  if (me == null) return;
+    final me = _supa.auth.currentUser?.id;
+    if (me == null) return;
 
-  try {
-    await _supa.from('chat_abuse_reports').insert({
-      'conversation_id': conversationId,
-      'reporter_id': me,
-      'reported_user_id': other,
-      'reason': selected,
-      'details': _chatReportCtrl.text.trim().isEmpty ? null : _chatReportCtrl.text.trim(),
-      'message_id': null,
-    });
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report submitted.')));
-  } on PostgrestException catch (e) {
-    if (e.code == '23505') {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You already reported this conversation.')));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not submit: ${e.message}')));
+    try {
+      await _supa.from('chat_abuse_reports').insert({
+        'conversation_id': conversationId,
+        'reporter_id': me,
+        'reported_user_id': other,
+        'reason': selected,
+        'details': _chatReportCtrl.text.trim().isEmpty
+            ? null
+            : _chatReportCtrl.text.trim(),
+        'message_id': null,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Report submitted.')));
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('You already reported this conversation.')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not submit: ${e.message}')));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not submit: $e')));
     }
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not submit: $e')));
   }
-}
-
-
 
   Future<void> _loadUnread() async {
     try {
@@ -351,7 +358,7 @@ Future<void> _reportAfterBlock(String conversationId) async {
             await _onNewConversationDetected(m.conversationId);
           }
           _lastTime[m.conversationId] = m.createdAt.toLocal();
-          
+
           String messageText = '(encrypted)';
           try {
             messageText = await _safeDecryptSnippet(m);
@@ -359,13 +366,13 @@ Future<void> _reportAfterBlock(String conversationId) async {
           } catch (_) {
             _snippet[m.conversationId] = messageText;
           }
-          
+
           // Update unread count for messages from others
           // In-app notifications are now handled by GlobalChatNotificationService
           if (m.senderId != me) {
             _unread[m.conversationId] = (_unread[m.conversationId] ?? 0) + 1;
           }
-          
+
           _resort(_convIds);
           if (mounted) setState(() {});
         },
@@ -636,7 +643,7 @@ Future<void> _reportAfterBlock(String conversationId) async {
       if (mounted) setState(() {});
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('User blocked')));
-          await _reportAfterBlock(id);
+      await _reportAfterBlock(id);
     } catch (e) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Block failed: $e')));

@@ -47,8 +47,7 @@ class CafeteriaMenuViewModel extends ChangeNotifier {
     this.tableName = 'cafeteria_menu',
   }) : _client = client ?? Supabase.instance.client {
     // Default pricing info shown via a "?" button in the UI
-    _pricingInfo =
-        'ALAKART SALON FİYAT LİSTESİ\n'
+    _pricingInfo = 'ALAKART SALON FİYAT LİSTESİ\n'
         '  3 ÇEŞİT                           170,00 TL\n'
         '  4 ÇEŞİT                           185,00 TL\n'
         '\n'
@@ -87,11 +86,13 @@ class CafeteriaMenuViewModel extends ChangeNotifier {
   /// Optional pricing information text to show in UI (e.g., via a "?" button)
   String? _pricingInfo;
   String? get pricingInfo => _pricingInfo;
-  bool get hasPricingInfo => (_pricingInfo != null && _pricingInfo!.trim().isNotEmpty);
+  bool get hasPricingInfo =>
+      (_pricingInfo != null && _pricingInfo!.trim().isNotEmpty);
   void setPricingInfo(String? text) {
     _pricingInfo = (text == null) ? null : text.trim();
     notifyListeners();
   }
+
   void clearPricingInfo() {
     _pricingInfo = null;
     notifyListeners();
@@ -141,7 +142,7 @@ class CafeteriaMenuViewModel extends ChangeNotifier {
         },
         context: 'Failed to load cafeteria menu',
       );
-      
+
       _byWeekday.clear();
       for (final r in rows as List) {
         final menu = CafeteriaMenu.fromMap(r as Map<String, dynamic>);

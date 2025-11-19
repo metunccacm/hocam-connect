@@ -34,7 +34,8 @@ class HCAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: titleWidget ?? (title != null ? Text(title!, style: titleStyle) : null),
+      title: titleWidget ??
+          (title != null ? Text(title!, style: titleStyle) : null),
       centerTitle: centerTitle,
       leading: leading,
       actions: actions,
@@ -45,8 +46,8 @@ class HCAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-/// Additional wrapper to scaffolds with HCAppBar. 
-/// 
+/// Additional wrapper to scaffolds with HCAppBar.
+///
 /// AppScaffold = Scaffold + HCAppBar
 ///
 /// Example:
@@ -75,7 +76,8 @@ class AppScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: HCAppBar(title: title, actions: actions, centerTitle: centerTitle),
+      appBar:
+          HCAppBar(title: title, actions: actions, centerTitle: centerTitle),
       body: body,
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,

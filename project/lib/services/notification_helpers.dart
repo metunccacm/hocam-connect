@@ -3,7 +3,6 @@ import 'notification_repository.dart';
 /// Convenience methods for sending feature-specific push notifications
 /// All notifications are sent directly (no DB storage) for privacy/security
 class NotificationHelpers {
-  
   /// Send chat message notification
   static Future<void> notifyNewMessage({
     required List<String> recipientIds,
@@ -12,7 +11,7 @@ class NotificationHelpers {
     required String conversationId,
   }) async {
     if (recipientIds.isEmpty) return;
-    
+
     await NotificationRepository.sendDirect(
       userIds: recipientIds,
       title: 'New message from $senderName',
@@ -53,7 +52,7 @@ class NotificationHelpers {
     await NotificationRepository.sendDirect(
       userId: postAuthorId,
       title: 'New comment from $commenterName',
-      body: commentPreview.length > 100 
+      body: commentPreview.length > 100
           ? '${commentPreview.substring(0, 100)}...'
           : commentPreview,
       data: {
@@ -110,7 +109,8 @@ class NotificationHelpers {
     await NotificationRepository.sendDirect(
       userId: itemOwnerId,
       title: 'New comment on your item',
-      body: '$commenterName: ${commentText.length > 80 ? '${commentText.substring(0, 80)}...' : commentText}',
+      body:
+          '$commenterName: ${commentText.length > 80 ? '${commentText.substring(0, 80)}...' : commentText}',
       data: {
         'type': 'marketplace_comment',
         'item_id': itemId,

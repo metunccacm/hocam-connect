@@ -32,17 +32,17 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
       );
 
       if (!mounted) return;
-      
+
       final email = _emailCtrl.text.trim();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reset link sent. Enter the code to continue.')),
+        const SnackBar(
+            content: Text('Reset link sent. Enter the code to continue.')),
       );
       Navigator.of(context).push(
         MaterialPageRoute(
-        builder: (_) => RecoveryCodeView(prefillEmail: email),
+          builder: (_) => RecoveryCodeView(prefillEmail: email),
         ),
       );
-
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -94,7 +94,8 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
                 ),
                 TextButton(
                   onPressed: () {
-                    final email = _emailCtrl.text.trim(); // from your forgot view
+                    final email =
+                        _emailCtrl.text.trim(); // from your forgot view
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => RecoveryCodeView(prefillEmail: email),

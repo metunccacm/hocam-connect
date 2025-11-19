@@ -40,8 +40,8 @@ class _NotificationDebugViewState extends State<NotificationDebugView> {
 
     // Check 2: Notification permission
     final hasPermission = await NotificationService().hasPermission();
-    checks.add(hasPermission 
-        ? '✅ Notification permission granted' 
+    checks.add(hasPermission
+        ? '✅ Notification permission granted'
         : '❌ Notification permission denied');
 
     // Check 3: FCM token
@@ -59,7 +59,7 @@ class _NotificationDebugViewState extends State<NotificationDebugView> {
           .select()
           .eq('user_id', user!.id)
           .maybeSingle();
-      
+
       if (response != null) {
         checks.add('✅ Token saved in database');
         checks.add('   Platform: ${response['platform']}');
@@ -110,14 +110,16 @@ class _NotificationDebugViewState extends State<NotificationDebugView> {
       );
 
       setState(() {
-        _status = '✅ Test notification sent!\nNotification ID: $notificationId\n\nWait a few seconds...';
+        _status =
+            '✅ Test notification sent!\nNotification ID: $notificationId\n\nWait a few seconds...';
       });
 
       // Wait and check status
       await Future.delayed(const Duration(seconds: 3));
-      
-      final status = await NotificationRepository.getNotificationStatus(notificationId);
-      
+
+      final status =
+          await NotificationRepository.getNotificationStatus(notificationId);
+
       if (status != null) {
         setState(() {
           _status = '✅ Notification ID: $notificationId\n'
@@ -156,27 +158,33 @@ class _NotificationDebugViewState extends State<NotificationDebugView> {
       }
 
       // Insert directly into notifications table
-      final response = await _supabase.from('notifications').insert({
-        'user_id': user.id,
-        'sender_id': user.id,
-        'title': 'Direct SQL Test',
-        'body': 'This notification was inserted directly via SQL',
-        'data': {'test': true, 'method': 'direct_sql'},
-        'notification_type': 'test',
-        'status': 'pending',
-      }).select().single();
+      final response = await _supabase
+          .from('notifications')
+          .insert({
+            'user_id': user.id,
+            'sender_id': user.id,
+            'title': 'Direct SQL Test',
+            'body': 'This notification was inserted directly via SQL',
+            'data': {'test': true, 'method': 'direct_sql'},
+            'notification_type': 'test',
+            'status': 'pending',
+          })
+          .select()
+          .single();
 
       final notificationId = response['id'];
 
       setState(() {
-        _status = '✅ Inserted into database!\nID: $notificationId\n\nWait 3 seconds...';
+        _status =
+            '✅ Inserted into database!\nID: $notificationId\n\nWait 3 seconds...';
       });
 
       // Wait for trigger to fire
       await Future.delayed(const Duration(seconds: 3));
 
-      final status = await NotificationRepository.getNotificationStatus(notificationId);
-      
+      final status =
+          await NotificationRepository.getNotificationStatus(notificationId);
+
       if (status != null) {
         setState(() {
           _status = '✅ Notification ID: $notificationId\n'
@@ -205,8 +213,9 @@ class _NotificationDebugViewState extends State<NotificationDebugView> {
     });
 
     try {
-      final notifications = await NotificationRepository.getUserNotifications(limit: 10);
-      
+      final notifications =
+          await NotificationRepository.getUserNotifications(limit: 10);
+
       if (notifications.isEmpty) {
         setState(() {
           _status = 'No notifications found';
@@ -247,7 +256,7 @@ class _NotificationDebugViewState extends State<NotificationDebugView> {
     try {
       final success = await NotificationService().requestPermissionAgain();
       setState(() {
-        _status = success 
+        _status = success
             ? '✅ Permission granted! FCM token: ${NotificationService().currentToken}'
             : '❌ Permission denied';
       });

@@ -33,7 +33,8 @@ class UserDisplay {
   final String userId;
   final String displayName;
   final String? avatarUrl;
-  UserDisplay({required this.userId, required this.displayName, this.avatarUrl});
+  UserDisplay(
+      {required this.userId, required this.displayName, this.avatarUrl});
   factory UserDisplay.fromJson(Map<String, dynamic> m) => UserDisplay(
         userId: m['user_id'] as String,
         displayName: (m['display_name'] as String?) ?? '',
@@ -45,7 +46,8 @@ class BlockStatus {
   final bool isDm;
   final bool iBlocked;
   final bool blockedMe;
-  BlockStatus({required this.isDm, required this.iBlocked, required this.blockedMe});
+  BlockStatus(
+      {required this.isDm, required this.iBlocked, required this.blockedMe});
 }
 
 class ChatService {
@@ -58,8 +60,6 @@ class ChatService {
   Future<void> ensureMyLongTermKey() async {
     await _keys.loadKeyPairFromStorage();
   }
-
-  
 
   // ---------- CEK BOOTSTRAP / GET ----------
 
@@ -116,8 +116,8 @@ class ChatService {
         .from('participants')
         .select(
             'cek_wrapped_ciphertext_base64, cek_wrapped_nonce_base64, cek_wrapped_ephemeral_pub_base64')
-        .match({'conversation_id': conversationId, 'user_id': me})
-        .maybeSingle();
+        .match(
+            {'conversation_id': conversationId, 'user_id': me}).maybeSingle();
 
     Future<List<int>> unwrapFn(Map<String, dynamic> r) async {
       final k = await _keys.unwrapCekForMe(
@@ -135,8 +135,8 @@ class ChatService {
           .from('participants')
           .select(
               'cek_wrapped_ciphertext_base64, cek_wrapped_nonce_base64, cek_wrapped_ephemeral_pub_base64')
-          .match({'conversation_id': conversationId, 'user_id': me})
-          .maybeSingle();
+          .match(
+              {'conversation_id': conversationId, 'user_id': me}).maybeSingle();
       if (row2 == null || row2['cek_wrapped_ciphertext_base64'] == null) {
         throw Exception('CEK not available for this conversation.');
       }
@@ -252,8 +252,8 @@ class ChatService {
 
     await supa
         .from('conversations')
-        .update({'last_message_at': DateTime.now().toIso8601String()})
-        .eq('id', conversationId);
+        .update({'last_message_at': DateTime.now().toIso8601String()}).eq(
+            'id', conversationId);
   }
 
   Future<String> decryptMessageForUi(ChatMessage m) async {
@@ -282,7 +282,8 @@ class ChatService {
           column: 'conversation_id',
           value: conversationId,
         ),
-        callback: (payload) => onInsert(ChatMessage.fromJson(payload.newRecord)),
+        callback: (payload) =>
+            onInsert(ChatMessage.fromJson(payload.newRecord)),
       )
       ..subscribe();
     return ch;
@@ -304,8 +305,12 @@ class ChatService {
         uid = meta['userId'] as String?;
         isTyping = meta['typing'] == true;
       } else {
-        try { uid = (meta as dynamic).userId as String?; } catch (_) {}
-        try { isTyping = (meta as dynamic).typing == true; } catch (_) {}
+        try {
+          uid = (meta as dynamic).userId as String?;
+        } catch (_) {}
+        try {
+          isTyping = (meta as dynamic).typing == true;
+        } catch (_) {}
       }
       if (isTyping && uid != null) out.add(uid);
     }
@@ -327,8 +332,12 @@ class ChatService {
           for (final item in (state as List)) {
             final dynamic d = item;
             List<dynamic>? metas;
-            try { metas = (d.metas as List?); } catch (_) {}
-            try { metas ??= (d.payload as List?); } catch (_) {}
+            try {
+              metas = (d.metas as List?);
+            } catch (_) {}
+            try {
+              metas ??= (d.payload as List?);
+            } catch (_) {}
             if (metas != null) {
               for (final meta in metas) {
                 _consumeMeta(meta, typing);
@@ -382,11 +391,9 @@ class ChatService {
     }
   }
 
-  
-
   Future<BlockStatus> getBlockStatus(String conversationId) async {
-    final rows = await supa
-        .rpc('get_dm_block_status', params: {'_conversation_id': conversationId});
+    final rows = await supa.rpc('get_dm_block_status',
+        params: {'_conversation_id': conversationId});
     final data =
         (rows as List).isNotEmpty ? rows.first as Map<String, dynamic> : {};
     return BlockStatus(
@@ -397,7 +404,8 @@ class ChatService {
   }
 
   Future<void> blockInDm(String conversationId) async {
-    await supa.rpc('block_user_in_dm', params: {'_conversation_id': conversationId});
+    await supa
+        .rpc('block_user_in_dm', params: {'_conversation_id': conversationId});
   }
 
   Future<void> unblockInDm(String conversationId) async {
@@ -482,5 +490,3 @@ class ChatService {
     return ch;
   }
 }
-
-

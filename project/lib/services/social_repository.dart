@@ -10,23 +10,36 @@ abstract class SocialRepository {
   Future<List<SocialUser>> getUsersByIds(List<String> userIds);
   Future<List<Post>> listExplore();
   Future<List<Post>> listFriendsFeed(String meId);
-  Future<Post> createPost({required String authorId, required String content, required List<String> imagePaths});
+  Future<Post> createPost(
+      {required String authorId,
+      required String content,
+      required List<String> imagePaths});
   Future<void> updatePost(Post post);
   Future<void> deletePost(String postId);
   Future<void> deleteComment(String commentId);
   Future<void> likePost({required String postId, required String userId});
   Future<void> unlikePost({required String postId, required String userId});
   Future<List<Like>> getLikes(String postId);
-  Future<Comment> addComment({required String postId, required String authorId, required String content});
+  Future<Comment> addComment(
+      {required String postId,
+      required String authorId,
+      required String content});
   Future<List<Comment>> getComments(String postId);
-  Future<Comment> addReply({required String postId, required String parentCommentId, required String authorId, required String content});
+  Future<Comment> addReply(
+      {required String postId,
+      required String parentCommentId,
+      required String authorId,
+      required String content});
   Future<List<Comment>> getReplies(String parentCommentId);
   Future<List<SocialUser>> suggestUsers(String query);
-  Future<void> sendFriendRequest({required String fromUserId, required String toUserId});
-  Future<void> respondFriendRequest({required String requestId, required bool accept});
+  Future<void> sendFriendRequest(
+      {required String fromUserId, required String toUserId});
+  Future<void> respondFriendRequest(
+      {required String requestId, required bool accept});
   Future<List<String>> listFriendIds(String meId);
   Future<void> likeComment({required String commentId, required String userId});
-  Future<void> unlikeComment({required String commentId, required String userId});
+  Future<void> unlikeComment(
+      {required String commentId, required String userId});
   Future<List<CommentLike>> getCommentLikes(String commentId);
   Future<void> updateComment(Comment comment);
   Future<void> clearAllData();
@@ -83,7 +96,10 @@ class LocalHiveSocialRepository implements SocialRepository {
   }
 
   @override
-  Future<Post> createPost({required String authorId, required String content, required List<String> imagePaths}) async {
+  Future<Post> createPost(
+      {required String authorId,
+      required String content,
+      required List<String> imagePaths}) async {
     final id = _uuid.v4();
     final post = Post(
       id: id,
@@ -119,29 +135,38 @@ class LocalHiveSocialRepository implements SocialRepository {
   Future<void> deleteComment(String commentId) async {
     await _comments.delete(commentId);
     // Also delete related comment likes
-    final commentLikes = _commentLikes.values.where((l) => l.commentId == commentId).toList();
+    final commentLikes =
+        _commentLikes.values.where((l) => l.commentId == commentId).toList();
     for (final like in commentLikes) {
       await _commentLikes.delete(like.id);
     }
   }
 
   @override
-  Future<void> likePost({required String postId, required String userId}) async {
+  Future<void> likePost(
+      {required String postId, required String userId}) async {
     final existing = _likes.values.firstWhere(
       (l) => l.postId == postId && l.userId == userId,
-      orElse: () => Like(id: '', postId: '', userId: '', createdAt: DateTime(0)),
+      orElse: () =>
+          Like(id: '', postId: '', userId: '', createdAt: DateTime(0)),
     );
     if (existing.id.isNotEmpty) return; // already liked
 
-    final like = Like(id: _uuid.v4(), postId: postId, userId: userId, createdAt: DateTime.now());
+    final like = Like(
+        id: _uuid.v4(),
+        postId: postId,
+        userId: userId,
+        createdAt: DateTime.now());
     await _likes.put(like.id, like);
   }
 
   @override
-  Future<void> unlikePost({required String postId, required String userId}) async {
+  Future<void> unlikePost(
+      {required String postId, required String userId}) async {
     final toRemove = _likes.values.firstWhere(
       (l) => l.postId == postId && l.userId == userId,
-      orElse: () => Like(id: '', postId: '', userId: '', createdAt: DateTime(0)),
+      orElse: () =>
+          Like(id: '', postId: '', userId: '', createdAt: DateTime(0)),
     );
     if (toRemove.id.isEmpty) return;
     await _likes.delete(toRemove.id);
@@ -153,7 +178,10 @@ class LocalHiveSocialRepository implements SocialRepository {
   }
 
   @override
-  Future<Comment> addComment({required String postId, required String authorId, required String content}) async {
+  Future<Comment> addComment(
+      {required String postId,
+      required String authorId,
+      required String content}) async {
     final c = Comment(
       id: _uuid.v4(),
       postId: postId,
@@ -167,13 +195,19 @@ class LocalHiveSocialRepository implements SocialRepository {
 
   @override
   Future<List<Comment>> getComments(String postId) async {
-    final items = _comments.values.where((c) => c.postId == postId && c.parentCommentId == null).toList()
+    final items = _comments.values
+        .where((c) => c.postId == postId && c.parentCommentId == null)
+        .toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return items;
   }
 
   @override
-  Future<Comment> addReply({required String postId, required String parentCommentId, required String authorId, required String content}) async {
+  Future<Comment> addReply(
+      {required String postId,
+      required String parentCommentId,
+      required String authorId,
+      required String content}) async {
     final c = Comment(
       id: _uuid.v4(),
       postId: postId,
@@ -188,7 +222,9 @@ class LocalHiveSocialRepository implements SocialRepository {
 
   @override
   Future<List<Comment>> getReplies(String parentCommentId) async {
-    final items = _comments.values.where((c) => c.parentCommentId == parentCommentId).toList()
+    final items = _comments.values
+        .where((c) => c.parentCommentId == parentCommentId)
+        .toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return items;
   }
@@ -196,15 +232,25 @@ class LocalHiveSocialRepository implements SocialRepository {
   @override
   Future<List<SocialUser>> suggestUsers(String query) async {
     final q = query.toLowerCase();
-    return _users.values.where((u) => u.displayName.toLowerCase().contains(q)).take(10).toList();
+    return _users.values
+        .where((u) => u.displayName.toLowerCase().contains(q))
+        .take(10)
+        .toList();
   }
 
   @override
-  Future<void> sendFriendRequest({required String fromUserId, required String toUserId}) async {
+  Future<void> sendFriendRequest(
+      {required String fromUserId, required String toUserId}) async {
     final already = _friendships.values.firstWhere(
-      (f) => (f.requesterId == fromUserId && f.addresseeId == toUserId) ||
-             (f.requesterId == toUserId && f.addresseeId == fromUserId),
-      orElse: () => Friendship(id: '', requesterId: '', addresseeId: '', status: FriendshipStatus.pending, createdAt: DateTime(0)),
+      (f) =>
+          (f.requesterId == fromUserId && f.addresseeId == toUserId) ||
+          (f.requesterId == toUserId && f.addresseeId == fromUserId),
+      orElse: () => Friendship(
+          id: '',
+          requesterId: '',
+          addresseeId: '',
+          status: FriendshipStatus.pending,
+          createdAt: DateTime(0)),
     );
     if (already.id.isNotEmpty) return; // exists
 
@@ -219,7 +265,8 @@ class LocalHiveSocialRepository implements SocialRepository {
   }
 
   @override
-  Future<void> respondFriendRequest({required String requestId, required bool accept}) async {
+  Future<void> respondFriendRequest(
+      {required String requestId, required bool accept}) async {
     final req = _friendships.get(requestId);
     if (req == null) return;
     final updated = Friendship(
@@ -234,7 +281,8 @@ class LocalHiveSocialRepository implements SocialRepository {
 
   @override
   Future<List<String>> listFriendIds(String meId) async {
-    final accepted = _friendships.values.where((f) => f.status == FriendshipStatus.accepted);
+    final accepted =
+        _friendships.values.where((f) => f.status == FriendshipStatus.accepted);
     final ids = <String>[];
     for (final f in accepted) {
       if (f.requesterId == meId) ids.add(f.addresseeId);
@@ -244,13 +292,15 @@ class LocalHiveSocialRepository implements SocialRepository {
   }
 
   @override
-  Future<void> likeComment({required String commentId, required String userId}) async {
+  Future<void> likeComment(
+      {required String commentId, required String userId}) async {
     final existing = _commentLikes.values.firstWhere(
       (l) => l.commentId == commentId && l.userId == userId,
-      orElse: () => CommentLike(id: '', commentId: '', userId: '', createdAt: DateTime.now()),
+      orElse: () => CommentLike(
+          id: '', commentId: '', userId: '', createdAt: DateTime.now()),
     );
     if (existing.id.isNotEmpty) return; // already liked
-    
+
     final like = CommentLike(
       id: _uuid.v4(),
       commentId: commentId,
@@ -261,10 +311,12 @@ class LocalHiveSocialRepository implements SocialRepository {
   }
 
   @override
-  Future<void> unlikeComment({required String commentId, required String userId}) async {
+  Future<void> unlikeComment(
+      {required String commentId, required String userId}) async {
     final existing = _commentLikes.values.firstWhere(
       (l) => l.commentId == commentId && l.userId == userId,
-      orElse: () => CommentLike(id: '', commentId: '', userId: '', createdAt: DateTime.now()),
+      orElse: () => CommentLike(
+          id: '', commentId: '', userId: '', createdAt: DateTime.now()),
     );
     if (existing.id.isEmpty) return; // not liked
     await _commentLikes.delete(existing.id);
@@ -289,5 +341,3 @@ class LocalHiveSocialRepository implements SocialRepository {
     await _friendships.clear();
   }
 }
-
-

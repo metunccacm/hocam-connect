@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
@@ -10,7 +10,7 @@ class ConnectivityGate extends StatefulWidget {
     super.key,
     required this.child,
   });
-  
+
   @override
   State<ConnectivityGate> createState() => _ConnectivityGateState();
 }
@@ -77,7 +77,8 @@ class _ConnectivityGateState extends State<ConnectivityGate> {
                 elevation: 4,
                 color: Colors.transparent,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.orange.shade700,
                     boxShadow: [
@@ -105,7 +106,8 @@ class _ConnectivityGateState extends State<ConnectivityGate> {
                         onPressed: _checkConnectionSilently,
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
                         ),
                         child: const Text('Retry'),
                       ),

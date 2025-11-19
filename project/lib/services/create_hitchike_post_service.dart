@@ -37,32 +37,29 @@ class HitchikeService {
   }
 
   /// Optional: returns only non-expired rides
-Future<List<Map<String, dynamic>>> fetchActivePosts() async {
-  try {
-    final rows = await _supa
-        .from('hitchike_posts_view')
-        .select(
-          'id,owner_id,owner_name,owner_image_url:owner_image,'
-          'from_location,to_location,date_time,seats,fuel_shared,created_at'
-        )
-        .order('date_time', ascending: true);
-    return (rows as List).cast<Map<String, dynamic>>();
-  } on PostgrestException catch (e) {
-    // owner_image kolonu view’da yoksa dar bir seçimle tekrar dene
-    if (e.message.contains('owner_image') || e.code == '42703' || e.code == 'PGRST100') {
+  Future<List<Map<String, dynamic>>> fetchActivePosts() async {
+    try {
       final rows = await _supa
           .from('hitchike_posts_view')
-          .select(
-            'id,owner_id,owner_name,'
-            'from_location,to_location,date_time,seats,fuel_shared,created_at'
-          )
+          .select('id,owner_id,owner_name,owner_image_url:owner_image,'
+              'from_location,to_location,date_time,seats,fuel_shared,created_at')
           .order('date_time', ascending: true);
       return (rows as List).cast<Map<String, dynamic>>();
+    } on PostgrestException catch (e) {
+      // owner_image kolonu view’da yoksa dar bir seçimle tekrar dene
+      if (e.message.contains('owner_image') ||
+          e.code == '42703' ||
+          e.code == 'PGRST100') {
+        final rows = await _supa
+            .from('hitchike_posts_view')
+            .select('id,owner_id,owner_name,'
+                'from_location,to_location,date_time,seats,fuel_shared,created_at')
+            .order('date_time', ascending: true);
+        return (rows as List).cast<Map<String, dynamic>>();
+      }
+      rethrow;
     }
-    rethrow;
   }
-}
-
 
   /// Optional client-side cleanup fallback (in case cron is delayed)
   Future<int> pruneExpired() async {
@@ -79,4 +76,3 @@ Future<List<Map<String, dynamic>>> fetchActivePosts() async {
     await _supa.from('hitchike_posts').delete().eq('id', id);
   }
 }
-

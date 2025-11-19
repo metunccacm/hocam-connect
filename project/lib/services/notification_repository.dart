@@ -1,8 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Helper class for sending push notifications
-/// 
-/// IMPORTANT: 
+///
+/// IMPORTANT:
 /// - Use sendBroadcast() for system announcements to all users (stores in DB)
 /// - Use sendDirect() for private notifications (chat, social, etc.) - NO database storage
 /// - notifications table is ONLY for broadcasts/announcements for security/privacy
@@ -38,9 +38,9 @@ class NotificationRepository {
         if (data != null) 'data': data,
         if (imageUrl != null) 'imageUrl': imageUrl,
       };
-      
+
       print('📤 Calling Edge Function with body: $requestBody');
-      
+
       final response = await _supabase.functions.invoke(
         'push-notification',
         body: requestBody,
@@ -176,19 +176,16 @@ class NotificationRepository {
     String? notificationType,
   }) async {
     try {
-      var queryBuilder = _supabase
-          .from('notifications')
-          .select()
-          .or('user_id.eq.${_supabase.auth.currentUser!.id},sender_id.eq.${_supabase.auth.currentUser!.id}');
+      var queryBuilder = _supabase.from('notifications').select().or(
+          'user_id.eq.${_supabase.auth.currentUser!.id},sender_id.eq.${_supabase.auth.currentUser!.id}');
 
       if (notificationType != null) {
         queryBuilder = queryBuilder.eq('notification_type', notificationType);
       }
 
-      final response = await queryBuilder
-          .order('created_at', ascending: false)
-          .limit(limit);
-          
+      final response =
+          await queryBuilder.order('created_at', ascending: false).limit(limit);
+
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       print('Error fetching notifications: $e');
@@ -197,7 +194,8 @@ class NotificationRepository {
   }
 
   /// Get notification status
-  static Future<Map<String, dynamic>?> getNotificationStatus(String notificationId) async {
+  static Future<Map<String, dynamic>?> getNotificationStatus(
+      String notificationId) async {
     try {
       final response = await _supabase
           .from('notifications')
@@ -265,7 +263,9 @@ class NotificationRepository {
     return await sendToUser(
       userId: postAuthorId,
       title: 'New comment from $commenterName',
-      body: commentText.length > 100 ? '${commentText.substring(0, 100)}...' : commentText,
+      body: commentText.length > 100
+          ? '${commentText.substring(0, 100)}...'
+          : commentText,
       data: {
         'type': 'social_comment',
         'post_id': postId,
@@ -326,7 +326,8 @@ class NotificationRepository {
     return await sendToUser(
       userId: itemOwnerId,
       title: 'New comment on your item',
-      body: '$commenterName: ${commentText.length > 80 ? '${commentText.substring(0, 80)}...' : commentText}',
+      body:
+          '$commenterName: ${commentText.length > 80 ? '${commentText.substring(0, 80)}...' : commentText}',
       data: {
         'type': 'marketplace_comment',
         'item_id': itemId,

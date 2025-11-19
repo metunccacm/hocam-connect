@@ -50,18 +50,22 @@ class GpaViewModel extends ChangeNotifier {
       );
 
       if (rows.isEmpty) {
-        _semesters = [SemesterModel(courses: [Course.empty()])];
+        _semesters = [
+          SemesterModel(courses: [Course.empty()])
+        ];
         _clearError();
       } else {
         final row = rows.first;
         final record = row['record'];
-        final Map<String, dynamic> recordMap =
-            (record is String) ? jsonDecode(record) as Map<String, dynamic>
-                               : (record as Map<String, dynamic>? ?? <String, dynamic>{});
+        final Map<String, dynamic> recordMap = (record is String)
+            ? jsonDecode(record) as Map<String, dynamic>
+            : (record as Map<String, dynamic>? ?? <String, dynamic>{});
         _semesters = _semestersFromRecord(recordMap);
 
         if (_semesters.isEmpty) {
-          _semesters = [SemesterModel(courses: [Course.empty()])];
+          _semesters = [
+            SemesterModel(courses: [Course.empty()])
+          ];
         } else {
           for (final s in _semesters) {
             if (s.courses.isEmpty) s.courses.add(Course.empty());
@@ -164,7 +168,8 @@ class GpaViewModel extends ChangeNotifier {
       }
 
       // Debug: print what we're searching for
-      debugPrint('GPA Sync: Searching for department="$department" (length: ${department.length})');
+      debugPrint(
+          'GPA Sync: Searching for department="$department" (length: ${department.length})');
 
       // 2. Fetch department courses filtered by department (case-insensitive)
       final coursesData = await _client
@@ -183,22 +188,25 @@ class GpaViewModel extends ChangeNotifier {
               .from('department_courses')
               .select('department')
               .limit(10);
-          
+
           debugPrint('GPA Sync: Total rows in sample: ${allCourses.length}');
-          
+
           if (allCourses.isEmpty) {
-            _setError('No courses found in department_courses table. Please contact support if this is unexpected.');
+            _setError(
+                'No courses found in department_courses table. Please contact support if this is unexpected.');
             return SyncCoursesResult.error(SyncError(
               type: SyncErrorType.noCoursesFound,
-              message: 'No courses found in department_courses table. Please contact support if this is unexpected.',
+              message:
+                  'No courses found in department_courses table. Please contact support if this is unexpected.',
               department: department,
             ));
           }
-          
+
           final uniqueDepts = <String>{};
           for (final row in allCourses) {
             final dept = (row['department'] ?? '').toString();
-            debugPrint('GPA Sync: Found department in table: "$dept" (length: ${dept.length})');
+            debugPrint(
+                'GPA Sync: Found department in table: "$dept" (length: ${dept.length})');
             if (dept.isNotEmpty) uniqueDepts.add(dept);
           }
           _setError('No courses found for department: "$department".');
@@ -208,10 +216,12 @@ class GpaViewModel extends ChangeNotifier {
             department: department,
           ));
         } catch (e) {
-          _setError('No courses found for department: "$department". Could not fetch available departments: $e');
+          _setError(
+              'No courses found for department: "$department". Could not fetch available departments: $e');
           return SyncCoursesResult.error(SyncError(
             type: SyncErrorType.noCoursesFound,
-            message: 'No courses found for department: "$department". Could not fetch available departments: $e',
+            message:
+                'No courses found for department: "$department". Could not fetch available departments: $e',
             department: department,
           ));
         }
@@ -264,55 +274,55 @@ class GpaViewModel extends ChangeNotifier {
   // ----------------- JSON helpers -----------------
 
   List<SemesterModel> _semestersFromRecord(Map<String, dynamic> record) {
-  final list = (record['semesters'] as List? ?? const []);
-  return list.asMap().entries.map((entry) {
-    final index = entry.key;
-    final s = entry.value;
-    final sMap = (s as Map<String, dynamic>);
-    final courseList = (sMap['courses'] as List? ?? const []);
-    final courses = courseList.map<Course>((c) {
-      final m = (c as Map<String, dynamic>);
-      final name = (m['name'] ?? '').toString();
-      final grade = m['grade'] as String?;
-      final credits = _asInt(m['credits']) ?? 0;
-      return Course(
-        nameCtrl: TextEditingController(text: name),
-        creditCtrl: TextEditingController(text: '$credits'),
-        grade: grade,
-        credits: credits,
+    final list = (record['semesters'] as List? ?? const []);
+    return list.asMap().entries.map((entry) {
+      final index = entry.key;
+      final s = entry.value;
+      final sMap = (s as Map<String, dynamic>);
+      final courseList = (sMap['courses'] as List? ?? const []);
+      final courses = courseList.map<Course>((c) {
+        final m = (c as Map<String, dynamic>);
+        final name = (m['name'] ?? '').toString();
+        final grade = m['grade'] as String?;
+        final credits = _asInt(m['credits']) ?? 0;
+        return Course(
+          nameCtrl: TextEditingController(text: name),
+          creditCtrl: TextEditingController(text: '$credits'),
+          grade: grade,
+          credits: credits,
+        );
+      }).toList();
+
+      // Pick semester name if present
+      final semName = (sMap['name'] ?? '').toString();
+      // Pick colorIndex if present, otherwise use the current index
+      final colorIndex = _asInt(sMap['colorIndex']) ?? index;
+
+      return SemesterModel(
+        courses: courses,
+        name: semName,
+        colorIndex: colorIndex,
       );
     }).toList();
+  }
 
-    // Pick semester name if present
-    final semName = (sMap['name'] ?? '').toString();
-    // Pick colorIndex if present, otherwise use the current index
-    final colorIndex = _asInt(sMap['colorIndex']) ?? index;
-
-    return SemesterModel(
-      courses: courses,
-      name: semName,
-      colorIndex: colorIndex,
-    );
-  }).toList();
-}
-
-Map<String, dynamic> _semestersToRecordJson(List<SemesterModel> semesters) {
-  return {
-    'semesters': semesters.map((s) {
-      return {
-        'name': s.name,
-        'colorIndex': s.colorIndex, // Persist color index
-        'courses': s.courses.map((c) {
-          return {
-            'name': c.nameCtrl.text.trim(),
-            'grade': c.grade,
-            'credits': c.credits,
-          };
-        }).toList(),
-      };
-    }).toList(),
-  };
-}
+  Map<String, dynamic> _semestersToRecordJson(List<SemesterModel> semesters) {
+    return {
+      'semesters': semesters.map((s) {
+        return {
+          'name': s.name,
+          'colorIndex': s.colorIndex, // Persist color index
+          'courses': s.courses.map((c) {
+            return {
+              'name': c.nameCtrl.text.trim(),
+              'grade': c.grade,
+              'credits': c.credits,
+            };
+          }).toList(),
+        };
+      }).toList(),
+    };
+  }
 
   // ----------------- state utils -----------------
   void _setLoading(bool v) {

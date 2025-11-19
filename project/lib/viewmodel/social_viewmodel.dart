@@ -29,7 +29,8 @@ class SocialViewModel extends ChangeNotifier {
 
   SocialViewModel({required this.repository});
 
-  String get meId => Supabase.instance.client.auth.currentUser?.id ?? 'me-local';
+  String get meId =>
+      Supabase.instance.client.auth.currentUser?.id ?? 'me-local';
 
   Future<void> load() async {
     isLoading = true;
@@ -40,13 +41,19 @@ class SocialViewModel extends ChangeNotifier {
       if (me == null) {
         // Try to use Supabase username/email prefix as default display name
         final email = Supabase.instance.client.auth.currentUser?.email;
-        final fallback = (email != null && email.isNotEmpty) ? email.split('@').first : 'Kullanıcı';
-        await repository.upsertUser(SocialUser(id: meId, displayName: fallback));
+        final fallback = (email != null && email.isNotEmpty)
+            ? email.split('@').first
+            : 'Kullanıcı';
+        await repository
+            .upsertUser(SocialUser(id: meId, displayName: fallback));
       } else if (me.displayName.isEmpty || me.displayName == 'Kullanıcı') {
         // Update existing user with proper display name if missing
         final email = Supabase.instance.client.auth.currentUser?.email;
-        final fallback = (email != null && email.isNotEmpty) ? email.split('@').first : 'Kullanıcı';
-        await repository.upsertUser(SocialUser(id: meId, displayName: fallback, avatarUrl: me.avatarUrl));
+        final fallback = (email != null && email.isNotEmpty)
+            ? email.split('@').first
+            : 'Kullanıcı';
+        await repository.upsertUser(SocialUser(
+            id: meId, displayName: fallback, avatarUrl: me.avatarUrl));
       }
 
       feed = currentTab == SocialTab.explore
@@ -76,7 +83,7 @@ class SocialViewModel extends ChangeNotifier {
           if (commentLikes.any((l) => l.userId == meId)) {
             _commentLikedByMe.add(comment.id);
           }
-          
+
           // load reply likes
           final replies = await repository.getReplies(comment.id);
           for (final reply in replies) {
@@ -89,11 +96,14 @@ class SocialViewModel extends ChangeNotifier {
         }
 
         // cache author name
-        _userNames[p.authorId] = (await repository.getUser(p.authorId))?.displayName ?? 'Kullanıcı';
+        _userNames[p.authorId] =
+            (await repository.getUser(p.authorId))?.displayName ?? 'Kullanıcı';
         // cache commenters' names (first one enough for feed)
         if (comments.isNotEmpty) {
           final first = comments.first;
-          _userNames[first.authorId] = (await repository.getUser(first.authorId))?.displayName ?? 'Kullanıcı';
+          _userNames[first.authorId] =
+              (await repository.getUser(first.authorId))?.displayName ??
+                  'Kullanıcı';
         }
       }
 
@@ -128,7 +138,10 @@ class SocialViewModel extends ChangeNotifier {
     isPosting = true;
     notifyListeners();
     try {
-      await repository.createPost(authorId: meId, content: text, imagePaths: List.of(pendingImagePaths));
+      await repository.createPost(
+          authorId: meId,
+          content: text,
+          imagePaths: List.of(pendingImagePaths));
       composerController.clear();
       pendingImagePaths.clear();
       await load();
@@ -143,7 +156,8 @@ class SocialViewModel extends ChangeNotifier {
     final wasLiked = _likedByMe.contains(post.id);
     if (wasLiked) {
       _likedByMe.remove(post.id);
-      _likeCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
+      _likeCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30),
+          ifAbsent: () => 0);
       notifyListeners();
       try {
         await repository.unlikePost(postId: post.id, userId: meId);
@@ -162,7 +176,8 @@ class SocialViewModel extends ChangeNotifier {
       } catch (_) {
         // rollback
         _likedByMe.remove(post.id);
-        _likeCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
+        _likeCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30),
+            ifAbsent: () => 0);
         notifyListeners();
       }
     }
@@ -175,10 +190,12 @@ class SocialViewModel extends ChangeNotifier {
     _commentCounts.update(post.id, (v) => v + 1, ifAbsent: () => 1);
     notifyListeners();
     try {
-      await repository.addComment(postId: post.id, authorId: meId, content: text);
+      await repository.addComment(
+          postId: post.id, authorId: meId, content: text);
     } catch (_) {
       // rollback
-      _commentCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
+      _commentCounts.update(post.id, (v) => (v - 1).clamp(0, 1 << 30),
+          ifAbsent: () => 0);
       notifyListeners();
     }
   }
@@ -189,9 +206,14 @@ class SocialViewModel extends ChangeNotifier {
     _commentCounts.update(parent.postId, (v) => v + 1, ifAbsent: () => 1);
     notifyListeners();
     try {
-      await repository.addReply(postId: parent.postId, parentCommentId: parent.id, authorId: meId, content: text);
+      await repository.addReply(
+          postId: parent.postId,
+          parentCommentId: parent.id,
+          authorId: meId,
+          content: text);
     } catch (_) {
-      _commentCounts.update(parent.postId, (v) => (v - 1).clamp(0, 1 << 30), ifAbsent: () => 0);
+      _commentCounts.update(parent.postId, (v) => (v - 1).clamp(0, 1 << 30),
+          ifAbsent: () => 0);
       notifyListeners();
     }
   }
@@ -222,7 +244,8 @@ class SocialViewModel extends ChangeNotifier {
   void reorderPendingImages(int from, int to) {
     if (from == to) return;
     if (from < 0 || to < 0) return;
-    if (from >= pendingImagePaths.length || to >= pendingImagePaths.length) return;
+    if (from >= pendingImagePaths.length || to >= pendingImagePaths.length)
+      return;
     final tmp = pendingImagePaths[from];
     pendingImagePaths[from] = pendingImagePaths[to];
     pendingImagePaths[to] = tmp;
@@ -232,7 +255,7 @@ class SocialViewModel extends ChangeNotifier {
   bool canMentionAllNames(Iterable<String> names) {
     final friendNames = _friends.values.map((u) => u.displayName).toSet();
     final myName = _userNames[meId] ?? 'Kullanıcı';
-    
+
     for (final n in names) {
       // Kendinizi mention etmeye izin ver
       if (n == myName) continue;
@@ -267,6 +290,7 @@ class SocialViewModel extends ChangeNotifier {
     }
     return n.toString();
   }
+
   String timeAgo(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
@@ -293,26 +317,29 @@ class SocialViewModel extends ChangeNotifier {
   }
 
   int commentLikeCount(String commentId) => _commentLikeCounts[commentId] ?? 0;
-  bool isCommentLikedByMe(String commentId) => _commentLikedByMe.contains(commentId);
+  bool isCommentLikedByMe(String commentId) =>
+      _commentLikedByMe.contains(commentId);
 
   Future<void> toggleCommentLike(String commentId) async {
     print('toggleCommentLike called for: $commentId');
     final isLiked = _commentLikedByMe.contains(commentId);
     final currentCount = _commentLikeCounts[commentId] ?? 0;
-    
+
     print('Current state - isLiked: $isLiked, count: $currentCount');
-    
+
     // Optimistic update
     if (isLiked) {
       _commentLikedByMe.remove(commentId);
-      _commentLikeCounts[commentId] = (currentCount - 1).clamp(0, double.infinity).toInt();
+      _commentLikeCounts[commentId] =
+          (currentCount - 1).clamp(0, double.infinity).toInt();
     } else {
       _commentLikedByMe.add(commentId);
       _commentLikeCounts[commentId] = currentCount + 1;
     }
-    print('After optimistic update - isLiked: ${_commentLikedByMe.contains(commentId)}, count: ${_commentLikeCounts[commentId]}');
+    print(
+        'After optimistic update - isLiked: ${_commentLikedByMe.contains(commentId)}, count: ${_commentLikeCounts[commentId]}');
     notifyListeners();
-    
+
     try {
       if (isLiked) {
         print('Calling unlikeComment...');
@@ -365,10 +392,10 @@ class SocialViewModel extends ChangeNotifier {
 
   Future<void> updatePost() async {
     if (!isEditing || editingPostId == null) return;
-    
+
     isPosting = true;
     notifyListeners();
-    
+
     try {
       final existingIndex = feed.indexWhere((p) => p.id == editingPostId);
       final existing = existingIndex != -1 ? feed[existingIndex] : null;
@@ -379,14 +406,14 @@ class SocialViewModel extends ChangeNotifier {
         imagePaths: List.from(pendingImagePaths),
         createdAt: existing?.createdAt ?? DateTime.now(),
       );
-      
+
       await repository.updatePost(post);
-      
+
       // Update local feed
       if (existingIndex != -1) {
         feed[existingIndex] = post;
       }
-      
+
       cancelEdit();
     } catch (e) {
       // Handle error
@@ -436,5 +463,3 @@ class SocialViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
-
-

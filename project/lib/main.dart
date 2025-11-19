@@ -34,7 +34,6 @@ import 'config/size_config.dart';
 // Notification Service
 import 'services/notification_service.dart';
 import 'services/app_lifecycle_service.dart';
-import 'services/global_chat_notification_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/social_user.dart';
 import 'models/social_models.dart';
@@ -83,20 +82,21 @@ class AuthGate extends StatelessWidget {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Firebase (skip if configuration files are missing)
   try {
     await Firebase.initializeApp();
-    
+
     // Set up background message handler
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    
+
     debugPrint('✅ Firebase initialized successfully');
   } catch (e) {
     debugPrint('⚠️ Firebase initialization skipped: $e');
-    debugPrint('📝 Add google-services.json (Android) or GoogleService-Info.plist (iOS) to enable push notifications');
+    debugPrint(
+        '📝 Add google-services.json (Android) or GoogleService-Info.plist (iOS) to enable push notifications');
   }
-  
+
   await Hive.initFlutter();
   // Register adapters
   try {
@@ -130,23 +130,17 @@ void main() async {
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
-  
+
   // Initialize app lifecycle service
   AppLifecycleService().initialize();
   debugPrint('✅ App lifecycle service initialized');
-  
+
   // Initialize notification service after Supabase (only if Firebase is initialized)
   try {
     await NotificationService().initialize();
     debugPrint('✅ Notification service initialized');
   } catch (e) {
     debugPrint('⚠️ Notification service initialization skipped: $e');
-  }
-
-  // Initialize global chat notifications if user is already signed in
-  if (Supabase.instance.client.auth.currentSession != null) {
-    debugPrint('🌍 User already signed in, initializing GlobalChatNotificationService...');
-    GlobalChatNotificationService().initialize();
   }
 
   // Global navigatorKey (used by password recovery)
@@ -157,7 +151,7 @@ void main() async {
     if (data.event == AuthChangeEvent.passwordRecovery) {
       navigatorKey.currentState?.pushNamed('/reset-password');
     }
-    
+
     // Save FCM token when user signs in
     if (data.event == AuthChangeEvent.signedIn && data.session?.user != null) {
       NotificationService().saveFCMTokenForCurrentUser().then((_) {
@@ -165,14 +159,15 @@ void main() async {
       }).catchError((e) {
         debugPrint('⚠️ Error saving FCM token: $e');
       });
-      
-      // Initialize global chat notifications after user signs in
-      GlobalChatNotificationService().initialize();
     }
-    
-    // Clean up global chat notifications on sign out
+
+    // Clean up notification token on sign out
     if (data.event == AuthChangeEvent.signedOut) {
-      GlobalChatNotificationService().dispose();
+      NotificationService().deleteTokenFromSupabase().then((_) {
+        debugPrint('✅ FCM token cleared on sign out');
+      }).catchError((e) {
+        debugPrint('⚠️ Error clearing FCM token: $e');
+      });
     }
   });
 
@@ -288,9 +283,7 @@ class MyApp extends StatelessWidget {
     return Consumer<ThemeController>(
       builder: (_, c, __) {
         return MaterialApp(
-          navigatorKey:
-              navigatorKey, // keep your password recovery flow working
-          scaffoldMessengerKey: scaffoldMessengerKey, // for in-app notifications
+          navigatorKey: navigatorKey,
           title: 'Hocam Connect',
           debugShowCheckedModeBanner: false,
           theme: _lightTheme(),

@@ -76,7 +76,7 @@ class _MarketplaceViewExampleState extends State<MarketplaceViewExample> {
             itemBuilder: (context, index) {
               final category = products.keys.elementAt(index);
               final categoryProducts = products[category]!;
-              
+
               return ExpansionTile(
                 title: Text(category),
                 children: categoryProducts.map((product) {

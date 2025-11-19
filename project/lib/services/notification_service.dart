@@ -7,138 +7,30 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'chat_service.dart';
 
 /// Background message handler (must be top-level function)
-/// This decrypts messages when app is in background/terminated
-/// Similar to how WhatsApp shows actual message content in notifications
+/// Handles push notifications when app is in background or terminated
+/// Note: Notifications are already shown by Firebase automatically
+/// This handler is for additional processing (e.g., updating local state, badges)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (kDebugMode) {
     print('🌙 Background message received: ${message.messageId}');
+    print('   Title: ${message.notification?.title}');
+    print('   Body: ${message.notification?.body}');
     print('   Data: ${message.data}');
   }
-  
-  try {
-    // Initialize Firebase if needed
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp();
-    }
-    
-    // Check if Supabase is available
-    // Note: Supabase should be initialized in main.dart before this runs
-    try {
-      final _ = Supabase.instance.client.auth.currentUser;
-    } catch (e) {
-      if (kDebugMode) {
-        print('⚠️ Supabase not available in background handler: $e');
-      }
-      return;
-    }
-    
-    // Check if it's a chat message
-    final type = message.data['type'] as String?;
-    final messageId = message.data['message_id'] as String?;
-    final senderName = message.data['sender_name'] as String?;
-    
-    if (type == 'chat' && messageId != null) {
-      if (kDebugMode) {
-        print('💬 Chat message detected in background');
-      }
-      
-      // Import ChatService and decrypt
-      // Note: This requires the user's E2EE keys to be available
-      try {
-        final chatService = ChatService();
-        await chatService.ensureMyLongTermKey();
-        
-        // Fetch the message from database
-        final messageData = await Supabase.instance.client
-            .from('messages')
-            .select()
-            .eq('id', messageId)
-            .single();
-        
-        final chatMessage = ChatMessage.fromJson(messageData);
-        
-        // Decrypt the message
-        final decryptedText = await chatService.decryptMessageForUi(chatMessage);
-        
-        // Show local notification with decrypted content
-        final localNotifications = FlutterLocalNotificationsPlugin();
-        
-        // Initialize local notifications
-        await localNotifications.initialize(
-          const InitializationSettings(
-            android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-            iOS: DarwinInitializationSettings(),
-          ),
-        );
-        
-        // Show notification with actual message content
-        await localNotifications.show(
-          message.hashCode,
-          senderName ?? 'New Message',
-          decryptedText.length > 100 
-              ? '${decryptedText.substring(0, 100)}...' 
-              : decryptedText,
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'chat_messages',
-              'Chat Messages',
-              channelDescription: 'Notifications for new chat messages',
-              importance: Importance.high,
-              priority: Priority.high,
-            ),
-            iOS: DarwinNotificationDetails(
-              presentAlert: true,
-              presentBadge: true,
-              presentSound: true,
-            ),
-          ),
-          payload: message.data.toString(),
-        );
-        
-        if (kDebugMode) {
-          print('✅ Background notification shown with decrypted content');
-        }
-        
-      } catch (e) {
-        if (kDebugMode) {
-          print('❌ Failed to decrypt message in background: $e');
-          print('   Showing generic notification instead');
-        }
-        
-        // Fallback: Show generic notification if decryption fails
-        final localNotifications = FlutterLocalNotificationsPlugin();
-        await localNotifications.initialize(
-          const InitializationSettings(
-            android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-            iOS: DarwinInitializationSettings(),
-          ),
-        );
-        
-        await localNotifications.show(
-          message.hashCode,
-          senderName ?? 'New Message',
-          'Sent you a message',
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'chat_messages',
-              'Chat Messages',
-              importance: Importance.high,
-              priority: Priority.high,
-            ),
-            iOS: DarwinNotificationDetails(),
-          ),
-        );
-      }
-    }
-  } catch (e) {
-    if (kDebugMode) {
-      print('❌ Error in background message handler: $e');
-    }
-  }
+
+  // Firebase/FCM automatically displays the notification when app is in background/terminated
+  // The notification payload (title, body) is shown by the OS notification system
+  // This handler can be used for:
+  // - Updating app badge counts
+  // - Syncing data in background
+  // - Logging analytics
+  // - Other background processing
+
+  // For now, we just log the notification
+  // The actual notification display is handled automatically by FCM
 }
 
 class NotificationService {
@@ -164,17 +56,19 @@ class NotificationService {
       // Check if Firebase is initialized
       if (Firebase.apps.isEmpty) {
         if (kDebugMode) {
-          print('⚠️ Firebase not initialized. Skipping notification service setup.');
-          print('📝 Add Firebase configuration files to enable push notifications.');
+          print(
+              '⚠️ Firebase not initialized. Skipping notification service setup.');
+          print(
+              '📝 Add Firebase configuration files to enable push notifications.');
         }
         return;
       }
-      
+
       if (kDebugMode) {
         print('🚀 Starting notification service initialization...');
         print('📱 Platform: ${Platform.isIOS ? "iOS" : "Android"}');
       }
-      
+
       // Initialize local notifications
       await _initializeLocalNotifications();
 
@@ -183,9 +77,10 @@ class NotificationService {
         print('🔔 Requesting notification permissions...');
       }
       final notificationSettings = await _requestPermission();
-      
+
       if (kDebugMode) {
-        print('🔔 Permission status: ${notificationSettings.authorizationStatus}');
+        print(
+            '🔔 Permission status: ${notificationSettings.authorizationStatus}');
       }
 
       if (notificationSettings.authorizationStatus ==
@@ -193,14 +88,11 @@ class NotificationService {
         if (kDebugMode) {
           print('✅ Notification permission granted, getting FCM token...');
         }
-        
+
         // Get FCM token
         await _getFCMToken();
 
-        // Setup foreground notification handling
-        FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-
-        // Setup notification tap handling
+        // Setup notification tap handling (when app is opened from background/terminated)
         FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
         // Handle notification that opened the app from terminated state
@@ -284,25 +176,26 @@ class NotificationService {
       if (kDebugMode) {
         print('🔑 _getFCMToken() called');
       }
-      
+
       // For iOS, we need to wait for APNS token first
       if (Platform.isIOS) {
         if (kDebugMode) {
           print('🍎 iOS detected - checking for APNS token...');
         }
-        
+
         // Try multiple times with increasing delays
         String? apnsToken;
         for (int i = 0; i < 3; i++) {
           if (kDebugMode) {
             print('🔍 Attempt ${i + 1}/3: Calling getAPNSToken()...');
           }
-          
+
           try {
             apnsToken = await _firebaseMessaging.getAPNSToken();
             if (kDebugMode) {
               if (apnsToken != null) {
-                print('✅ APNS token received on attempt ${i + 1}: ${apnsToken.substring(0, min(20, apnsToken.length))}...');
+                print(
+                    '✅ APNS token received on attempt ${i + 1}: ${apnsToken.substring(0, min(20, apnsToken.length))}...');
               } else {
                 print('❌ APNS token is null on attempt ${i + 1}');
               }
@@ -313,7 +206,7 @@ class NotificationService {
               print('❌ Error getting APNS token on attempt ${i + 1}: $e');
             }
           }
-          
+
           if (apnsToken == null && i < 2) {
             if (kDebugMode) {
               print('⏳ Waiting ${2 + i} seconds before retry...');
@@ -321,10 +214,11 @@ class NotificationService {
             await Future.delayed(Duration(seconds: 2 + i)); // 2s, 3s, 4s
           }
         }
-        
+
         if (apnsToken == null) {
           if (kDebugMode) {
-            print('⚠️ APNS token not available after 3 attempts. Will retry in background...');
+            print(
+                '⚠️ APNS token not available after 3 attempts. Will retry in background...');
             print('💡 Make sure:');
             print('   1. You\'re testing on a REAL iOS device (not simulator)');
             print('   2. Push Notifications capability is enabled in Xcode');
@@ -335,23 +229,24 @@ class NotificationService {
           _setupAPNSTokenListener();
           return;
         }
-        
+
         if (kDebugMode) {
-          print('✅ APNS token available: ${apnsToken.substring(0, min(20, apnsToken.length))}...');
+          print(
+              '✅ APNS token available: ${apnsToken.substring(0, min(20, apnsToken.length))}...');
         }
       }
-      
+
       final token = await _firebaseMessaging.getToken();
       if (token != null) {
         _currentToken = token;
         await _saveTokenLocally(token);
-        
+
         // Save token to Supabase if user is logged in
         final user = Supabase.instance.client.auth.currentUser;
         if (user != null) {
           await _saveTokenToSupabase(token, user.id);
         }
-        
+
         if (kDebugMode) {
           print('FCM Token: $token');
         }
@@ -371,17 +266,20 @@ class NotificationService {
   }
 
   /// Retry getting FCM token with exponential backoff
-  Future<void> _retryGetFCMToken({required int attempts, required int maxAttempts}) async {
+  Future<void> _retryGetFCMToken(
+      {required int attempts, required int maxAttempts}) async {
     if (attempts >= maxAttempts) {
       if (kDebugMode) {
-        print('⚠️ Max attempts reached. FCM token will be retrieved on next app launch.');
+        print(
+            '⚠️ Max attempts reached. FCM token will be retrieved on next app launch.');
       }
       return;
     }
 
     // Exponential backoff: 3s, 5s, 10s, 15s, 20s
     final delays = [3, 5, 10, 15, 20];
-    final delay = delays[attempts < delays.length ? attempts : delays.length - 1];
+    final delay =
+        delays[attempts < delays.length ? attempts : delays.length - 1];
 
     await Future.delayed(Duration(seconds: delay));
 
@@ -389,21 +287,22 @@ class NotificationService {
       final apnsToken = await _firebaseMessaging.getAPNSToken();
       if (apnsToken != null) {
         if (kDebugMode) {
-          print('✅ APNS token now available (attempt ${attempts + 1}), getting FCM token...');
+          print(
+              '✅ APNS token now available (attempt ${attempts + 1}), getting FCM token...');
         }
-        
+
         // Try to get FCM token
         final token = await _firebaseMessaging.getToken();
         if (token != null) {
           _currentToken = token;
           await _saveTokenLocally(token);
-          
+
           // Save token to Supabase if user is logged in
           final user = Supabase.instance.client.auth.currentUser;
           if (user != null) {
             await _saveTokenToSupabase(token, user.id);
           }
-          
+
           if (kDebugMode) {
             print('✅ FCM Token retrieved: $token');
           }
@@ -411,7 +310,8 @@ class NotificationService {
         }
       } else {
         if (kDebugMode) {
-          print('⏳ Still waiting for APNS token (attempt ${attempts + 1}/$maxAttempts)...');
+          print(
+              '⏳ Still waiting for APNS token (attempt ${attempts + 1}/$maxAttempts)...');
         }
       }
     } catch (e) {
@@ -445,15 +345,12 @@ class NotificationService {
         print('   Token: ${token.substring(0, min(20, token.length))}...');
         print('   Platform: ${Platform.isIOS ? 'ios' : 'android'}');
       }
-      
-      await Supabase.instance.client
-          .from('profiles')
-          .update({
-            'fcm_token': token,
-            'fcm_platform': Platform.isIOS ? 'ios' : 'android',
-          })
-          .eq('id', userId);
-      
+
+      await Supabase.instance.client.from('profiles').update({
+        'fcm_token': token,
+        'fcm_platform': Platform.isIOS ? 'ios' : 'android',
+      }).eq('id', userId);
+
       if (kDebugMode) {
         print('✅ FCM token saved to profiles table successfully');
       }
@@ -469,14 +366,11 @@ class NotificationService {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        await Supabase.instance.client
-            .from('profiles')
-            .update({
-              'fcm_token': null,
-              'fcm_platform': null,
-            })
-            .eq('id', user.id);
-        
+        await Supabase.instance.client.from('profiles').update({
+          'fcm_token': null,
+          'fcm_platform': null,
+        }).eq('id', user.id);
+
         if (kDebugMode) {
           print('✅ FCM token cleared from profiles table');
         }
@@ -523,7 +417,7 @@ class NotificationService {
 
       // Get current token (from local storage or fetch new one)
       String? token = _currentToken ?? await getLocalToken();
-      
+
       if (token == null) {
         // Try to get fresh token from Firebase
         token = await _firebaseMessaging.getToken();
@@ -554,67 +448,11 @@ class NotificationService {
   Future<void> _onTokenRefresh(String newToken) async {
     _currentToken = newToken;
     await _saveTokenLocally(newToken);
-    
+
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
       await _saveTokenToSupabase(newToken, user.id);
     }
-  }
-
-  /// Handle foreground messages
-  void _handleForegroundMessage(RemoteMessage message) {
-    if (kDebugMode) {
-      print('🔔 Foreground message received');
-      print('   Title: ${message.notification?.title}');
-      print('   Body: ${message.notification?.body}');
-      print('   Data: ${message.data}');
-    }
-
-    // For E2EE chats, we rely on GlobalChatNotificationService for in-app notifications
-    // which can decrypt messages. Push notifications are generic ("New message from X")
-    
-    // Only show local notification if it's not a chat message
-    // (chat messages are handled by GlobalChatNotificationService which decrypts them)
-    if (message.data['type'] != 'chat') {
-      if (message.notification != null) {
-        _showLocalNotification(message);
-      }
-    } else {
-      if (kDebugMode) {
-        print('🚫 Skipping local notification - chat messages handled by GlobalChatNotificationService');
-      }
-    }
-  }
-
-  /// Show local notification
-  Future<void> _showLocalNotification(RemoteMessage message) async {
-    const androidDetails = AndroidNotificationDetails(
-      'high_importance_channel',
-      'High Importance Notifications',
-      channelDescription: 'This channel is used for important notifications.',
-      importance: Importance.high,
-      priority: Priority.high,
-      showWhen: true,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _localNotifications.show(
-      message.hashCode,
-      message.notification?.title,
-      message.notification?.body,
-      notificationDetails,
-      payload: message.data.toString(),
-    );
   }
 
   /// Handle notification tap (when app was in background/terminated)
@@ -623,11 +461,11 @@ class NotificationService {
       print('🔔 Notification tapped');
       print('   Data: ${message.data}');
     }
-    
+
     // Navigate based on notification type
     final type = message.data['type'] as String?;
     final conversationId = message.data['conversation_id'] as String?;
-    
+
     if (type == 'chat' && conversationId != null) {
       // Store navigation intent - will be handled by main app after it fully loads
       _pendingChatNavigation = conversationId;
@@ -635,13 +473,13 @@ class NotificationService {
         print('📍 Pending navigation to conversation: $conversationId');
       }
     }
-    
+
     // TODO: Handle other notification types (social, marketplace, etc.)
   }
-  
+
   // Store pending navigation for handling after app loads
   String? _pendingChatNavigation;
-  
+
   /// Get and clear pending chat navigation
   String? getPendingChatNavigation() {
     final pending = _pendingChatNavigation;
@@ -670,9 +508,10 @@ class NotificationService {
       if (kDebugMode) {
         print('⚠️ Cannot enable notifications: Firebase not initialized');
       }
-      throw Exception('Firebase not initialized. Add Firebase configuration files first.');
+      throw Exception(
+          'Firebase not initialized. Add Firebase configuration files first.');
     }
-    
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_notificationEnabledKey, true);
 
@@ -707,7 +546,7 @@ class NotificationService {
   /// Check notification permission status
   Future<bool> hasPermission() async {
     if (Firebase.apps.isEmpty) return false;
-    
+
     final settings = await _firebaseMessaging.getNotificationSettings();
     return settings.authorizationStatus == AuthorizationStatus.authorized;
   }
@@ -715,9 +554,10 @@ class NotificationService {
   /// Request permission again (for when user manually disabled it)
   Future<bool> requestPermissionAgain() async {
     if (Firebase.apps.isEmpty) {
-      throw Exception('Firebase not initialized. Add Firebase configuration files first.');
+      throw Exception(
+          'Firebase not initialized. Add Firebase configuration files first.');
     }
-    
+
     final settings = await _requestPermission();
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       await initialize();

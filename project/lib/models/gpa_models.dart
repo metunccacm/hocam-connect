@@ -6,7 +6,7 @@ class SemesterModel {
   final List<Course> courses;
   String name;
   int colorIndex; // Index (0-9) for consistent coloring regardless of position
-  
+
   SemesterModel({
     required this.courses,
     this.name = '',
@@ -43,10 +43,10 @@ class Course {
 class SyncCoursesResult {
   final List<SemesterModel>? semesters;
   final SyncError? error;
-  
+
   SyncCoursesResult.success(this.semesters) : error = null;
   SyncCoursesResult.error(this.error) : semesters = null;
-  
+
   bool get isSuccess => semesters != null;
   bool get hasError => error != null;
 }
@@ -65,7 +65,7 @@ class SyncError {
   final SyncErrorType type;
   final String message;
   final String? department;
-  
+
   SyncError({
     required this.type,
     required this.message,

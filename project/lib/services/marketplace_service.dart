@@ -12,9 +12,7 @@ class MarketplaceService {
   Future<List<Product>> fetchProducts({int limit = 200}) async {
     return NetworkErrorHandler.handleNetworkCall(
       () async {
-        final rows = await supa
-            .from('marketplace_products')
-            .select(r'''
+        final rows = await supa.from('marketplace_products').select(r'''
           id,
           title,
           price,
@@ -35,9 +33,7 @@ class MarketplaceService {
             surname,
             avatar_url
           )
-        ''')
-            .order('created_at', ascending: false)
-            .limit(limit);
+        ''').order('created_at', ascending: false).limit(limit);
 
         return (rows as List)
             .map((e) => Product.fromRow(Map<String, dynamic>.from(e as Map)))
@@ -51,9 +47,7 @@ class MarketplaceService {
   Future<Product> fetchProductById(String id) async {
     return NetworkErrorHandler.handleNetworkCall(
       () async {
-        final row = await supa
-            .from('marketplace_products')
-            .select(r'''
+        final row = await supa.from('marketplace_products').select(r'''
           id,
           title,
           price,
@@ -74,9 +68,7 @@ class MarketplaceService {
             surname,
             avatar_url
           )
-        ''')
-            .eq('id', id)
-            .single();
+        ''').eq('id', id).single();
 
         return Product.fromRow(Map<String, dynamic>.from(row as Map));
       },
@@ -111,8 +103,8 @@ class MarketplaceService {
     required String category,
     required double price,
     required String currency, // 'TL' | 'USD' | 'EUR'
-    String? sizeType,         // 'LETTER' | 'NUMERIC' | 'STANDARD'
-    String? sizeValue,        // 'M' | '44' | ...
+    String? sizeType, // 'LETTER' | 'NUMERIC' | 'STANDARD'
+    String? sizeValue, // 'M' | '44' | ...
     required List<({Uint8List bytes, String ext})> files,
   }) async {
     final user = supa.auth.currentUser;
@@ -143,13 +135,13 @@ class MarketplaceService {
       final ext = _normalizeExt(f.ext);
       final path = 'products/${user.id}/$productId/$i.$ext';
       await supa.storage.from('marketplace').uploadBinary(
-        path,
-        f.bytes,
-        fileOptions: FileOptions(
-          upsert: true,
-          contentType: _contentTypeFromExt(ext),
-        ),
-      );
+            path,
+            f.bytes,
+            fileOptions: FileOptions(
+              upsert: true,
+              contentType: _contentTypeFromExt(ext),
+            ),
+          );
       urls.add(supa.storage.from('marketplace').getPublicUrl(path));
     }
 
