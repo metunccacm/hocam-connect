@@ -15,6 +15,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// This handler is for additional processing (e.g., updating local state, badges)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Background handlers run in their own isolate. Keep logic minimal.
   if (kDebugMode) {
     print('🌙 Background message received: ${message.messageId}');
     print('   Title: ${message.notification?.title}');
@@ -22,16 +23,68 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     print('   Data: ${message.data}');
   }
 
-  // Firebase/FCM automatically displays the notification when app is in background/terminated
-  // The notification payload (title, body) is shown by the OS notification system
-  // This handler can be used for:
-  // - Updating app badge counts
-  // - Syncing data in background
-  // - Logging analytics
-  // - Other background processing
+  try {
+    // Create a fresh local notifications plugin instance for the background isolate
+    final FlutterLocalNotificationsPlugin bgLocalNotifications =
+        FlutterLocalNotificationsPlugin();
 
-  // For now, we just log the notification
-  // The actual notification display is handled automatically by FCM
+    const AndroidInitializationSettings androidInit =
+        AndroidInitializationSettings('@drawable/ic_notification');
+    const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
+
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+    );
+
+    await bgLocalNotifications.initialize(initSettings);
+
+    // Ensure channel exists on Android
+    if (Platform.isAndroid) {
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'high_importance_channel',
+        'High Importance Notifications',
+        description: 'This channel is used for important notifications.',
+        importance: Importance.high,
+      );
+
+      await bgLocalNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
+    }
+
+    // Prepare notification content
+    final String? title = message.notification?.title ?? message.data['title'];
+    final String? body = message.notification?.body ?? message.data['body'];
+
+    final androidDetails = AndroidNotificationDetails(
+      'high_importance_channel',
+      'High Importance Notifications',
+      channelDescription: 'This channel is used for important notifications.',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      icon: '@drawable/ic_notification',
+      largeIcon: const DrawableResourceAndroidBitmap('app_logo'),
+      styleInformation: BigTextStyleInformation(body ?? ''),
+    );
+
+    final notificationDetails = NotificationDetails(android: androidDetails);
+
+    // Show notification
+    await bgLocalNotifications.show(
+      message.hashCode & 0x7fffffff,
+      title ?? 'Notification',
+      body ?? '',
+      notificationDetails,
+      payload: message.data.isNotEmpty ? message.data.toString() : null,
+    );
+  } catch (e) {
+    if (kDebugMode) {
+      print('❌ Error in background message handler: $e');
+    }
+  }
 }
 
 class NotificationService {
@@ -100,6 +153,12 @@ class NotificationService {
 
         // Get FCM token
         await _getFCMToken();
+
+        // Register background message handler (ensure this is set once)
+        if (kDebugMode) {
+          print('🛠 Registering background message handler...');
+        }
+        FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
         // Setup notification tap handling (when app is opened from background/terminated)
         if (kDebugMode) {
