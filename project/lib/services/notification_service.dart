@@ -29,7 +29,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         FlutterLocalNotificationsPlugin();
 
     const AndroidInitializationSettings androidInit =
-        AndroidInitializationSettings('@drawable/ic_notification');
+        AndroidInitializationSettings('@drawable/hc_logo');
     const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
 
     const InitializationSettings initSettings = InitializationSettings(
@@ -65,8 +65,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
-      icon: '@drawable/ic_notification',
-      largeIcon: const DrawableResourceAndroidBitmap('app_logo'),
+      icon: '@drawable/hc_logo',  // Use PNG logo as small icon
+      largeIcon: const DrawableResourceAndroidBitmap('hc_logo'),  // Use PNG as large icon
       styleInformation: BigTextStyleInformation(body ?? ''),
     );
 
@@ -210,7 +210,7 @@ class NotificationService {
   /// Initialize local notifications for foreground display
   Future<void> _initializeLocalNotifications() async {
     const androidSettings =
-        AndroidInitializationSettings('@drawable/ic_notification');
+        AndroidInitializationSettings('@drawable/hc_logo');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
