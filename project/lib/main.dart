@@ -167,6 +167,12 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         debugPrint('   Chat title: $title');
         debugPrint('🚀 Pushing ChatView to navigator...');
         
+        // Check if widget is still mounted before navigating
+        if (!mounted) {
+          debugPrint('❌ Widget no longer mounted, skipping navigation');
+          return;
+        }
+        
         // Navigate to chat
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -235,31 +241,33 @@ void main() async {
   await Hive.initFlutter();
   // Register adapters
   try {
-    if (!Hive.isAdapterRegistered(40))
+    if (!Hive.isAdapterRegistered(40)) {
       Hive.registerAdapter(SocialUserAdapter());
-    if (!Hive.isAdapterRegistered(41)) Hive.registerAdapter(PostAdapter());
-    if (!Hive.isAdapterRegistered(42)) Hive.registerAdapter(CommentAdapter());
-    if (!Hive.isAdapterRegistered(43)) Hive.registerAdapter(LikeAdapter());
-    if (!Hive.isAdapterRegistered(44))
+    }
+    if (!Hive.isAdapterRegistered(41)) {
+      Hive.registerAdapter(PostAdapter());
+    }
+    if (!Hive.isAdapterRegistered(42)) {
+      Hive.registerAdapter(CommentAdapter());
+    }
+    if (!Hive.isAdapterRegistered(43)) {
+      Hive.registerAdapter(LikeAdapter());
+    }
+    if (!Hive.isAdapterRegistered(44)) {
       Hive.registerAdapter(CommentLikeAdapter());
-    if (!Hive.isAdapterRegistered(45))
+    }
+    if (!Hive.isAdapterRegistered(45)) {
       Hive.registerAdapter(FriendshipAdapter());
-    if (!Hive.isAdapterRegistered(46))
+    }
+    if (!Hive.isAdapterRegistered(46)) {
       Hive.registerAdapter(FriendshipStatusAdapter());
+    }
   } catch (e) {
-    print('Hive adapter registration error: $e');
+    debugPrint('⚠️ Hive adapter registration error: $e');
   }
-  // Open boxes
-  try {
-    await Hive.openBox<SocialUser>(LocalHiveSocialRepository.usersBox);
-    await Hive.openBox<Post>(LocalHiveSocialRepository.postsBox);
-    await Hive.openBox<Comment>(LocalHiveSocialRepository.commentsBox);
-    await Hive.openBox<Like>(LocalHiveSocialRepository.likesBox);
-    await Hive.openBox<CommentLike>(LocalHiveSocialRepository.commentLikesBox);
-    await Hive.openBox<Friendship>(LocalHiveSocialRepository.friendshipsBox);
-  } catch (e) {
-    print('Hive box opening error: $e');
-  }
+  
+  // Note: Hive boxes are no longer used since migration to SupabaseSocialRepository
+  // Social data is now stored in Supabase PostgreSQL database
 
   await Supabase.initialize(
     url: supabaseUrl,

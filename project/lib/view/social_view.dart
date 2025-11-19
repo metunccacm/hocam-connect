@@ -154,7 +154,7 @@ class _SocialViewBodyState extends State<_SocialViewBody>
     );
     if (postId != null) {
       await vm.load();
-      // ignore: use_build_context_synchronously
+      if (!mounted) return;
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -231,8 +231,11 @@ class _SocialViewBodyState extends State<_SocialViewBody>
         .eq('receiver_id', meId)
         .eq('is_read', false);
 
-    if (mounted) setState(() => _unreadCount = 0);
+    if (mounted) {
+      setState(() => _unreadCount = 0);
+    }
 
+    if (!mounted) return;
     final vm = context.read<SocialViewModel>();
     await Navigator.push(
       context,
@@ -753,7 +756,9 @@ class _PostTileState extends State<_PostTile> {
                       ),
                     ),
                   );
-                  if (mounted) context.read<SocialViewModel>().load();
+                  if (mounted) {
+                    context.read<SocialViewModel>().load();
+                  }
                 },
               ),
               Text(vm.compactCount(vm.commentCount(post.id))),
@@ -781,7 +786,6 @@ class _FirstCommentOrMore extends StatelessWidget {
         if (comments.isEmpty) {
           return Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(
             child: TextButton(
               onPressed: () {
                 final vm = context.read<SocialViewModel>();
@@ -1011,12 +1015,15 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                         final isMine = vm.meId == c.authorId;
                                         return PopupMenuButton<String>(
                                           onSelected: (v) {
-                                            if (v == 'report' && !isMine)
+                                            if (v == 'report' && !isMine) {
                                               _reportComment(ctx, c);
-                                            if (v == 'delete' && isMine)
+                                            }
+                                            if (v == 'delete' && isMine) {
                                               _deleteComment(ctx, c);
-                                            if (v == 'edit' && isMine)
+                                            }
+                                            if (v == 'edit' && isMine) {
                                               _editComment(ctx, c);
+                                            }
                                           },
                                           itemBuilder: (_) => [
                                             if (isMine)
@@ -1239,16 +1246,19 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                                       splashRadius: 16,
                                                       onSelected: (v) {
                                                         if (v == 'report' &&
-                                                            !isMine)
+                                                            !isMine) {
                                                           _reportComment(
                                                               ctx, r);
+                                                        }
                                                         if (v == 'delete' &&
-                                                            isMine)
+                                                            isMine) {
                                                           _deleteComment(
                                                               ctx, r);
+                                                        }
                                                         if (v == 'edit' &&
-                                                            isMine)
+                                                            isMine) {
                                                           _editComment(ctx, r);
+                                                        }
                                                       },
                                                       itemBuilder: (_) => [
                                                         if (isMine)
@@ -1632,7 +1642,9 @@ Future<void> _deleteComment(BuildContext context, Comment comment) async {
     ),
   );
   if (ok != true) return;
+  if (!context.mounted) return;
   await context.read<SocialViewModel>().deleteCommentById(comment.id);
+  if (!context.mounted) return;
   ScaffoldMessenger.of(context)
       .showSnackBar(const SnackBar(content: Text('Yorum silindi.')));
 }
@@ -1678,6 +1690,7 @@ Future<void> _editComment(BuildContext context, Comment comment) async {
       parentCommentId: comment.parentCommentId,
     );
     await vm.updateComment(updatedComment);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Yorum güncellendi.')));
   }
