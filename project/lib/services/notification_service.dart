@@ -102,13 +102,31 @@ class NotificationService {
         await _getFCMToken();
 
         // Setup notification tap handling (when app is opened from background/terminated)
-        FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+        if (kDebugMode) {
+          print('🎯 Setting up onMessageOpenedApp listener...');
+        }
+        FirebaseMessaging.onMessageOpenedApp.listen((message) {
+          if (kDebugMode) {
+            print('🔔 onMessageOpenedApp triggered!');
+          }
+          _handleNotificationTap(message);
+        });
 
         // Handle notification that opened the app from terminated state
+        if (kDebugMode) {
+          print('🔍 Checking for initial message (app opened from terminated)...');
+        }
         final initialMessage =
             await FirebaseMessaging.instance.getInitialMessage();
         if (initialMessage != null) {
+          if (kDebugMode) {
+            print('✅ Found initial message!');
+          }
           _handleNotificationTap(initialMessage);
+        } else {
+          if (kDebugMode) {
+            print('ℹ️ No initial message found');
+          }
         }
 
         // Listen for token refresh
@@ -133,7 +151,7 @@ class NotificationService {
   /// Initialize local notifications for foreground display
   Future<void> _initializeLocalNotifications() async {
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/launcher_icon');
+        AndroidInitializationSettings('@drawable/ic_notification');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -467,23 +485,134 @@ class NotificationService {
   /// Handle notification tap (when app was in background/terminated)
   void _handleNotificationTap(RemoteMessage message) {
     if (kDebugMode) {
-      print('🔔 Notification tapped');
+      print('🔔 ========== NOTIFICATION TAPPED ==========');
+      print('   Message ID: ${message.messageId}');
+      print('   Notification: ${message.notification?.toMap()}');
       print('   Data: ${message.data}');
+      print('   Data keys: ${message.data.keys.toList()}');
+      print('   Data values: ${message.data.values.toList()}');
     }
 
     // Navigate based on notification type
     final type = message.data['type'] as String?;
     final conversationId = message.data['conversation_id'] as String?;
 
+    if (kDebugMode) {
+      print('   Parsed type: $type');
+      print('   Parsed conversation_id: $conversationId');
+    }
+
     if (type == 'chat' && conversationId != null) {
       // Store navigation intent - will be handled by main app after it fully loads
       _pendingChatNavigation = conversationId;
       if (kDebugMode) {
-        print('📍 Pending navigation to conversation: $conversationId');
+        print('✅ Pending navigation stored: $conversationId');
+        print('==========================================');
+      }
+      
+      // Try immediate navigation if navigator is available
+      _tryImmediateNavigation(conversationId);
+    } else {
+      if (kDebugMode) {
+        print('❌ Navigation NOT stored - type: $type, conversationId: $conversationId');
+        print('==========================================');
       }
     }
 
     // TODO: Handle other notification types (social, marketplace, etc.)
+  }
+
+  /// Try to navigate immediately if the app is already running
+  Future<void> _tryImmediateNavigation(String conversationId) async {
+    if (kDebugMode) {
+      print('🚀 Attempting immediate navigation...');
+      print('   Navigator key available: ${_navigatorKey != null}');
+      print('   Current context: ${_navigatorKey?.currentContext != null}');
+    }
+
+    // Wait a brief moment for the app to come to foreground
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (_navigatorKey?.currentContext != null) {
+      if (kDebugMode) {
+        print('✅ Navigator context available, navigating now...');
+      }
+
+      try {
+        // Get conversation details
+        final supa = Supabase.instance.client;
+        final currentUserId = supa.auth.currentUser?.id;
+
+        if (currentUserId == null) {
+          if (kDebugMode) {
+            print('❌ No authenticated user');
+          }
+          return;
+        }
+
+        if (kDebugMode) {
+          print('📊 Fetching chat details for: $conversationId');
+        }
+
+        // Get other participant's info
+        final participants = await supa
+            .from('participants')
+            .select('user_id')
+            .eq('conversation_id', conversationId)
+            .neq('user_id', currentUserId);
+
+        if (participants.isEmpty) {
+          if (kDebugMode) {
+            print('❌ No participants found');
+          }
+          return;
+        }
+
+        final otherUserId = participants.first['user_id'] as String;
+        if (kDebugMode) {
+          print('👤 Other user ID: $otherUserId');
+        }
+
+        // Get other user's profile
+        final profile = await supa
+            .from('profiles')
+            .select('name, surname')
+            .eq('id', otherUserId)
+            .single();
+
+        final chatTitle = '${profile['name']} ${profile['surname']}';
+        if (kDebugMode) {
+          print('💬 Navigating to chat with: $chatTitle');
+        }
+
+        // Navigate to ChatView
+        // Import dynamically to avoid circular dependency
+        _navigatorKey!.currentState?.pushNamed(
+          '/chat',
+          arguments: {
+            'conversationId': conversationId,
+            'title': chatTitle,
+          },
+        );
+        
+        // Clear pending navigation since we handled it
+        _pendingChatNavigation = null;
+        
+        if (kDebugMode) {
+          print('✅ Navigation completed!');
+        }
+      } catch (e, stackTrace) {
+        if (kDebugMode) {
+          print('❌ Error during immediate navigation: $e');
+          print('   Stack trace: $stackTrace');
+          print('   Pending navigation will be handled by AuthGate');
+        }
+      }
+    } else {
+      if (kDebugMode) {
+        print('⏳ Navigator not ready, will be handled by AuthGate lifecycle');
+      }
+    }
   }
 
   // Store pending navigation for handling after app loads
@@ -491,8 +620,15 @@ class NotificationService {
 
   /// Get and clear pending chat navigation
   String? getPendingChatNavigation() {
+    if (kDebugMode) {
+      print('📞 getPendingChatNavigation() called');
+      print('   Current pending value: $_pendingChatNavigation');
+    }
     final pending = _pendingChatNavigation;
     _pendingChatNavigation = null;
+    if (kDebugMode) {
+      print('   Returning: $pending (pending cleared)');
+    }
     return pending;
   }
 

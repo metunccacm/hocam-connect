@@ -59,55 +59,101 @@ class AuthGate extends StatefulWidget {
   State<AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends State<AuthGate> {
+class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    // Listen for app lifecycle changes
+    WidgetsBinding.instance.addObserver(this);
     // Check for pending navigation from notification tap
     _checkPendingNavigation();
   }
 
-  Future<void> _checkPendingNavigation() async {
-    // Wait a bit for the app to fully initialize
-    await Future.delayed(const Duration(milliseconds: 500));
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    debugPrint('📱 App lifecycle changed to: $state');
     
-    if (!mounted) return;
-    
-    // Check if there's a pending chat navigation
-    final conversationId = NotificationService().getPendingChatNavigation();
-    if (conversationId != null) {
-      debugPrint('📍 Navigating to conversation: $conversationId');
-      
-      // Wait for authentication to complete
-      final auth = Supabase.instance.client.auth;
-      if (auth.currentSession != null) {
-        // Navigate to chat view
-        _navigateToChat(conversationId);
-      }
+    // When app resumes from background, check for pending navigation
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('🔄 App resumed - checking for pending navigation...');
+      _checkPendingNavigation();
     }
   }
 
+  Future<void> _checkPendingNavigation() async {
+    debugPrint('🔍 ========== CHECKING PENDING NAVIGATION ==========');
+    
+    // Wait a bit for the app to fully initialize
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    if (!mounted) {
+      debugPrint('❌ Widget not mounted, skipping navigation check');
+      return;
+    }
+    
+    // Check if there's a pending chat navigation
+    final conversationId = NotificationService().getPendingChatNavigation();
+    debugPrint('📱 Pending conversation ID: $conversationId');
+    
+    if (conversationId != null) {
+      debugPrint('✅ Found pending navigation to: $conversationId');
+      
+      // Wait for authentication to complete
+      final auth = Supabase.instance.client.auth;
+      final session = auth.currentSession;
+      debugPrint('🔐 Auth session exists: ${session != null}');
+      
+      if (session != null) {
+        debugPrint('🚀 Starting navigation to chat...');
+        // Navigate to chat view
+        await _navigateToChat(conversationId);
+      } else {
+        debugPrint('❌ No auth session, cannot navigate');
+      }
+    } else {
+      debugPrint('ℹ️ No pending navigation found');
+    }
+    debugPrint('================================================');
+  }
+
   Future<void> _navigateToChat(String conversationId) async {
-    // Import chat_view at the top of this file first
-    // Then navigate
-    if (!mounted) return;
+    debugPrint('🗺️ ========== NAVIGATING TO CHAT ==========');
+    debugPrint('   Conversation ID: $conversationId');
+    
+    if (!mounted) {
+      debugPrint('❌ Widget not mounted');
+      return;
+    }
     
     try {
       // Get conversation details to show proper title
       final supa = Supabase.instance.client;
       final currentUserId = supa.auth.currentUser!.id;
+      debugPrint('   Current user ID: $currentUserId');
       
       // Get other participant's info
+      debugPrint('📊 Fetching participants...');
       final participants = await supa
           .from('participants')
           .select('user_id')
           .eq('conversation_id', conversationId)
           .neq('user_id', currentUserId);
       
+      debugPrint('   Found ${participants.length} other participants');
+      
       if (participants.isNotEmpty) {
         final otherUserId = participants[0]['user_id'] as String;
+        debugPrint('   Other user ID: $otherUserId');
         
         // Get other user's profile
+        debugPrint('👤 Fetching profile...');
         final profile = await supa
             .from('profiles')
             .select('name, surname')
@@ -118,6 +164,9 @@ class _AuthGateState extends State<AuthGate> {
             ? '${profile['name'] ?? ''} ${profile['surname'] ?? ''}'.trim()
             : 'Chat';
         
+        debugPrint('   Chat title: $title');
+        debugPrint('🚀 Pushing ChatView to navigator...');
+        
         // Navigate to chat
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -127,9 +176,16 @@ class _AuthGateState extends State<AuthGate> {
             ),
           ),
         );
+        
+        debugPrint('✅ Navigation complete');
+      } else {
+        debugPrint('❌ No other participants found');
       }
-    } catch (e) {
+      debugPrint('==========================================');
+    } catch (e, stackTrace) {
       debugPrint('❌ Error navigating to chat: $e');
+      debugPrint('Stack trace: $stackTrace');
+      debugPrint('==========================================');
     }
   }
 
@@ -392,6 +448,20 @@ class MyApp extends StatelessWidget {
             '/forgot-password': (_) => const ForgotPasswordView(),
             '/twoc': (_) => const ThisWeekView(),
             '/webmail': (_) => const WebmailView(),
+            '/chat': (ctx) {
+              final args = ModalRoute.of(ctx)?.settings.arguments
+                  as Map<String, dynamic>?;
+              final conversationId = args?['conversationId'] as String?;
+              final title = args?['title'] as String?;
+              if (conversationId == null) {
+                return const Scaffold(
+                    body: Center(child: Text('Chat not found')));
+              }
+              return ChatView(
+                conversationId: conversationId,
+                title: title ?? 'Chat',
+              );
+            },
             '/home': (ctx) {
               final args = ModalRoute.of(ctx)?.settings.arguments
                   as Map<String, dynamic>?;

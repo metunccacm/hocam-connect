@@ -283,6 +283,11 @@ class ChatService {
             ? '${senderProfile['name'] ?? ''} ${senderProfile['surname'] ?? ''}'.trim()
             : 'Someone';
         
+        // Use app logo URL for notification icon
+        // TODO: Upload assets/logo/hc_logo.png to Supabase Storage and get public URL
+        // For now, you can use any publicly accessible URL or leave null
+        const String? logoUrl = 'https://supa-api.hocamconnect.com.tr/storage/v1/object/public/public-assets/hc_logo.png';
+        
         // Send push notification via edge function (no decrypted content!)
         await NotificationRepository.sendDirect(
           userIds: recipientIds,
@@ -293,6 +298,7 @@ class ChatService {
             'conversation_id': conversationId,
             'sender_id': currentUserId,
           },
+          imageUrl: logoUrl, // App logo will show as large icon
         );
         
         print('✅ Push notification sent to ${recipientIds.length} recipient(s)');
