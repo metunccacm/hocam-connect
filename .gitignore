@@ -38,3 +38,9 @@ project/*.sql
 *.sql
 *.md
 project/*.md
+
+# Android signing keys (NEVER commit these!)
+**/android/key.properties
+**/android/*.jks
+**/android/*.keystore
+**/android/upload-keystore.jks
