@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
+import '../services/chat_cache_service.dart';
 
 class ChatView extends StatefulWidget {
   final String conversationId;
@@ -16,6 +17,7 @@ class ChatView extends StatefulWidget {
 
 class _ChatViewState extends State<ChatView> {
   final _svc = ChatService();
+  final _cache = ChatCacheService();
   final _controller = TextEditingController();
   final _scroll = ScrollController();
 
@@ -50,7 +52,20 @@ class _ChatViewState extends State<ChatView> {
   @override
   void initState() {
     super.initState();
+    _restoreCachedMessages();
     _bootstrap();
+  }
+  
+  /// Restore cached messages for instant display
+  void _restoreCachedMessages() {
+    final cached = _cache.getCachedChatMessages(widget.conversationId);
+    if (cached != null) {
+      setState(() {
+        // Only restore header info, messages will be loaded fresh from bootstrap
+        _otherDisplayName = cached['otherDisplayName'] as String?;
+        _otherAvatarUrl = cached['otherAvatarUrl'] as String?;
+      });
+    }
   }
 
   final TextEditingController _chatReportCtrl = TextEditingController();
@@ -64,8 +79,24 @@ class _ChatViewState extends State<ChatView> {
 
   String? _otherUserId;
 
+  /// Save current messages to cache
+  void _saveCachedMessages() {
+    if (_plain.isNotEmpty) {
+      _cache.cacheChatMessages(
+        conversationId: widget.conversationId,
+        messages: null, // Don't cache complex objects
+        decryptedMessages: _plain,
+        otherDisplayName: _otherDisplayName,
+        otherAvatarUrl: _otherAvatarUrl,
+      );
+    }
+  }
+
   @override
   void dispose() {
+    // Save messages to cache before disposing
+    _saveCachedMessages();
+    
     _msgChannel?.unsubscribe();
     _presence?.unsubscribe();
     _blockCh?.unsubscribe();
@@ -217,17 +248,20 @@ class _ChatViewState extends State<ChatView> {
     // 3) CEK yoksa dağıt
     await _svc.bootstrapCekIfMissing(widget.conversationId);
 
-    // 4) ilk mesajlar
+    // 4) ilk mesajlar - always fetch fresh to get latest messages
     final initial = await _svc.fetchInitial(widget.conversationId, limit: 50);
 
     // --- DEDUPE + SORT ---
     _seenIds.clear();
+    _plain.clear(); // Clear old decrypted messages to force fresh decryption
     final deduped = <ChatMessage>[];
     for (final m in initial) {
       if (_seenIds.add(m.id)) deduped.add(m);
     }
     deduped.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     setState(() => _messages = deduped);
+    
+    // Decrypt all messages
     for (final m in deduped) {
       _enqueueDecrypt(m);
     }
@@ -320,12 +354,56 @@ class _ChatViewState extends State<ChatView> {
       final others = ids.where((u) => u != me).toList();
 
       if (others.length == 1) {
-        final map = await _svc.getDisplayMap([others.first]);
-        final d = map[others.first];
-        _otherDisplayName =
-            d?.displayName ?? 'User ${others.first.substring(0, 6)}';
         _otherUserId = others.first; // User ID for reporting
-        _otherAvatarUrl = d?.avatarUrl;
+        
+        // Try cache first
+        final cached = await _cache.getCachedUserProfile(others.first);
+        
+        if (cached != null) {
+          // Use cached data
+          final firstName = (cached['first_name'] as String? ?? '').trim();
+          final lastName = (cached['last_name'] as String? ?? '').trim();
+          final fullName = '$firstName $lastName'.trim();
+          
+          _otherDisplayName = fullName.isNotEmpty 
+              ? fullName 
+              : 'User ${others.first.substring(0, 6)}';
+          _otherAvatarUrl = cached['avatar_url'] as String?;
+        } else {
+          // Fetch from database and cache
+          try {
+            final profile = await supa
+                .from('profiles')
+                .select('name, surname, avatar_url')
+                .eq('id', others.first)
+                .maybeSingle();
+            
+            if (profile != null) {
+              final firstName = (profile['name'] as String? ?? '').trim();
+              final lastName = (profile['surname'] as String? ?? '').trim();
+              final fullName = '$firstName $lastName'.trim();
+              
+              _otherDisplayName = fullName.isNotEmpty 
+                  ? fullName 
+                  : 'User ${others.first.substring(0, 6)}';
+              _otherAvatarUrl = profile['avatar_url'] as String?;
+              
+              // Cache the profile
+              await _cache.cacheUserProfile(
+                userId: others.first,
+                firstName: firstName,
+                lastName: lastName,
+                avatarUrl: _otherAvatarUrl,
+              );
+            } else {
+              _otherDisplayName = 'User ${others.first.substring(0, 6)}';
+              _otherAvatarUrl = null;
+            }
+          } catch (e) {
+            _otherDisplayName = 'User ${others.first.substring(0, 6)}';
+            _otherAvatarUrl = null;
+          }
+        }
       } else if (others.isEmpty) {
         _otherDisplayName = 'Saved messages';
         _otherAvatarUrl = null;
@@ -388,7 +466,6 @@ class _ChatViewState extends State<ChatView> {
     if (_presence != null) {
       unawaited(_svc.trackTyping(_presence!, false));
     }
-    _scrollToBottom();
   }
 
   void _onTypingChanged(String _) {
@@ -444,6 +521,9 @@ class _ChatViewState extends State<ChatView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     const themeBlue = Color(0xFF007AFF);
     final composerDisabled = _isDm && (_iBlocked || _blockedMe);
 
@@ -476,12 +556,12 @@ class _ChatViewState extends State<ChatView> {
                   const SizedBox(height: 2),
                   Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.lock, size: 14, color: Colors.black54),
-                      SizedBox(width: 4),
+                    children: [
+                      Icon(Icons.lock, size: 14, color: colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 4),
                       Text(
                         'End-to-End encrypted',
-                        style: TextStyle(fontSize: 12, color: Colors.black54),
+                        style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -556,10 +636,10 @@ class _ChatViewState extends State<ChatView> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              color: const Color(0xFFFFF4E5),
+              color: isDark ? const Color(0xFF5D3A00) : const Color(0xFFFFF4E5),
               child: Row(
                 children: [
-                  const Icon(Icons.block, size: 16, color: Color(0xFFD35400)),
+                  Icon(Icons.block, size: 16, color: isDark ? const Color(0xFFFFB74D) : const Color(0xFFD35400)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -649,11 +729,12 @@ class _ChatViewState extends State<ChatView> {
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.add, color: themeBlue),
-                    onPressed:
-                        _isDm && (_iBlocked || _blockedMe) ? null : () {},
-                  ),
+                  //This feature will be implemented in the future
+                  // IconButton(
+                  //   icon: const Icon(Icons.add, color: themeBlue),
+                  //   onPressed:
+                  //       _isDm && (_iBlocked || _blockedMe) ? null : () {},
+                  // ),
                   Expanded(
                     child: TextField(
                       controller: _controller,
@@ -668,7 +749,7 @@ class _ChatViewState extends State<ChatView> {
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
                         filled: true,
-                        fillColor: const Color(0xFFF7F8FA),
+                        fillColor: isDark ? const Color.fromARGB(255, 45, 65, 104) : const Color(0xFFF7F8FA),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(18),
                           borderSide: BorderSide.none,

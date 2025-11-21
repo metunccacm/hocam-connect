@@ -65,15 +65,19 @@ class _RegistrationViewState extends State<RegistrationView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    
     return ChangeNotifierProvider(
       create: (context) => RegistrationViewModel(),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF2F4F7),
+        backgroundColor: colorScheme.surface,
         appBar: HCAppBar(
-          backgroundColor: const Color(0xFFF2F4F7),
+          backgroundColor: colorScheme.surface,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -97,11 +101,13 @@ class _RegistrationViewState extends State<RegistrationView> {
                     // Name
                     TextFormField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: "Name",
+                        filled: true,
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(10.0)),
-                          borderSide: BorderSide(color: Color(0xFFF0F0F0)),
+                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderSide: BorderSide(color: colorScheme.outline),
                         ),
                       ),
                       validator: (value) {
@@ -116,11 +122,13 @@ class _RegistrationViewState extends State<RegistrationView> {
                     // Surname
                     TextFormField(
                       controller: _surnameController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: "Surname",
+                        filled: true,
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(10.0)),
-                          borderSide: BorderSide(color: Color(0xFFF0F0F0)),
+                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderSide: BorderSide(color: colorScheme.outline),
                         ),
                       ),
                       validator: (value) {
@@ -136,11 +144,13 @@ class _RegistrationViewState extends State<RegistrationView> {
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: "Email (...@metu.edu.tr)",
+                        filled: true,
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(10.0)),
-                          borderSide: BorderSide(color: Color(0xFFF0F0F0)),
+                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderSide: BorderSide(color: colorScheme.outline),
                         ),
                       ),
                       validator: (value) {
@@ -165,13 +175,15 @@ class _RegistrationViewState extends State<RegistrationView> {
                       controller: _dobController,
                       readOnly: true,
                       onTap: _pickDate,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: "Date of Birth (dd/mm/YY)",
+                        filled: true,
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(10.0)),
-                          borderSide: BorderSide(color: Color(0xFFF0F0F0)),
+                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderSide: BorderSide(color: colorScheme.outline),
                         ),
-                        suffixIcon: Icon(Icons.calendar_today),
+                        suffixIcon: const Icon(Icons.calendar_today),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -189,9 +201,11 @@ class _RegistrationViewState extends State<RegistrationView> {
                       onChanged: _validatePassword,
                       decoration: InputDecoration(
                         labelText: "Password",
-                        border: const OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(10.0)),
-                          borderSide: BorderSide(color: Color(0xFFF0F0F0)),
+                        filled: true,
+                        fillColor: colorScheme.surfaceContainerHighest,
+                        border: OutlineInputBorder(
+                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderSide: BorderSide(color: colorScheme.outline),
                         ),
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -233,9 +247,11 @@ class _RegistrationViewState extends State<RegistrationView> {
                       obscureText: _obscureRepeatPassword,
                       decoration: InputDecoration(
                         labelText: "Repeat Password",
-                        border: const OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(10.0)),
-                          borderSide: BorderSide(color: Color(0xFFF0F0F0)),
+                        filled: true,
+                        fillColor: colorScheme.surfaceContainerHighest,
+                        border: OutlineInputBorder(
+                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderSide: BorderSide(color: colorScheme.outline),
                         ),
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -301,15 +317,15 @@ class _RegistrationViewState extends State<RegistrationView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text("Already have an account? "),
+                        Text("Already have an account? ", style: TextStyle(color: colorScheme.onSurfaceVariant)),
                         GestureDetector(
                           onTap: () {
                             Navigator.pop(context);
                           },
-                          child: const Text(
+                          child: Text(
                             "Log in",
                             style: TextStyle(
-                              color: Colors.blue,
+                              color: colorScheme.primary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

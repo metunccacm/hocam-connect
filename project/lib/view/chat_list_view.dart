@@ -5,6 +5,7 @@ import 'package:project/widgets/custom_appbar.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/chat_service.dart';
+import '../services/chat_cache_service.dart';
 import '../utils/network_error_handler.dart';
 import 'chat_view.dart';
 
@@ -14,9 +15,13 @@ class ChatListView extends StatefulWidget {
   State<ChatListView> createState() => _ChatListViewState();
 }
 
-class _ChatListViewState extends State<ChatListView> {
+class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final _svc = ChatService();
   final _supa = Supabase.instance.client;
+  final _cache = ChatCacheService();
 
   // data
   List<String> _convIds = [];
@@ -59,11 +64,15 @@ class _ChatListViewState extends State<ChatListView> {
   @override
   void initState() {
     super.initState();
+    _restoreCachedState();
     _bootstrap();
   }
 
   @override
   void dispose() {
+    // Cache current state before disposing
+    _saveCachedState();
+    
     _msgCh?.unsubscribe();
     _partCh?.unsubscribe();
     _blockChMine?.unsubscribe();
@@ -71,6 +80,34 @@ class _ChatListViewState extends State<ChatListView> {
     _search.dispose();
     _chatReportCtrl.dispose();
     super.dispose();
+  }
+  
+  /// Restore cached conversation list state for instant display
+  void _restoreCachedState() {
+    final cachedState = _cache.getCachedConversationListState();
+    if (cachedState != null) {
+      setState(() {
+        _convIds = List<String>.from(cachedState['conversationIds'] as List);
+        _title.addAll(Map<String, String>.from(cachedState['titles'] as Map));
+        _avatar.addAll(Map<String, String?>.from(cachedState['avatars'] as Map));
+        _snippet.addAll(Map<String, String>.from(cachedState['snippets'] as Map));
+        _lastTime.addAll(Map<String, DateTime?>.from(cachedState['lastTimes'] as Map));
+        _loading = false;
+      });
+    }
+  }
+  
+  /// Save current state to cache
+  void _saveCachedState() {
+    if (_convIds.isNotEmpty) {
+      _cache.cacheConversationListState(
+        conversationIds: _convIds,
+        titles: _title,
+        avatars: _avatar,
+        snippets: _snippet,
+        lastTimes: _lastTime,
+      );
+    }
   }
 
   Future<void> _bootstrap() async {
@@ -83,6 +120,13 @@ class _ChatListViewState extends State<ChatListView> {
 
   Future<void> _load() async {
     if (!mounted) return;
+    
+    // Skip loading if we already have data from cache
+    if (_convIds.isNotEmpty) {
+      // We have cached data, no need to reload
+      return;
+    }
+    
     setState(() {
       _loading = true;
       _hasNetworkError = false;
@@ -127,6 +171,9 @@ class _ChatListViewState extends State<ChatListView> {
         _hasNetworkError = false;
         _errorMessage = null;
       });
+      
+      // Save to cache for instant restore next time
+      _saveCachedState();
     } on HC50Exception catch (e) {
       if (!mounted) return;
       setState(() {
@@ -287,11 +334,54 @@ class _ChatListViewState extends State<ChatListView> {
       final others = userIds.where((u) => u != me).toList();
 
       if (others.length == 1) {
-        final map = await _svc.getDisplayMap([others.first]);
-        final d = map[others.first];
-        _title[conversationId] =
-            d?.displayName ?? 'User ${others.first.substring(0, 6)}';
-        _avatar[conversationId] = d?.avatarUrl;
+        // Try to get from cache first
+        final cachedProfile = await _cache.getCachedUserProfile(others.first);
+        
+        if (cachedProfile != null) {
+          // Use cached data
+          final firstName = (cachedProfile['first_name'] as String? ?? '').trim();
+          final lastName = (cachedProfile['last_name'] as String? ?? '').trim();
+          final fullName = '$firstName $lastName'.trim();
+          
+          _title[conversationId] = fullName.isNotEmpty 
+              ? fullName 
+              : 'User ${others.first.substring(0, 6)}';
+          _avatar[conversationId] = cachedProfile['avatar_url'] as String?;
+        } else {
+          // Fetch profile data from public.profiles and cache it
+          try {
+            final profile = await _supa
+                .from('profiles')
+                .select('name, surname, avatar_url')
+                .eq('id', others.first)
+                .maybeSingle();
+            
+            if (profile != null) {
+              final firstName = (profile['name'] as String? ?? '').trim();
+              final lastName = (profile['surname'] as String? ?? '').trim();
+              final fullName = '$firstName $lastName'.trim();
+              
+              _title[conversationId] = fullName.isNotEmpty 
+                  ? fullName 
+                  : 'User ${others.first.substring(0, 6)}';
+              _avatar[conversationId] = profile['avatar_url'] as String?;
+              
+              // Cache the profile data
+              await _cache.cacheUserProfile(
+                userId: others.first,
+                firstName: firstName,
+                lastName: lastName,
+                avatarUrl: profile['avatar_url'] as String?,
+              );
+            } else {
+              _title[conversationId] = 'User ${others.first.substring(0, 6)}';
+              _avatar[conversationId] = null;
+            }
+          } catch (e) {
+            _title[conversationId] = 'User ${others.first.substring(0, 6)}';
+            _avatar[conversationId] = null;
+          }
+        }
       } else if (others.length > 1) {
         _title[conversationId] = 'Group (${others.length + 1})';
         _avatar[conversationId] = null;
@@ -663,6 +753,11 @@ class _ChatListViewState extends State<ChatListView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     final filtered = _convIds.where((id) {
       if (_query.isEmpty) return true;
       final t = (_title[id] ?? '').toLowerCase();
@@ -729,6 +824,10 @@ class _ChatListViewState extends State<ChatListView> {
   }
 
   Widget _buildBody(List<String> ids) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    
     if (ids.isEmpty) {
       return RefreshIndicator(
         onRefresh: () async {
@@ -785,18 +884,18 @@ class _ChatListViewState extends State<ChatListView> {
                     onPressed: (_) =>
                         iBlocked ? _unblockInDm(id) : _blockInDm(id),
                     backgroundColor: iBlocked
-                        ? const Color(0xFFE8F5E9) // unblock rengi
-                        : const Color(0xFFFFEEF0), // block rengi
+                        ? (isDark ? const Color(0xFF1B5E20) : const Color(0xFFE8F5E9))
+                        : (isDark ? const Color(0xFF5C1010) : const Color(0xFFFFEEF0)),
                     foregroundColor:
-                        iBlocked ? const Color(0xFF2E7D32) : Colors.red,
+                        iBlocked ? (isDark ? const Color(0xFFA5D6A7) : const Color(0xFF2E7D32)) : (isDark ? const Color(0xFFEF9A9A) : Colors.red),
                     icon: iBlocked ? Icons.lock_open : Icons.block,
                     label: iBlocked ? 'Unblock' : 'Block',
                     borderRadius: BorderRadius.circular(12),
                   ),
                 SlidableAction(
                   onPressed: (_) => _deleteEverywhere(id),
-                  backgroundColor: const Color(0xFFFFF4E5),
-                  foregroundColor: const Color(0xFFD35400),
+                  backgroundColor: isDark ? const Color(0xFF5D3A00) : const Color(0xFFFFF4E5),
+                  foregroundColor: isDark ? const Color(0xFFFFB74D) : const Color(0xFFD35400),
                   icon: Icons.delete_outline,
                   label: 'Delete',
                   borderRadius: BorderRadius.circular(12),
@@ -830,8 +929,8 @@ class _ChatListViewState extends State<ChatListView> {
                 children: [
                   if (t != null)
                     Text(_fmtTime(t),
-                        style: const TextStyle(
-                            color: Colors.black54, fontSize: 12)),
+                        style: TextStyle(
+                            color: colorScheme.onSurfaceVariant, fontSize: 12)),
                   const SizedBox(height: 6),
                   if (unread > 0)
                     Container(
@@ -860,17 +959,20 @@ class _ChatListViewState extends State<ChatListView> {
   }
 
   Widget _buildSearchBar() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F8),
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: TextField(
         controller: _search,
         onChanged: (v) => setState(() => _query = v),
-        decoration: const InputDecoration(
-          icon: Icon(Icons.search, color: Colors.black38),
+        decoration: InputDecoration(
+          icon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
           hintText: 'Search',
           border: InputBorder.none,
         ),

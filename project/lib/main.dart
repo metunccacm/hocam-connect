@@ -29,6 +29,9 @@ import 'viewmodel/create_hitchikepost_viewmodel.dart';
 // Theme Controller
 import 'theme_controller.dart';
 
+// Cache Service
+import 'services/chat_cache_service.dart';
+
 // New import for the scaling utility
 import 'config/size_config.dart';
 
@@ -307,17 +310,32 @@ void main() async {
       });
     }
 
-    // Clean up notification token on sign out
+    // Clean up notification token and cache on sign out
     if (data.event == AuthChangeEvent.signedOut) {
       NotificationService().deleteTokenFromSupabase().then((_) {
         debugPrint('✅ FCM token cleared on sign out');
       }).catchError((e) {
         debugPrint('⚠️ Error clearing FCM token: $e');
       });
+      
+      // Clear all cached data on logout
+      ChatCacheService().clearAllCaches().then((_) {
+        debugPrint('✅ All caches cleared on sign out');
+      }).catchError((e) {
+        debugPrint('⚠️ Error clearing caches: $e');
+      });
     }
   });
 
   await ThemeController.instance.load();
+
+  // Initialize cache cleanup (remove expired entries)
+  try {
+    await ChatCacheService().clearExpiredCaches();
+    debugPrint('✅ Expired cache entries cleared');
+  } catch (e) {
+    debugPrint('⚠️ Error clearing expired cache: $e');
+  }
 
   Supabase.instance.client.auth.onAuthStateChange.listen((s) =>
       debugPrint('Auth event: ${s.event}, session: ${s.session != null}'));

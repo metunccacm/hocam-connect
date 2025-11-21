@@ -15,6 +15,10 @@ class _LoginViewState extends State<LoginView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    
     final w = MediaQuery.of(context).size.width;
     // Make the logo ~70% of screen width, clamp between 200–420 px
     final logoSize = (w * 0.70).clamp(200.0, 420.0);
@@ -44,30 +48,29 @@ class _LoginViewState extends State<LoginView> {
 
                   const SizedBox(height: 48),
 
-                  const Text(
+                  Text(
                     'Welcome!',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
-                      color: Colors.black,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 40),
 
                   TextFormField(
                     controller: viewModel.emailController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Email Address',
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: colorScheme.surfaceContainerHighest,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(10.0)),
-                        borderSide: BorderSide(color: Color(0xFFF0F0F0)),
+                        borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                        borderSide: BorderSide(color: colorScheme.outline),
                       ),
                     ),
                     keyboardType: TextInputType.emailAddress,
                     enabled: !viewModel.isLoading,
-                    style: const TextStyle(color: Colors.black),
                   ),
                   const SizedBox(height: 20),
 
@@ -76,17 +79,17 @@ class _LoginViewState extends State<LoginView> {
                     decoration: InputDecoration(
                       labelText: 'Password',
                       filled: true,
-                      fillColor: Colors.white,
-                      border: const OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(10.0)),
-                        borderSide: BorderSide(color: Color(0xFFF0F0F0)),
+                      fillColor: colorScheme.surfaceContainerHighest,
+                      border: OutlineInputBorder(
+                        borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                        borderSide: BorderSide(color: colorScheme.outline),
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _isPasswordVisible
                               ? Icons.visibility
                               : Icons.visibility_off,
-                          color: Colors.grey,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         onPressed: () {
                           setState(() {
@@ -97,7 +100,6 @@ class _LoginViewState extends State<LoginView> {
                     ),
                     obscureText: !_isPasswordVisible,
                     enabled: !viewModel.isLoading,
-                    style: const TextStyle(color: Colors.black),
                   ),
                   const SizedBox(height: 10),
 
@@ -140,18 +142,18 @@ class _LoginViewState extends State<LoginView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         "Not a member?",
-                        style: TextStyle(color: Colors.black54),
+                        style: TextStyle(color: colorScheme.onSurfaceVariant),
                       ),
                       TextButton(
                         onPressed: () {
                           Navigator.pushNamed(context, '/register');
                         },
-                        child: const Text(
+                        child: Text(
                           'Sign up now',
                           style: TextStyle(
-                            color: Color(0xFF007BFF),
+                            color: colorScheme.primary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

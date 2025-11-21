@@ -6,8 +6,12 @@ class WelcomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
+      backgroundColor: colorScheme.surface,
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(
@@ -38,7 +42,7 @@ class WelcomeView extends StatelessWidget {
                 style: TextStyle(
                   fontSize: getProportionateScreenWidth(15),
                   fontWeight: FontWeight.w400,
-                  color: const Color(0xFF3D003E),
+                  color: colorScheme.onSurface,
                   height: 1.0, // satır aralığını da sıkı tut
                 ),
               ),
@@ -98,7 +102,7 @@ class WelcomeView extends StatelessWidget {
                           text: 'Already have an account?',
                           style: TextStyle(
                             fontSize: getProportionateScreenWidth(15),
-                            color: const Color(0xFF3D003E),
+                            color: colorScheme.onSurface,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
@@ -106,7 +110,7 @@ class WelcomeView extends StatelessWidget {
                           text: ' Log in',
                           style: TextStyle(
                             fontSize: getProportionateScreenWidth(15),
-                            color: const Color(0xFF3D003E),
+                            color: colorScheme.primary,
                             fontWeight: FontWeight.w600,
                             decoration: TextDecoration.underline,
                           ),

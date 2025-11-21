@@ -72,14 +72,18 @@ class _WebmailViewState extends State<WebmailView> {
     _controller.setNavigationDelegate(
       NavigationDelegate(
         onPageStarted: (url) {
-          setState(() {
-            _isLoading = true;
-          });
+          if (mounted) {
+            setState(() {
+              _isLoading = true;
+            });
+          }
         },
         onPageFinished: (url) async {
-          setState(() {
-            _isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
           
           debugPrint('📄 Page finished loading: $url');
           
@@ -101,10 +105,12 @@ class _WebmailViewState extends State<WebmailView> {
           }
         },
         onWebResourceError: (error) {
-          setState(() {
-            _isLoading = false;
-            _hasConnection = false;
-          });
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _hasConnection = false;
+            });
+          }
         },
         onNavigationRequest: (NavigationRequest request) {
           // Allow all navigation within the webmail domain
@@ -125,6 +131,8 @@ class _WebmailViewState extends State<WebmailView> {
 
   Future<void> _checkConnectionAndLoad() async {
     final result = await Connectivity().checkConnectivity();
+    if (!mounted) return;
+    
     if (result.contains(ConnectivityResult.none)) {
       setState(() {
         _hasConnection = false;
@@ -329,9 +337,11 @@ class _WebmailViewState extends State<WebmailView> {
   void _showRememberCredentialsDialog() {
     if (!mounted || _showRememberDialog) return;
     
-    setState(() {
-      _showRememberDialog = true;
-    });
+    if (mounted) {
+      setState(() {
+        _showRememberDialog = true;
+      });
+    }
 
     showDialog(
       context: context,
@@ -343,9 +353,11 @@ class _WebmailViewState extends State<WebmailView> {
         actions: [
           TextButton(
             onPressed: () {
-              setState(() {
-                _showRememberDialog = false;
-              });
+              if (mounted) {
+                setState(() {
+                  _showRememberDialog = false;
+                });
+              }
               Navigator.of(context).pop();
             },
             child: const Text('No'),
@@ -360,10 +372,10 @@ class _WebmailViewState extends State<WebmailView> {
                 username: _usernameController.text,
                 password: _passwordController.text,
               );
-              setState(() {
-                _showRememberDialog = false;
-              });
               if (mounted) {
+                setState(() {
+                  _showRememberDialog = false;
+                });
                 navigator.pop();
                 messenger.showSnackBar(
                   const SnackBar(
