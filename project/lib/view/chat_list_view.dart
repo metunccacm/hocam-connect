@@ -39,6 +39,9 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
   final Map<String, bool> _iBlocked = {}; // I blocked them
   final Map<String, bool> _blockedMe = {}; // they blocked me
 
+  // hidden conversations (soft-deleted by user)
+  final Set<String> _hiddenConvIds = {};
+
   // ui
   bool _loading = true;
   bool _hasNetworkError = false;
@@ -110,6 +113,31 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
     }
   }
 
+  /// Load conversation IDs that user has hidden/soft-deleted
+  Future<void> _loadHiddenConversations() async {
+    try {
+      final me = _supa.auth.currentUser?.id;
+      if (me == null) return;
+      
+      final rows = await _supa
+          .from('participants')
+          .select('conversation_id')
+          .eq('user_id', me)
+          .not('hidden_at', 'is', null); // Get only hidden conversations
+      
+      _hiddenConvIds.clear();
+      for (final row in rows as List) {
+        final cid = (row as Map<String, dynamic>)['conversation_id'] as String?;
+        if (cid != null) {
+          _hiddenConvIds.add(cid);
+        }
+      }
+    } catch (e) {
+      // Non-critical error, just log it
+      debugPrint('Failed to load hidden conversations: $e');
+    }
+  }
+
   Future<void> _bootstrap() async {
     await _load();
     await _loadUnread();
@@ -134,6 +162,9 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
     });
 
     try {
+      // Load hidden conversation IDs first
+      await _loadHiddenConversations();
+      
       // tüm konuşmalar
       List<String> convs = [];
       try {
@@ -150,7 +181,8 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
           () => _supa
               .from('participants')
               .select('conversation_id')
-              .eq('user_id', me),
+              .eq('user_id', me)
+              .isFilter('hidden_at', null), // Filter out hidden conversations
           context: 'Failed to load conversations',
         );
         convs = (rows as List)
@@ -607,6 +639,15 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
 
   Future<void> _onNewConversationDetected(String cid) async {
     if (_convIds.contains(cid)) return;
+    
+    // If conversation was hidden, show it but KEEP the hidden_at timestamp
+    // This allows filtering old messages in chat_view
+    if (_hiddenConvIds.contains(cid)) {
+      debugPrint('👁️ Showing hidden conversation (new message arrived): $cid');
+      // Don't clear hidden_at - keep it to filter old messages
+      _hiddenConvIds.remove(cid);
+    }
+    
     await _ensureMeta(cid);
     _convIds.add(cid);
     _unread[cid] = _unread[cid] ?? 0;
@@ -657,18 +698,70 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
   Future<void> _deleteForMe(String id) async {
     try {
       final me = _supa.auth.currentUser!.id;
-      await _supa.from('participants').delete().match({
-        'conversation_id': id,
-        'user_id': me,
-      });
+      debugPrint('🗑️ Attempting to hide conversation: $id for user: $me');
+      
+      // First, check if the participant record exists
+      final checkResult = await _supa
+          .from('participants')
+          .select()
+          .eq('conversation_id', id)
+          .eq('user_id', me);
+      debugPrint('🔍 Participant check result: $checkResult');
+      
+      // Soft-delete: set hidden_at timestamp instead of deleting the record
+      // This prevents the conversation from reappearing when new messages arrive
+      final result = await _supa.from('participants').update({
+        'hidden_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('conversation_id', id).eq('user_id', me).select();
+      
+      debugPrint('🗑️ Update result: $result');
+      
+      if (result.isEmpty) {
+        debugPrint('⚠️ Warning: No participant record found to hide');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Conversation not found')),
+        );
+        return;
+      }
+      
+      // Add to hidden set to prevent realtime re-adding
+      _hiddenConvIds.add(id);
       _removeLocal(id);
+      
+      debugPrint('✅ Conversation hidden successfully');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Conversation removed')),
       );
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('❌ Delete failed: $e');
+      debugPrint('Stack trace: $stack');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Delete failed: $e')),
       );
+    }
+  }
+
+  /// Unhide a conversation (called when user actively engages with it)
+  Future<void> _unhideConversation(String id) async {
+    try {
+      final me = _supa.auth.currentUser!.id;
+      debugPrint('👁️ Unhiding conversation: $id');
+      
+      await _supa.from('participants').update({
+        'hidden_at': null,
+      }).eq('conversation_id', id).eq('user_id', me);
+      
+      // Remove from hidden set
+      _hiddenConvIds.remove(id);
+      
+      // Re-add to conversation list if not already there
+      if (!_convIds.contains(id)) {
+        await _onNewConversationDetected(id);
+      }
+      
+      debugPrint('✅ Conversation unhidden');
+    } catch (e) {
+      debugPrint('❌ Unhide failed: $e');
     }
   }
 
@@ -754,9 +847,6 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     
     final filtered = _convIds.where((id) {
       if (_query.isEmpty) return true;
@@ -893,7 +983,7 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
                     borderRadius: BorderRadius.circular(12),
                   ),
                 SlidableAction(
-                  onPressed: (_) => _deleteEverywhere(id),
+                  onPressed: (_) => _deleteForMe(id),
                   backgroundColor: isDark ? const Color(0xFF5D3A00) : const Color(0xFFFFF4E5),
                   foregroundColor: isDark ? const Color(0xFFFFB74D) : const Color(0xFFD35400),
                   icon: Icons.delete_outline,
