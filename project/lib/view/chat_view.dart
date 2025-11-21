@@ -47,6 +47,9 @@ class _ChatViewState extends State<ChatView> {
   bool _iBlocked = false;
   bool _blockedMe = false;
 
+  // Message filtering
+  DateTime? _lastHiddenAt; // Track when conversation was last hidden to filter old messages
+
   String? _otherDisplayName;
 
   @override
@@ -248,17 +251,50 @@ class _ChatViewState extends State<ChatView> {
     // 3) CEK yoksa dağıt
     await _svc.bootstrapCekIfMissing(widget.conversationId);
 
+    // 3.5) Check when this conversation was last hidden (if ever)
+    DateTime? lastHiddenAt;
+    try {
+      final supa = Supabase.instance.client;
+      final me = supa.auth.currentUser?.id;
+      if (me != null) {
+        final result = await supa
+            .from('participants')
+            .select('hidden_at')
+            .eq('conversation_id', widget.conversationId)
+            .eq('user_id', me)
+            .maybeSingle();
+        
+        debugPrint('📋 Participant record for ${widget.conversationId}: $result');
+        
+        if (result != null && result['hidden_at'] != null) {
+          lastHiddenAt = DateTime.parse(result['hidden_at']);
+          _lastHiddenAt = lastHiddenAt; // Store in state for use in _loadOlder
+          debugPrint('🕒 Conversation was last hidden at: $lastHiddenAt');
+        } else {
+          debugPrint('✅ Conversation was never hidden (hidden_at is null)');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Failed to check hidden_at: $e');
+    }
+
     // 4) ilk mesajlar - always fetch fresh to get latest messages
     final initial = await _svc.fetchInitial(widget.conversationId, limit: 50);
 
-    // --- DEDUPE + SORT ---
+    // --- DEDUPE + SORT + FILTER OLD MESSAGES ---
     _seenIds.clear();
     _plain.clear(); // Clear old decrypted messages to force fresh decryption
     final deduped = <ChatMessage>[];
     for (final m in initial) {
+      // Skip messages that were sent before the conversation was hidden
+      if (lastHiddenAt != null && m.createdAt.isBefore(lastHiddenAt)) {
+        debugPrint('🚫 Skipping old message from ${m.createdAt} (before hidden at $lastHiddenAt)');
+        continue;
+      }
       if (_seenIds.add(m.id)) deduped.add(m);
     }
     deduped.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    debugPrint('📨 Filtered messages: ${deduped.length} messages (from ${initial.length} total)');
     setState(() => _messages = deduped);
     
     // Decrypt all messages
@@ -487,9 +523,15 @@ class _ChatViewState extends State<ChatView> {
       final older =
           await _svc.fetchBefore(widget.conversationId, before, limit: 30);
 
-      // DEDUPE + MERGE + SORT
+      // DEDUPE + MERGE + SORT + FILTER OLD MESSAGES
       var added = false;
       for (final m in older) {
+        // Skip messages before the conversation was hidden
+        if (_lastHiddenAt != null && m.createdAt.isBefore(_lastHiddenAt!)) {
+          debugPrint('🚫 [LoadOlder] Skipping old message from ${m.createdAt}');
+          continue;
+        }
+        
         if (_seenIds.add(m.id)) {
           _messages.add(m);
           _enqueueDecrypt(m);
