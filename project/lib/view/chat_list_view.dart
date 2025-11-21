@@ -696,6 +696,30 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
   }
 
   Future<void> _deleteForMe(String id) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete conversation?'),
+        content: const Text(
+          'This conversation will be removed from your chat list. ',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed != true) return;
+    
     try {
       final me = _supa.auth.currentUser!.id;
       debugPrint('🗑️ Attempting to hide conversation: $id for user: $me');
