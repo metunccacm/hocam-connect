@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:project/viewmodel/register_viewmodel.dart';
 import 'package:provider/provider.dart';
@@ -20,7 +21,6 @@ class _RegistrationViewState extends State<RegistrationView> {
   final _passwordController = TextEditingController();
   final _repeatPasswordController = TextEditingController();
 
-  String? _passwordError;
   bool _obscurePassword = true;
   bool _obscureRepeatPassword = true;
 
@@ -28,24 +28,35 @@ class _RegistrationViewState extends State<RegistrationView> {
   bool _isPasswordValid(String password) {
     final hasUppercase = password.contains(RegExp(r'[A-Z]'));
     final hasLowercase = password.contains(RegExp(r'[a-z]'));
+    final hasDigit = password.contains(RegExp(r'[0-9]'));
     final hasSpecialCharacter =
         password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
     final hasMinLength = password.length >= 8;
 
-    return hasUppercase && hasLowercase && hasSpecialCharacter && hasMinLength;
+    return hasUppercase &&
+        hasLowercase &&
+        hasDigit &&
+        hasSpecialCharacter &&
+        hasMinLength;
   }
 
-  void _validatePassword(String value) {
-    if (!_isPasswordValid(value)) {
-      setState(() {
-        _passwordError =
-            "Password must have one uppercase, one lowercase, and one special character and at least 8 characters long";
-      });
-    } else {
-      setState(() {
-        _passwordError = null;
-      });
+  String? _validatePassword(String? value) {
+    final v = value ?? '';
+    if (!_isPasswordValid(v)) {
+      return 'Must include uppercase, lowercase, number, special character, and 8+ chars';
     }
+    return null;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _surnameController.dispose();
+    _emailController.dispose();
+    _dobController.dispose();
+    _passwordController.dispose();
+    _repeatPasswordController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickDate() async {
@@ -67,7 +78,6 @@ class _RegistrationViewState extends State<RegistrationView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
     
     return ChangeNotifierProvider(
       create: (context) => RegistrationViewModel(),
@@ -198,7 +208,11 @@ class _RegistrationViewState extends State<RegistrationView> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      onChanged: _validatePassword,
+                      onChanged: (_) {
+                        // Rebuild to update the live checklist and revalidate repeat password
+                        setState(() {});
+                        _formKey.currentState?.validate();
+                      },
                       decoration: InputDecoration(
                         labelText: "Password",
                         filled: true,
@@ -207,6 +221,7 @@ class _RegistrationViewState extends State<RegistrationView> {
                           borderRadius: const BorderRadius.all(Radius.circular(10.0)),
                           borderSide: BorderSide(color: colorScheme.outline),
                         ),
+                        errorMaxLines: 3,
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword
@@ -220,31 +235,17 @@ class _RegistrationViewState extends State<RegistrationView> {
                           },
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        if (_passwordError != null) {
-                          return _passwordError;
-                        }
-                        return null;
-                      },
+                      validator: _validatePassword,
                     ),
-                    if (_passwordError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4, left: 4),
-                        child: Text(
-                          _passwordError!,
-                          style:
-                              const TextStyle(color: Colors.red, fontSize: 12),
-                        ),
-                      ),
+                    const SizedBox(height: 8),
+                    _PasswordRulesChecklist(valueListenable: _passwordController),
                     const SizedBox(height: 12),
 
                     // Repeat Password
                     TextFormField(
                       controller: _repeatPasswordController,
                       obscureText: _obscureRepeatPassword,
+                      onChanged: (_) => _formKey.currentState?.validate(),
                       decoration: InputDecoration(
                         labelText: "Repeat Password",
                         filled: true,
@@ -298,7 +299,8 @@ class _RegistrationViewState extends State<RegistrationView> {
                                 }
                               },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
                         ),
                         child: viewModel.isLoading
                             ? const CircularProgressIndicator(
@@ -339,6 +341,77 @@ class _RegistrationViewState extends State<RegistrationView> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _PasswordRulesChecklist extends StatelessWidget {
+  const _PasswordRulesChecklist({
+    required this.valueListenable,
+  });
+
+  final ValueListenable<TextEditingValue> valueListenable;
+
+  static final RegExp _uppercaseRegExp = RegExp(r'[A-Z]');
+  static final RegExp _lowercaseRegExp = RegExp(r'[a-z]');
+  static final RegExp _digitRegExp = RegExp(r'[0-9]');
+  static final RegExp _specialRegExp = RegExp(r'[!@#$%^&*(),.?":{}|<>]');
+
+  bool _hasUppercase(String s) => _uppercaseRegExp.hasMatch(s);
+  bool _hasLowercase(String s) => _lowercaseRegExp.hasMatch(s);
+  bool _hasDigit(String s) => _digitRegExp.hasMatch(s);
+  bool _hasSpecial(String s) => _specialRegExp.hasMatch(s);
+  bool _hasMinLength(String s) => s.length >= 8;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: valueListenable,
+      builder: (context, value, _) {
+        final s = value.text;
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _RuleRow(label: 'Uppercase letter', ok: _hasUppercase(s)),
+                _RuleRow(label: 'Lowercase letter', ok: _hasLowercase(s)),
+                _RuleRow(label: 'Number', ok: _hasDigit(s)),
+                _RuleRow(label: 'Special character ( !@#\$%^&*(),.?":{}|<> )', ok: _hasSpecial(s)),
+                _RuleRow(label: 'At least 8 characters', ok: _hasMinLength(s)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RuleRow extends StatelessWidget {
+  const _RuleRow({required this.label, required this.ok});
+  final String label;
+  final bool ok;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ok ? Colors.green : Theme.of(context).colorScheme.error;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(ok ? Icons.check_circle : Icons.cancel, size: 16, color: color),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            label,
+            style:
+                Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+          ),
+        ),
+      ],
     );
   }
 }
