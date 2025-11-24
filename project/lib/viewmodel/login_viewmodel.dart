@@ -15,22 +15,41 @@ class LoginViewModel extends ChangeNotifier {
   String _errorMessage = '';
   String get errorMessage => _errorMessage;
 
+  String _emailError = '';
+  String get emailError => _emailError;
+
+  String _passwordError = '';
+  String get passwordError => _passwordError;
+
   Future<void> loginUser(BuildContext context) async {
     _isLoading = true;
     _errorMessage = '';
+    _emailError = '';
+    _passwordError = '';
     notifyListeners();
 
     final email = emailController.text.trim();
     final password = passwordController.text;
 
-    if (!EmailValidator.validate(email)) {
-      _errorMessage = 'Please enter a valid email address.';
-      _isLoading = false;
-      notifyListeners();
-      return;
+    bool hasError = false;
+
+    if (email.isEmpty) {
+      _emailError = 'Email is required';
+      hasError = true;
+    } else if (!EmailValidator.validate(email)) {
+      _emailError = 'Please enter a valid email address';
+      hasError = true;
     }
-    if (password.length < 6) {
-      _errorMessage = 'Password must be at least 6 characters long.';
+
+    if (password.isEmpty) {
+      _passwordError = 'Password is required';
+      hasError = true;
+    } else if (password.length < 8) {
+      _passwordError = 'Password must be at least 8 characters long';
+      hasError = true;
+    }
+
+    if (hasError) {
       _isLoading = false;
       notifyListeners();
       return;

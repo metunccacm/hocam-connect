@@ -184,7 +184,7 @@ class _PasswordRulesChecklist extends StatelessWidget {
                 _RuleRow(label: 'Uppercase letter', ok: _hasUppercase(s)),
                 _RuleRow(label: 'Lowercase letter', ok: _hasLowercase(s)),
                 _RuleRow(label: 'Number', ok: _hasDigit(s)),
-                _RuleRow(label: 'Special character', ok: _hasSpecial(s)),
+                _RuleRow(label: 'Special character ( !@#\$%^&*(),.?":{}|<> )', ok: _hasSpecial(s)),
                 _RuleRow(label: 'At least 8 characters', ok: _hasMinLength(s)),
               ],
             ),
