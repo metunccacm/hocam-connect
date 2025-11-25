@@ -8,6 +8,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../models/product.dart';
 import '../services/chat_service.dart';
+import '../services/marketplace_service.dart';
 import 'chat_view.dart';
 import 'edit_product_view.dart';
 
@@ -233,46 +234,22 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   /// Sunucudan ürünü tekrar oku
   Future<void> _reloadFromServer() async {
     try {
-      final supa = Supabase.instance.client;
-      final row = await supa.from('marketplace_products').select('''
-            title, description, price, currency, category, size_value,
-            seller_id, seller_name, seller_image_url,
-            marketplace_images ( url )
-          ''').eq('id', widget.product.id).maybeSingle();
+      final updatedProduct =
+          await MarketplaceService().fetchProductById(widget.product.id);
 
-      if (row is Map<String, dynamic>) {
-        final imgs = <String>[];
-        final imagesRaw = row['marketplace_images'] as List<dynamic>?;
-        if (imagesRaw != null) {
-          for (final it in imagesRaw) {
-            final u = (it as Map<String, dynamic>)['url']?.toString();
-            if (u != null && u.isNotEmpty) imgs.add(u);
-          }
-        }
+      if (!mounted) return;
+      setState(() {
+        _bindFromProduct(updatedProduct);
+      });
 
-        setState(() {
-          _title = (row['title'] as String?) ?? _title;
-          _description = (row['description'] as String?) ?? _description;
-          _price = (row['price'] as num?)?.toDouble() ?? _price;
-          _currency = (row['currency'] as String?) ?? _currency;
-          _category = (row['category'] as String?) ?? _category;
-          _sizeValue = (row['size_value'] as String?) ?? _sizeValue;
-          _sellerId = (row['seller_id'] as String?) ?? _sellerId;
-          _sellerName = (row['seller_name'] as String?) ?? _sellerName;
-          _sellerImageUrl =
-              (row['seller_image_url'] as String?) ?? _sellerImageUrl;
-          _imageUrls = imgs;
-        });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _createPager(initialPage: 0);
+      });
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _createPager(initialPage: 0);
-        });
-
-        unawaited(_warmImages());
-      }
-    } catch (_) {
-      // sessiz geç
+      unawaited(_warmImages());
+    } catch (e) {
+      debugPrint('Error reloading product: $e');
     }
   }
 
