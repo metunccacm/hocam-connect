@@ -37,6 +37,9 @@ class ProductDetailViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error refreshing product: $e');
+      // Still notify listeners so UI can respond to the failed refresh
+      notifyListeners();
+      rethrow;
     }
   }
 
