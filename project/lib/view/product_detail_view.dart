@@ -42,9 +42,12 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   VoidCallback? _pagerListener;
   int _pageIx = 0;
 
+  late final ProductDetailViewModel _viewModel;
+
   @override
   void initState() {
     super.initState();
+    _viewModel = ProductDetailViewModel(widget.product);
     _createPager(initialPage: 0);
     unawaited(_warmImages(widget.product.imageUrls));
   }
@@ -67,6 +70,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
   @override
   void dispose() {
+    _viewModel.dispose();
     _reportDetailsCtrl.dispose();
     if (_pagerListener != null && _pager != null) {
       _pager!.removeListener(_pagerListener!);
@@ -219,8 +223,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ProductDetailViewModel(widget.product),
+    return ChangeNotifierProvider<ProductDetailViewModel>.value(
+      value: _viewModel,
       child: Consumer<ProductDetailViewModel>(
         builder: (context, vm, _) {
           final p = vm.product;
