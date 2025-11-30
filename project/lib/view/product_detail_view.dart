@@ -91,11 +91,12 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       if (!mounted) return;
       _createPager(initialPage: 0);
       unawaited(_warmImages(vm.product.imageUrls));
-      onSuccess?.call();
+      if (mounted) onSuccess?.call();
     } catch (e) {
+      debugPrint('Error refreshing product: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not refresh: $e')),
+          const SnackBar(content: Text('Unable to refresh. Please try again.')),
         );
       }
     }
