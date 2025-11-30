@@ -85,6 +85,23 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     }
   }
 
+  Future<void> _handleRefresh(ProductDetailViewModel vm, {VoidCallback? onSuccess}) async {
+    try {
+      await vm.refresh();
+      if (!mounted) return;
+      _createPager(initialPage: 0);
+      unawaited(_warmImages(vm.product.imageUrls));
+      if (mounted) onSuccess?.call();
+    } catch (e) {
+      debugPrint('Error refreshing product: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to refresh. Please try again.')),
+        );
+      }
+    }
+  }
+
   Future<void> _reportUser(ProductDetailViewModel vm) async {
     if (vm.isBusy) return;
     if (vm.isMine) {
@@ -166,10 +183,10 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
     if (changed == true && mounted) {
       _refreshKey.currentState?.show();
-      await vm.refresh();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Listing updated')));
+      await _handleRefresh(vm, onSuccess: () {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Listing updated')));
+      });
     }
   }
 
@@ -300,7 +317,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
               key: _refreshKey,
               color: cs.primary,
               backgroundColor: cs.surface,
-              onRefresh: vm.refresh,
+              onRefresh: () => _handleRefresh(vm),
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(
                     parent: BouncingScrollPhysics()),
