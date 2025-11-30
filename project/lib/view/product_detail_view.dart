@@ -85,12 +85,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     }
   }
 
-  Future<void> _handleRefresh(ProductDetailViewModel vm) async {
+  Future<void> _handleRefresh(ProductDetailViewModel vm, {VoidCallback? onSuccess}) async {
     try {
       await vm.refresh();
       if (!mounted) return;
       _createPager(initialPage: 0);
       unawaited(_warmImages(vm.product.imageUrls));
+      onSuccess?.call();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -181,20 +182,10 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
     if (changed == true && mounted) {
       _refreshKey.currentState?.show();
-      try {
-        await vm.refresh();
-        if (!mounted) return;
-        _createPager(initialPage: 0);
-        unawaited(_warmImages(vm.product.imageUrls));
+      await _handleRefresh(vm, onSuccess: () {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Listing updated')));
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not refresh: $e')),
-          );
-        }
-      }
+      });
     }
   }
 
