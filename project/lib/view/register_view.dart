@@ -26,6 +26,7 @@ class _RegistrationViewState extends State<RegistrationView> {
   bool _obscurePassword = true;
   bool _obscureRepeatPassword = true;
   bool _acceptedPrivacyPolicy = false;
+  late TapGestureRecognizer _privacyPolicyTapRecognizer;
 
   // Password validation
   bool _isPasswordValid(String password) {
@@ -52,6 +53,13 @@ class _RegistrationViewState extends State<RegistrationView> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _privacyPolicyTapRecognizer = TapGestureRecognizer()
+      ..onTap = _openPrivacyPolicy;
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _surnameController.dispose();
@@ -59,7 +67,23 @@ class _RegistrationViewState extends State<RegistrationView> {
     _dobController.dispose();
     _passwordController.dispose();
     _repeatPasswordController.dispose();
+    _privacyPolicyTapRecognizer.dispose();
     super.dispose();
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    final uri = Uri.parse('https://metuncc.acm.org/hocam-connect/privacy');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open privacy policy'),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _pickDate() async {
@@ -320,26 +344,7 @@ class _RegistrationViewState extends State<RegistrationView> {
                                       fontWeight: FontWeight.bold,
                                       decoration: TextDecoration.underline,
                                     ),
-                                    recognizer: TapGestureRecognizer()
-                                      ..onTap = () async {
-                                        final uri = Uri.parse(
-                                            'https://metuncc.acm.org/hocam-connect/privacy');
-                                        if (await canLaunchUrl(uri)) {
-                                          await launchUrl(uri,
-                                              mode: LaunchMode
-                                                  .externalApplication);
-                                        } else {
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                    'Could not open privacy policy'),
-                                              ),
-                                            );
-                                          }
-                                        }
-                                      },
+                                    recognizer: _privacyPolicyTapRecognizer,
                                   ),
                                 ],
                               ),
@@ -369,19 +374,16 @@ class _RegistrationViewState extends State<RegistrationView> {
                         onPressed: viewModel.isLoading
                             ? null
                             : () async {
-                                if (_formKey.currentState!.validate()) {
-                                  // Check privacy policy acceptance
-                                  if (!_acceptedPrivacyPolicy) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                            'Please accept the Privacy Policy to continue'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                    return;
-                                  }
+                                final isFormValid =
+                                    _formKey.currentState!.validate();
+                                final isPolicyAccepted = _acceptedPrivacyPolicy;
 
+                                // Trigger UI update to show privacy policy error if needed
+                                if (!isPolicyAccepted) {
+                                  setState(() {});
+                                }
+
+                                if (isFormValid && isPolicyAccepted) {
                                   await viewModel.register(
                                     context,
                                     name: _nameController.text,
