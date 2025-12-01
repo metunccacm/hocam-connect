@@ -12,7 +12,7 @@ class WebmailView extends StatefulWidget {
   State<WebmailView> createState() => _WebmailViewState();
 }
 
-class _WebmailViewState extends State<WebmailView> {
+class _WebmailViewState extends State<WebmailView> with WidgetsBindingObserver {
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasConnection = true;
@@ -20,21 +20,25 @@ class _WebmailViewState extends State<WebmailView> {
   bool _hasAttemptedAutoLogin = false;
   bool _showRememberDialog = false;
   final _usernameController = TextEditingController();
-  
+
   // Constants for credential validation
   static const int _minUsernameLength = 3;
   static const int _minPasswordLength = 3;
   final _passwordController = TextEditingController();
 
+  // Track when we were last on a logged-in page to detect session expiration
+  bool _wasLoggedIn = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
       ..enableZoom(true);
-    
+
     // Add JavaScript channel FIRST, before any navigation
     _controller.addJavaScriptChannel(
       'SaveCredentials',
@@ -44,13 +48,15 @@ class _WebmailViewState extends State<WebmailView> {
           // Parse JSON message safely
           final decoded = message.message;
           // Simple JSON parsing for {"username":"...","password":"..."}
-          final usernameMatch = RegExp(r'"username"\s*:\s*"([^"]*)"').firstMatch(decoded);
-          final passwordMatch = RegExp(r'"password"\s*:\s*"([^"]*)"').firstMatch(decoded);
-          
+          final usernameMatch =
+              RegExp(r'"username"\s*:\s*"([^"]*)"').firstMatch(decoded);
+          final passwordMatch =
+              RegExp(r'"password"\s*:\s*"([^"]*)"').firstMatch(decoded);
+
           if (usernameMatch != null && passwordMatch != null) {
             final username = usernameMatch.group(1) ?? '';
             final password = passwordMatch.group(1) ?? '';
-            
+
             if (username.isNotEmpty && password.isNotEmpty) {
               debugPrint('✅ Valid credentials received');
               _usernameController.text = username;
@@ -67,7 +73,7 @@ class _WebmailViewState extends State<WebmailView> {
         }
       },
     );
-    
+
     // Set navigation delegate AFTER channel is added
     _controller.setNavigationDelegate(
       NavigationDelegate(
@@ -84,23 +90,35 @@ class _WebmailViewState extends State<WebmailView> {
               _isLoading = false;
             });
           }
-          
+
           debugPrint('📄 Page finished loading: $url');
-          
+
           if (url.contains('webmail.metu.edu.tr')) {
             // Check if we're on the login page
             final isLoginPage = await _isOnLoginPage();
             debugPrint('📄 Is login page: $isLoginPage');
-            
+
             if (isLoginPage) {
+              // If we were previously logged in and now we're back on login page,
+              // it means session expired - reset the auto-login flag
+              if (_wasLoggedIn) {
+                debugPrint(
+                    '🔄 Session expired detected (was logged in, now on login page)');
+                _hasAttemptedAutoLogin = false;
+                _wasLoggedIn = false;
+              }
+
               // Always setup login detection when on login page
               await _setupLoginDetection();
-              
+
               // Auto-login if we have saved credentials and haven't tried yet
               if (!_hasAttemptedAutoLogin) {
                 _hasAttemptedAutoLogin = true;
                 await _attemptAutoLogin();
               }
+            } else {
+              // We're on a page that's not the login page (likely logged in)
+              _wasLoggedIn = true;
             }
           }
         },
@@ -124,15 +142,61 @@ class _WebmailViewState extends State<WebmailView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // When app resumes from background, check if we need to re-authenticate
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('📱 App resumed, checking webmail session...');
+      _checkSessionAndRelogin();
+    }
+  }
+
+  /// Check if we're on login page and attempt auto-login if needed
+  Future<void> _checkSessionAndRelogin() async {
+    try {
+      // Small delay to let webview settle
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final isLoginPage = await _isOnLoginPage();
+      debugPrint('📄 On login page after resume: $isLoginPage');
+
+      if (isLoginPage) {
+        // We're back on login page - session likely expired
+        // Check if we were previously logged in (session expired) or just starting
+        if (_wasLoggedIn) {
+          debugPrint('🔄 Session expired, resetting auto-login flag');
+        }
+
+        // Reset the flag to allow auto-login attempt
+        _hasAttemptedAutoLogin = false;
+        _wasLoggedIn = false;
+
+        // Setup login detection for new session
+        await _setupLoginDetection();
+
+        // Attempt auto-login with saved credentials
+        await _attemptAutoLogin();
+      } else {
+        // We're on a logged-in page
+        _wasLoggedIn = true;
+      }
+    } catch (e) {
+      debugPrint('❌ Error checking session: $e');
+    }
+  }
+
   Future<void> _checkConnectionAndLoad() async {
     final result = await Connectivity().checkConnectivity();
     if (!mounted) return;
-    
+
     if (result.contains(ConnectivityResult.none)) {
       setState(() {
         _hasConnection = false;
@@ -151,15 +215,13 @@ class _WebmailViewState extends State<WebmailView> {
   /// Check if we're on the login page
   Future<bool> _isOnLoginPage() async {
     try {
-      final result = await _controller.runJavaScriptReturningResult(
-        '''
+      final result = await _controller.runJavaScriptReturningResult('''
         (function() {
           var usernameField = document.querySelector('input[name="user"], input[type="text"]');
           var passwordField = document.querySelector('input[name="pass"], input[type="password"]');
           return usernameField !== null && passwordField !== null;
         })();
-        '''
-      );
+        ''');
       return result.toString() == 'true';
     } catch (e) {
       return false;
@@ -176,14 +238,14 @@ class _WebmailViewState extends State<WebmailView> {
       }
 
       debugPrint('📧 Attempting webmail auto-login...');
-      
+
       // Wait a bit for page to fully load
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       // Safely escape credentials for JavaScript injection
       final username = _escapeJavaScriptString(credentials['username'] ?? '');
       final password = _escapeJavaScriptString(credentials['password'] ?? '');
-      
+
       // Fill and submit login form with properly escaped credentials
       await _controller.runJavaScript('''
         (function() {
@@ -200,32 +262,32 @@ class _WebmailViewState extends State<WebmailView> {
           return false;
         })();
       ''');
-      
+
       debugPrint('✅ Auto-login attempted');
     } catch (e) {
       debugPrint('❌ Error during auto-login: $e');
     }
   }
-  
+
   /// Escape a string for safe injection into JavaScript
   String _escapeJavaScriptString(String input) {
     return input
-        .replaceAll('\\', '\\\\')  // Escape backslashes first
-        .replaceAll('"', '\\"')     // Escape double quotes
-        .replaceAll("'", "\\'")     // Escape single quotes
-        .replaceAll('\n', '\\n')    // Escape newlines
-        .replaceAll('\r', '\\r')    // Escape carriage returns
-        .replaceAll('\t', '\\t');   // Escape tabs
+        .replaceAll('\\', '\\\\') // Escape backslashes first
+        .replaceAll('"', '\\"') // Escape double quotes
+        .replaceAll("'", "\\'") // Escape single quotes
+        .replaceAll('\n', '\\n') // Escape newlines
+        .replaceAll('\r', '\\r') // Escape carriage returns
+        .replaceAll('\t', '\\t'); // Escape tabs
   }
 
   /// Setup login form detection to capture credentials
   Future<void> _setupLoginDetection() async {
     try {
       debugPrint('📧 Setting up login detection...');
-      
+
       // Wait a bit for the page to fully render
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       // Use a more aggressive approach: poll the fields periodically
       await _controller.runJavaScript('''
         (function() {
@@ -326,7 +388,7 @@ class _WebmailViewState extends State<WebmailView> {
           console.log('✅ Login detection setup complete - waiting for button click or form submit');
         })();
       ''');
-      
+
       debugPrint('✅ Login detection setup complete');
     } catch (e) {
       debugPrint('❌ Error setting up login detection: $e');
@@ -336,7 +398,7 @@ class _WebmailViewState extends State<WebmailView> {
   /// Show dialog to ask user if they want to save credentials
   void _showRememberCredentialsDialog() {
     if (!mounted || _showRememberDialog) return;
-    
+
     if (mounted) {
       setState(() {
         _showRememberDialog = true;
@@ -367,7 +429,7 @@ class _WebmailViewState extends State<WebmailView> {
               // Capture the navigator and messenger before async gap
               final navigator = Navigator.of(context);
               final messenger = ScaffoldMessenger.of(context);
-              
+
               await _credentialsService.saveCredentials(
                 username: _usernameController.text,
                 password: _passwordController.text,
@@ -403,7 +465,8 @@ class _WebmailViewState extends State<WebmailView> {
               await _clearCredentials();
             } else if (value == 'refresh') {
               // Reload and redirect to main login page
-              await _controller.loadRequest(Uri.parse('https://webmail.metu.edu.tr/'));
+              await _controller
+                  .loadRequest(Uri.parse('https://webmail.metu.edu.tr/'));
             }
           },
           itemBuilder: (context) => [
@@ -443,16 +506,16 @@ class _WebmailViewState extends State<WebmailView> {
             ),
           ],
         ),
-        IconButton(
-          icon: const Icon(Icons.chat_bubble_outline),
-          tooltip: 'Chats',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ChatListView()),
-            );
-          },
-        ),
+        // IconButton(
+        //   icon: const Icon(Icons.chat_bubble_outline),
+        //   tooltip: 'Chats',
+        //   onPressed: () {
+        //     Navigator.push(
+        //       context,
+        //       MaterialPageRoute(builder: (_) => const ChatListView()),
+        //     );
+        //   },
+        // ),
       ],
       body: !_hasConnection
           ? _buildErrorView()
@@ -506,7 +569,7 @@ class _WebmailViewState extends State<WebmailView> {
     }
 
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -527,15 +590,16 @@ class _WebmailViewState extends State<WebmailView> {
             onPressed: () async {
               // Close the dialog first
               Navigator.of(context).pop();
-              
+
               await _credentialsService.clearCredentials();
-              
+
               // Reset auto-login flag so it won't try to auto-login again
               _hasAttemptedAutoLogin = false;
-              
+
               // Redirect to main webmail login page
-              await _controller.loadRequest(Uri.parse('https://webmail.metu.edu.tr/'));
-              
+              await _controller
+                  .loadRequest(Uri.parse('https://webmail.metu.edu.tr/'));
+
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(

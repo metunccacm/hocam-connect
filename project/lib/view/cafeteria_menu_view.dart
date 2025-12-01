@@ -15,13 +15,13 @@ class CafeteriaMenuView extends StatefulWidget {
 class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
   int _selectedDayIndex = 0; // 0=Mon
   final List<String> _dayNames = const [
-    'Pazartesi',
-    'Salı',
-    'Çarşamba',
-    'Perşembe',
-    'Cuma',
-    'Cumartesi',
-    'Pazar',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
   ];
   final ScrollController _chipScrollController = ScrollController();
   late final List<GlobalKey> _chipKeys;
@@ -85,7 +85,7 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
         backgroundColor: Colors.transparent,
         iconTheme: IconThemeData(color: colors.onSurface),
         title: Text(
-          'Yemekhane Menüsü',
+          'Cafeteria Menu',
           style: textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: colors.onSurface,
@@ -94,19 +94,19 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
         centerTitle: true,
         actions: [
           IconButton(
-            tooltip: 'Fiyat Listesi',
+            tooltip: 'Pricing List',
             onPressed: () {
               final raw = (vm.pricingInfo ?? '').trim();
               showDialog(
                 context: context,
                 builder: (ctx) {
                   return AlertDialog(
-                    title: const Text('Fiyat Bilgisi'),
+                    title: const Text('Pricing Information'),
                     content: _PricingDialogContent(text: raw),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text('Kapat'),
+                        child: const Text('Close'),
                       ),
                     ],
                   );
@@ -116,7 +116,7 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
             icon: const Icon(Icons.help_outline),
           ),
           IconButton(
-            tooltip: 'Yenile',
+            tooltip: 'Refresh',
             onPressed: vm.isLoading ? null : vm.refresh,
             icon: const Icon(Icons.refresh),
           ),
@@ -254,13 +254,13 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
                           size: 64, color: Colors.red),
                       const SizedBox(height: 16),
                       Text(
-                        'Hata: ${vm.errorMessage}',
+                        'Error: ${vm.errorMessage}',
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () => vm.refresh(),
-                        child: const Text('Tekrar Dene'),
+                        child: const Text('Try Again'),
                       ),
                     ],
                   ),
@@ -369,7 +369,7 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
                 ),
                 child: Center(
                   child: Text(
-                    'Bu gün için menü bulunamadı',
+                    'No menu available for this day.',
                     style: textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w600,
@@ -378,9 +378,9 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
                 ),
               )
             else ...[
-              _buildMealSection('Öğle Yemeği', lunch),
+              _buildMealSection('Lunch', lunch),
               const SizedBox(height: 20),
-              _buildMealSection('Akşam Yemeği', dinner),
+              _buildMealSection('Dinner', dinner),
             ],
           ],
         ),
@@ -398,7 +398,7 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
         Row(
           children: [
             Icon(
-              mealTitle.contains('Öğle') ? Icons.wb_sunny : Icons.nightlight,
+              mealTitle.contains('Lunch') ? Icons.wb_sunny : Icons.nightlight,
               color: colors.primary,
               size: 20,
             ),
@@ -475,7 +475,7 @@ class _CafeteriaMenuViewState extends State<CafeteriaMenuView> {
   String _getSelectedDateString(DateTime weekStartMonday) {
     final DateTime selectedDate =
         weekStartMonday.add(Duration(days: _selectedDayIndex));
-    final DateFormat formatter = DateFormat('yyyy MM dd', 'tr_TR');
+    final DateFormat formatter = DateFormat('dd/MM/yyyy', 'tr_TR');
     return formatter.format(selectedDate);
   }
 }
@@ -552,7 +552,7 @@ class _DayPill extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  'Bugün',
+                  'Today',
                   style: textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: isSelected ? colors.onPrimary : colors.primary,
@@ -577,7 +577,7 @@ class _PricingDialogContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (text.isEmpty) {
-      return const Text('Bilgi bulunamadı');
+      return const Text('No information available.');
     }
 
     final lines = text.split('\n').map((e) => e.trimRight()).toList();
@@ -661,12 +661,12 @@ class _SectionWidget extends StatelessWidget {
 
   IconData _iconForHeader(String header) {
     final h = header.toLowerCase();
-    if (h.contains('alakart')) return Icons.restaurant_menu;
-    if (h.contains('parça')) return Icons.list_alt;
-    if (h.contains('tabldot')) return Icons.dinner_dining;
-    if (h.contains('kola') ||
+    if (h.contains('alacarte')) return Icons.restaurant_menu;
+    if (h.contains('piece')) return Icons.list_alt;
+    if (h.contains('fix')) return Icons.dinner_dining;
+    if (h.contains('coke') ||
         h.contains('ayran') ||
-        h.contains('su') ||
+        h.contains('water') ||
         h.contains('soda')) {
       return Icons.local_drink;
     }
