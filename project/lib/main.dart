@@ -45,7 +45,6 @@ import 'services/social_repository.dart';
 import 'view/social_view.dart';
 import 'view/user_profile_view.dart';
 import 'view/splash_view.dart';
-import 'view/notification_debug_view.dart';
 
 // NEW: connectivity wrapper
 import 'widgets/connectivity_gate.dart';
@@ -513,7 +512,6 @@ class MyApp extends StatelessWidget {
               final fallback = repo ?? SupabaseSocialRepository();
               return UserProfileView(userId: userId, repository: fallback);
             },
-            '/notification-debug': (_) => const NotificationDebugView(),
           },
         );
       },

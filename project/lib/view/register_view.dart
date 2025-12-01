@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';
 import 'package:project/viewmodel/register_viewmodel.dart';
 import 'package:provider/provider.dart';
 import 'package:project/widgets/custom_appbar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RegistrationView extends StatefulWidget {
   const RegistrationView({super.key});
@@ -23,6 +25,8 @@ class _RegistrationViewState extends State<RegistrationView> {
 
   bool _obscurePassword = true;
   bool _obscureRepeatPassword = true;
+  bool _acceptedPrivacyPolicy = false;
+  late TapGestureRecognizer _privacyPolicyTapRecognizer;
 
   // Password validation
   bool _isPasswordValid(String password) {
@@ -49,6 +53,13 @@ class _RegistrationViewState extends State<RegistrationView> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _privacyPolicyTapRecognizer = TapGestureRecognizer()
+      ..onTap = _openPrivacyPolicy;
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _surnameController.dispose();
@@ -56,7 +67,23 @@ class _RegistrationViewState extends State<RegistrationView> {
     _dobController.dispose();
     _passwordController.dispose();
     _repeatPasswordController.dispose();
+    _privacyPolicyTapRecognizer.dispose();
     super.dispose();
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    final uri = Uri.parse('https://metuncc.acm.org/hocam-connect/privacy');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open privacy policy'),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _pickDate() async {
@@ -78,7 +105,7 @@ class _RegistrationViewState extends State<RegistrationView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return ChangeNotifierProvider(
       create: (context) => RegistrationViewModel(),
       child: Scaffold(
@@ -116,7 +143,8 @@ class _RegistrationViewState extends State<RegistrationView> {
                         filled: true,
                         fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderRadius:
+                              const BorderRadius.all(Radius.circular(10.0)),
                           borderSide: BorderSide(color: colorScheme.outline),
                         ),
                       ),
@@ -137,7 +165,8 @@ class _RegistrationViewState extends State<RegistrationView> {
                         filled: true,
                         fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderRadius:
+                              const BorderRadius.all(Radius.circular(10.0)),
                           borderSide: BorderSide(color: colorScheme.outline),
                         ),
                       ),
@@ -159,7 +188,8 @@ class _RegistrationViewState extends State<RegistrationView> {
                         filled: true,
                         fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderRadius:
+                              const BorderRadius.all(Radius.circular(10.0)),
                           borderSide: BorderSide(color: colorScheme.outline),
                         ),
                       ),
@@ -190,7 +220,8 @@ class _RegistrationViewState extends State<RegistrationView> {
                         filled: true,
                         fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderRadius:
+                              const BorderRadius.all(Radius.circular(10.0)),
                           borderSide: BorderSide(color: colorScheme.outline),
                         ),
                         suffixIcon: const Icon(Icons.calendar_today),
@@ -218,7 +249,8 @@ class _RegistrationViewState extends State<RegistrationView> {
                         filled: true,
                         fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderRadius:
+                              const BorderRadius.all(Radius.circular(10.0)),
                           borderSide: BorderSide(color: colorScheme.outline),
                         ),
                         errorMaxLines: 3,
@@ -238,7 +270,8 @@ class _RegistrationViewState extends State<RegistrationView> {
                       validator: _validatePassword,
                     ),
                     const SizedBox(height: 8),
-                    _PasswordRulesChecklist(valueListenable: _passwordController),
+                    _PasswordRulesChecklist(
+                        valueListenable: _passwordController),
                     const SizedBox(height: 12),
 
                     // Repeat Password
@@ -251,7 +284,8 @@ class _RegistrationViewState extends State<RegistrationView> {
                         filled: true,
                         fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+                          borderRadius:
+                              const BorderRadius.all(Radius.circular(10.0)),
                           borderSide: BorderSide(color: colorScheme.outline),
                         ),
                         suffixIcon: IconButton(
@@ -279,6 +313,59 @@ class _RegistrationViewState extends State<RegistrationView> {
                     ),
                     const SizedBox(height: 20),
 
+                    // Privacy Policy Checkbox
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Checkbox(
+                          value: _acceptedPrivacyPolicy,
+                          onChanged: (value) {
+                            setState(() {
+                              _acceptedPrivacyPolicy = value ?? false;
+                            });
+                          },
+                          activeColor: colorScheme.primary,
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 12.0),
+                            child: RichText(
+                              text: TextSpan(
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: colorScheme.onSurface,
+                                ),
+                                children: [
+                                  const TextSpan(text: 'I accept the '),
+                                  TextSpan(
+                                    text: 'Privacy Policy',
+                                    style: TextStyle(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    recognizer: _privacyPolicyTapRecognizer,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (!_acceptedPrivacyPolicy)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 48.0, top: 4.0),
+                        child: Text(
+                          '* Required',
+                          style: TextStyle(
+                            color: colorScheme.error,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+
                     // Register Button
                     SizedBox(
                       width: double.infinity,
@@ -287,7 +374,16 @@ class _RegistrationViewState extends State<RegistrationView> {
                         onPressed: viewModel.isLoading
                             ? null
                             : () async {
-                                if (_formKey.currentState!.validate()) {
+                                final isFormValid =
+                                    _formKey.currentState!.validate();
+                                final isPolicyAccepted = _acceptedPrivacyPolicy;
+
+                                // Trigger UI update to show privacy policy error if needed
+                                if (!isPolicyAccepted) {
+                                  setState(() {});
+                                }
+
+                                if (isFormValid && isPolicyAccepted) {
                                   await viewModel.register(
                                     context,
                                     name: _nameController.text,
@@ -319,7 +415,9 @@ class _RegistrationViewState extends State<RegistrationView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Already have an account? ", style: TextStyle(color: colorScheme.onSurfaceVariant)),
+                        Text("Already have an account? ",
+                            style:
+                                TextStyle(color: colorScheme.onSurfaceVariant)),
                         GestureDetector(
                           onTap: () {
                             Navigator.pop(context);
@@ -380,7 +478,9 @@ class _PasswordRulesChecklist extends StatelessWidget {
                 _RuleRow(label: 'Uppercase letter', ok: _hasUppercase(s)),
                 _RuleRow(label: 'Lowercase letter', ok: _hasLowercase(s)),
                 _RuleRow(label: 'Number', ok: _hasDigit(s)),
-                _RuleRow(label: 'Special character ( !@#\$%^&*(),.?":{}|<> )', ok: _hasSpecial(s)),
+                _RuleRow(
+                    label: 'Special character ( !@#\$%^&*(),.?":{}|<> )',
+                    ok: _hasSpecial(s)),
                 _RuleRow(label: 'At least 8 characters', ok: _hasMinLength(s)),
               ],
             ),

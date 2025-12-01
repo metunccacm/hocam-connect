@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project/widgets/custom_appbar.dart';
-import 'package:project/view/additem_view.dart';
+import 'package:project/view/product_form_view.dart';
 import 'package:project/view/category_view.dart';
 import 'package:project/view/product_detail_view.dart';
 import 'package:project/view/chat_list_view.dart';
@@ -193,17 +193,17 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                   color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
               onPressed: _toggleSearch,
             ),
-            IconButton(
-              icon: Icon(Icons.chat_bubble_outline,
-                  color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
-              tooltip: 'Chats',
-              onPressed: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const ChatListView()));
-              },
-            ),
+            // IconButton(
+            //   icon: Icon(Icons.chat_bubble_outline,
+            //       color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
+            //   tooltip: 'Chats',
+            //   onPressed: () {
+            //     Navigator.push(
+            //         context,
+            //         MaterialPageRoute(
+            //             builder: (context) => const ChatListView()));
+            //   },
+            // ),
             IconButton(
               icon: Icon(Icons.add,
                   color: theme.appBarTheme.foregroundColor ?? cs.onSurface),
@@ -211,7 +211,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                 Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const AddItemView()));
+                        builder: (context) => const ProductFormView()));
               },
             ),
           ]
@@ -620,7 +620,8 @@ class MyItemsView extends StatelessWidget {
     return Shimmer.fromColors(
       baseColor: cs.surfaceContainerHighest.withOpacity(0.6),
       highlightColor: cs.surfaceContainerHighest.withOpacity(0.85),
-      child: Container(height: height ?? 160, color: cs.surfaceContainerHighest),
+      child:
+          Container(height: height ?? 160, color: cs.surfaceContainerHighest),
     );
   }
 
@@ -673,7 +674,8 @@ class MyItemsView extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Mark as sold?'),
-        content: const Text('This will remove the product and its images permanently.'),
+        content: const Text(
+            'This will remove the product and its images permanently.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -710,7 +712,8 @@ class MyItemsView extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete post?'),
-        content: const Text('This will permanently delete the post and its images.'),
+        content:
+            const Text('This will permanently delete the post and its images.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),

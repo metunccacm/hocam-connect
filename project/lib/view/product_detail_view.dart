@@ -9,7 +9,7 @@ import 'package:shimmer/shimmer.dart';
 import '../models/product.dart';
 import '../viewmodel/product_detail_viewmodel.dart';
 import 'chat_view.dart';
-import 'edit_product_view.dart';
+import 'product_form_view.dart';
 
 class _ShimmerBox extends StatelessWidget {
   const _ShimmerBox();
@@ -85,7 +85,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     }
   }
 
-  Future<void> _handleRefresh(ProductDetailViewModel vm, {VoidCallback? onSuccess}) async {
+  Future<void> _handleRefresh(ProductDetailViewModel vm,
+      {VoidCallback? onSuccess}) async {
     try {
       await vm.refresh();
       if (!mounted) return;
@@ -131,7 +132,9 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           children: [
             DropdownButtonFormField<String>(
               initialValue: selected,
-              items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+              items: reasons
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .toList(),
               onChanged: (v) => selected = v ?? selected,
               decoration: const InputDecoration(labelText: 'Reason'),
             ),
@@ -160,7 +163,12 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     );
 
     if (ok == true && mounted) {
-      await vm.reportUser(context, selected, _reportDetailsCtrl.text.trim().isEmpty ? null : _reportDetailsCtrl.text.trim());
+      await vm.reportUser(
+          context,
+          selected,
+          _reportDetailsCtrl.text.trim().isEmpty
+              ? null
+              : _reportDetailsCtrl.text.trim());
     }
   }
 
@@ -168,7 +176,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     final p = vm.product;
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => EditProductView(
+        builder: (_) => ProductFormView(
           productId: p.id,
           initialTitle: p.title,
           initialDescription: p.description,
@@ -196,7 +204,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Mark as sold?'),
-        content: const Text('This will remove the product and its images permanently.'),
+        content: const Text(
+            'This will remove the product and its images permanently.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -223,7 +232,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     if (convId != null && mounted) {
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => ChatView(conversationId: convId, title: vm.product.sellerName),
+          builder: (_) =>
+              ChatView(conversationId: convId, title: vm.product.sellerName),
         ),
       );
     }
@@ -265,7 +275,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                 ),
               ),
               backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
-              foregroundColor: theme.appBarTheme.foregroundColor ?? cs.onSurface,
+              foregroundColor:
+                  theme.appBarTheme.foregroundColor ?? cs.onSurface,
               elevation: 1,
               actions: [
                 if (!vm.isMine)
@@ -282,7 +293,6 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                   ),
               ],
             ),
-
             bottomNavigationBar: SafeArea(
               top: false,
               child: Padding(
@@ -292,9 +302,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                   child: ElevatedButton.icon(
                     onPressed: vm.isBusy
                         ? null
-                        : (vm.isMine ? () => _markAsSold(vm) : () => _contactSeller(vm)),
+                        : (vm.isMine
+                            ? () => _markAsSold(vm)
+                            : () => _contactSeller(vm)),
                     icon: Icon(
-                        vm.isMine ? Icons.check_circle_outline : Icons.send_rounded,
+                        vm.isMine
+                            ? Icons.check_circle_outline
+                            : Icons.send_rounded,
                         size: 20),
                     label: Text(
                       vm.isMine ? 'Mark as sold' : 'Contact Hocam',
@@ -312,7 +326,6 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                 ),
               ),
             ),
-
             body: RefreshIndicator(
               key: _refreshKey,
               color: cs.primary,
@@ -349,26 +362,35 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                                     itemBuilder: (_, i) => CachedNetworkImage(
                                       imageUrl: imgs[i],
                                       fit: BoxFit.cover,
-                                      placeholder: (_, __) => const _ShimmerBox(),
-                                      errorWidget: (_, __, ___) =>
-                                          Center(child: Icon(Icons.broken_image_outlined, size: 32, color: onSurfaceVariant)),
+                                      placeholder: (_, __) =>
+                                          const _ShimmerBox(),
+                                      errorWidget: (_, __, ___) => Center(
+                                          child: Icon(
+                                              Icons.broken_image_outlined,
+                                              size: 32,
+                                              color: onSurfaceVariant)),
                                     ),
                                   ),
                                   if (imgs.length > 1)
                                     Padding(
                                       padding: const EdgeInsets.only(bottom: 8),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: List.generate(imgs.length, (i) {
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children:
+                                            List.generate(imgs.length, (i) {
                                           final active = i == safePageIx;
                                           return AnimatedContainer(
-                                            duration: const Duration(milliseconds: 200),
-                                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                                            duration: const Duration(
+                                                milliseconds: 200),
+                                            margin: const EdgeInsets.symmetric(
+                                                horizontal: 3),
                                             width: active ? 10 : 6,
                                             height: 6,
                                             decoration: BoxDecoration(
                                               color: _dotsColor(active: active),
-                                              borderRadius: BorderRadius.circular(4),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
                                             ),
                                           );
                                         }),
@@ -379,7 +401,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                             )
                           : Container(
                               color: cs.surfaceContainerHighest,
-                              child: Icon(Icons.image, size: 40, color: onSurfaceVariant),
+                              child: Icon(Icons.image,
+                                  size: 40, color: onSurfaceVariant),
                             ),
                     ),
                   ),
@@ -403,14 +426,17 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                   if (p.description.isNotEmpty)
                     Text(
                       p.description,
-                      style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: onSurface),
                     ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
                       CircleAvatar(
                         backgroundColor: cs.surfaceContainerHighest,
-                        backgroundImage: p.sellerImageUrl.isNotEmpty ? NetworkImage(p.sellerImageUrl) : null,
+                        backgroundImage: p.sellerImageUrl.isNotEmpty
+                            ? NetworkImage(p.sellerImageUrl)
+                            : null,
                         child: p.sellerImageUrl.isEmpty
                             ? Icon(Icons.person, color: onSurfaceVariant)
                             : null,
@@ -421,8 +447,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                           p.sellerName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style:
-                              theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(color: onSurface),
                         ),
                       ),
                     ],
@@ -463,7 +489,8 @@ class _FullscreenImageViewer extends StatefulWidget {
 class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
   late PageController _pageController;
   late int _currentIndex;
-  final TransformationController _transformationController = TransformationController();
+  final TransformationController _transformationController =
+      TransformationController();
   bool _isZoomed = false;
 
   @override
@@ -471,7 +498,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
-    
+
     // Listen to zoom changes
     _transformationController.addListener(_onTransformationChanged);
   }
@@ -499,21 +526,21 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
   void _handleDoubleTap(TapDownDetails details, BuildContext context) {
     // Get the position where user tapped
     final position = details.localPosition;
-    
+
     // Check current scale
     final currentScale = _transformationController.value.getMaxScaleOnAxis();
-    
+
     if (currentScale > 1.0) {
       // If zoomed in, reset to normal
       _transformationController.value = Matrix4.identity();
     } else {
       // If not zoomed, zoom to 2.5x at tap position
       final double scale = 2.5;
-      
+
       // Calculate the focal point for zoom
       final x = -position.dx * (scale - 1);
       final y = -position.dy * (scale - 1);
-      
+
       _transformationController.value = Matrix4.identity()
         ..translate(x, y, 0)
         ..scale(scale, scale, 1);
@@ -547,7 +574,9 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
           PageView.builder(
             controller: _pageController,
             itemCount: widget.imageUrls.length,
-            physics: _isZoomed ? const NeverScrollableScrollPhysics() : const PageScrollPhysics(),
+            physics: _isZoomed
+                ? const NeverScrollableScrollPhysics()
+                : const PageScrollPhysics(),
             onPageChanged: (index) {
               setState(() {
                 _currentIndex = index;
@@ -557,7 +586,8 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
             },
             itemBuilder: (context, index) {
               return GestureDetector(
-                onDoubleTapDown: (details) => _handleDoubleTap(details, context),
+                onDoubleTapDown: (details) =>
+                    _handleDoubleTap(details, context),
                 child: InteractiveViewer(
                   transformationController: _transformationController,
                   minScale: 0.5,
@@ -587,7 +617,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
               );
             },
           ),
-          
+
           // Page indicator dots (only if multiple images)
           if (hasMultiple)
             Positioned(

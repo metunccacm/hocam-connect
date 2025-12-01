@@ -118,16 +118,16 @@ class _ThisWeekViewState extends State<ThisWeekView>
     return AppScaffold(
       title: 'This Week on Campus',
       actions: [
-        IconButton(
-          icon: const Icon(Icons.chat_bubble_outline),
-          tooltip: 'Chats',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ChatListView()),
-            );
-          },
-        ),
+        // IconButton(
+        //   icon: const Icon(Icons.chat_bubble_outline),
+        //   tooltip: 'Chats',
+        //   onPressed: () {
+        //     Navigator.push(
+        //       context,
+        //       MaterialPageRoute(builder: (_) => const ChatListView()),
+        //     );
+        //   },
+        // ),
       ],
       body: !_hasConnection
           ? _buildErrorView()

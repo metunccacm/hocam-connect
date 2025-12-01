@@ -48,7 +48,8 @@ class _ChatViewState extends State<ChatView> {
   bool _blockedMe = false;
 
   // Message filtering
-  DateTime? _lastHiddenAt; // Track when conversation was last hidden to filter old messages
+  DateTime?
+      _lastHiddenAt; // Track when conversation was last hidden to filter old messages
 
   String? _otherDisplayName;
 
@@ -58,7 +59,7 @@ class _ChatViewState extends State<ChatView> {
     _restoreCachedMessages();
     _bootstrap();
   }
-  
+
   /// Restore cached messages for instant display
   void _restoreCachedMessages() {
     final cached = _cache.getCachedChatMessages(widget.conversationId);
@@ -99,7 +100,7 @@ class _ChatViewState extends State<ChatView> {
   void dispose() {
     // Save messages to cache before disposing
     _saveCachedMessages();
-    
+
     _msgChannel?.unsubscribe();
     _presence?.unsubscribe();
     _blockCh?.unsubscribe();
@@ -168,39 +169,43 @@ class _ChatViewState extends State<ChatView> {
     String selected = _reportReasons.first;
     _chatReportCtrl.clear();
 
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text('Report user'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<String>(
-            initialValue: selected,
-            items: _reportReasons
-                .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                .toList(),
-            onChanged: (v) => selected = v ?? selected,
-            decoration: const InputDecoration(labelText: 'Reason'),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _chatReportCtrl,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Details (optional)',
-              hintText: 'Gerekirse açıklama ekleyin…',
-              border: OutlineInputBorder(),
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Report user'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: selected,
+              items: _reportReasons
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .toList(),
+              onChanged: (v) => selected = v ?? selected,
+              decoration: const InputDecoration(labelText: 'Reason'),
             ),
-          ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _chatReportCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Details (optional)',
+                hintText: 'Gerekirse açıklama ekleyin…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Submit')),
         ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit')),
-      ],
-    ),
-  );
+    );
 
     if (ok != true) return;
 
@@ -263,9 +268,10 @@ class _ChatViewState extends State<ChatView> {
             .eq('conversation_id', widget.conversationId)
             .eq('user_id', me)
             .maybeSingle();
-        
-        debugPrint('📋 Participant record for ${widget.conversationId}: $result');
-        
+
+        debugPrint(
+            '📋 Participant record for ${widget.conversationId}: $result');
+
         if (result != null && result['hidden_at'] != null) {
           lastHiddenAt = DateTime.parse(result['hidden_at']);
           _lastHiddenAt = lastHiddenAt; // Store in state for use in _loadOlder
@@ -288,15 +294,17 @@ class _ChatViewState extends State<ChatView> {
     for (final m in initial) {
       // Skip messages that were sent before the conversation was hidden
       if (lastHiddenAt != null && m.createdAt.isBefore(lastHiddenAt)) {
-        debugPrint('🚫 Skipping old message from ${m.createdAt} (before hidden at $lastHiddenAt)');
+        debugPrint(
+            '🚫 Skipping old message from ${m.createdAt} (before hidden at $lastHiddenAt)');
         continue;
       }
       if (_seenIds.add(m.id)) deduped.add(m);
     }
     deduped.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    debugPrint('📨 Filtered messages: ${deduped.length} messages (from ${initial.length} total)');
+    debugPrint(
+        '📨 Filtered messages: ${deduped.length} messages (from ${initial.length} total)');
     setState(() => _messages = deduped);
-    
+
     // Decrypt all messages
     for (final m in deduped) {
       _enqueueDecrypt(m);
@@ -391,18 +399,18 @@ class _ChatViewState extends State<ChatView> {
 
       if (others.length == 1) {
         _otherUserId = others.first; // User ID for reporting
-        
+
         // Try cache first
         final cached = await _cache.getCachedUserProfile(others.first);
-        
+
         if (cached != null) {
           // Use cached data
           final firstName = (cached['first_name'] as String? ?? '').trim();
           final lastName = (cached['last_name'] as String? ?? '').trim();
           final fullName = '$firstName $lastName'.trim();
-          
-          _otherDisplayName = fullName.isNotEmpty 
-              ? fullName 
+
+          _otherDisplayName = fullName.isNotEmpty
+              ? fullName
               : 'User ${others.first.substring(0, 6)}';
           _otherAvatarUrl = cached['avatar_url'] as String?;
         } else {
@@ -413,17 +421,17 @@ class _ChatViewState extends State<ChatView> {
                 .select('name, surname, avatar_url')
                 .eq('id', others.first)
                 .maybeSingle();
-            
+
             if (profile != null) {
               final firstName = (profile['name'] as String? ?? '').trim();
               final lastName = (profile['surname'] as String? ?? '').trim();
               final fullName = '$firstName $lastName'.trim();
-              
-              _otherDisplayName = fullName.isNotEmpty 
-                  ? fullName 
+
+              _otherDisplayName = fullName.isNotEmpty
+                  ? fullName
                   : 'User ${others.first.substring(0, 6)}';
               _otherAvatarUrl = profile['avatar_url'] as String?;
-              
+
               // Cache the profile
               await _cache.cacheUserProfile(
                 userId: others.first,
@@ -465,16 +473,23 @@ class _ChatViewState extends State<ChatView> {
   // send
   Future<void> _send() async {
     if (_sending) return; // <-- çoklu tık guard
+
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      return;
+    }
 
     if (_isDm && (_iBlocked || _blockedMe)) {
       _show('You cannot send messages in this conversation.');
       return;
     }
 
+    // Set sending flag AFTER validation to prevent issues
+    _sending = true;
+
+    // Clear controller and update UI
     _controller.clear();
-    setState(() => _sending = true);
+    if (mounted) setState(() {});
 
     try {
       await _svc.sendTextEncrypted(
@@ -531,7 +546,7 @@ class _ChatViewState extends State<ChatView> {
           debugPrint('🚫 [LoadOlder] Skipping old message from ${m.createdAt}');
           continue;
         }
-        
+
         if (_seenIds.add(m.id)) {
           _messages.add(m);
           _enqueueDecrypt(m);
@@ -599,11 +614,13 @@ class _ChatViewState extends State<ChatView> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.lock, size: 14, color: colorScheme.onSurfaceVariant),
+                      Icon(Icons.lock,
+                          size: 14, color: colorScheme.onSurfaceVariant),
                       const SizedBox(width: 4),
                       Text(
                         'End-to-End encrypted',
-                        style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                        style: TextStyle(
+                            fontSize: 12, color: colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -681,7 +698,11 @@ class _ChatViewState extends State<ChatView> {
               color: isDark ? const Color(0xFF5D3A00) : const Color(0xFFFFF4E5),
               child: Row(
                 children: [
-                  Icon(Icons.block, size: 16, color: isDark ? const Color(0xFFFFB74D) : const Color(0xFFD35400)),
+                  Icon(Icons.block,
+                      size: 16,
+                      color: isDark
+                          ? const Color(0xFFFFB74D)
+                          : const Color(0xFFD35400)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -791,7 +812,9 @@ class _ChatViewState extends State<ChatView> {
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
                         filled: true,
-                        fillColor: isDark ? const Color.fromARGB(255, 45, 65, 104) : const Color(0xFFF7F8FA),
+                        fillColor: isDark
+                            ? const Color.fromARGB(255, 45, 65, 104)
+                            : const Color(0xFFF7F8FA),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(18),
                           borderSide: BorderSide.none,
