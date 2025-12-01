@@ -236,7 +236,6 @@ class ChatService {
     required String text,
   }) async {
     final currentUserId = supa.auth.currentUser!.id;
-    
     final cek = await getMyCek(conversationId);
     final enc = await _keys.encryptMessage(
       cekBytes32: cek,
@@ -244,13 +243,15 @@ class ChatService {
       conversationId: conversationId,
     );
 
+    final clientMsgId = _uuid.v4();
+
     await supa.from('messages').insert({
       'conversation_id': conversationId,
       'sender_id': currentUserId,
       'body_ciphertext_base64': enc['ct_b64'],
       'body_nonce_base64': enc['nonce_b64'],
       'body_mac_base64': enc['mac_b64'],
-      'client_msg_id': _uuid.v4(),
+      'client_msg_id': clientMsgId,
     });
 
     await supa
@@ -269,6 +270,7 @@ class ChatService {
       
       final recipientIds = (participantsResponse as List)
           .map((p) => p['user_id'] as String)
+          .toSet() // Deduplicate just in case
           .toList();
       
       if (recipientIds.isNotEmpty) {
@@ -296,8 +298,6 @@ class ChatService {
           },
           // No imageUrl - using local drawable instead
         );
-        
-        print('✅ Push notification sent to ${recipientIds.length} recipient(s)');
       }
     } catch (e) {
       // Don't fail the message send if notification fails

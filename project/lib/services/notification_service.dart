@@ -11,8 +11,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Background message handler (must be top-level function)
 /// Handles push notifications when app is in background or terminated
-/// Note: Notifications are already shown by Firebase automatically
-/// This handler is for additional processing (e.g., updating local state, badges)
+/// 
+/// IMPORTANT: Firebase automatically displays notifications when the app is backgrounded.
+/// This handler is ONLY for additional data processing (updating badges, caching, etc.)
+/// Do NOT manually show notifications here as it will create duplicates!
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Background handlers run in their own isolate. Keep logic minimal.
@@ -23,67 +25,17 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     print('   Data: ${message.data}');
   }
 
-  try {
-    // Create a fresh local notifications plugin instance for the background isolate
-    final FlutterLocalNotificationsPlugin bgLocalNotifications =
-        FlutterLocalNotificationsPlugin();
-
-    const AndroidInitializationSettings androidInit =
-        AndroidInitializationSettings('@drawable/hc_logo');
-    const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
-
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidInit,
-      iOS: iosInit,
-    );
-
-    await bgLocalNotifications.initialize(initSettings);
-
-    // Ensure channel exists on Android
-    if (Platform.isAndroid) {
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'high_importance_channel',
-        'High Importance Notifications',
-        description: 'This channel is used for important notifications.',
-        importance: Importance.high,
-      );
-
-      await bgLocalNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(channel);
-    }
-
-    // Prepare notification content
-    final String? title = message.notification?.title ?? message.data['title'];
-    final String? body = message.notification?.body ?? message.data['body'];
-
-    final androidDetails = AndroidNotificationDetails(
-      'high_importance_channel',
-      'High Importance Notifications',
-      channelDescription: 'This channel is used for important notifications.',
-      importance: Importance.high,
-      priority: Priority.high,
-      playSound: true,
-      icon: '@drawable/hc_logo',  // Use PNG logo as small icon
-      largeIcon: const DrawableResourceAndroidBitmap('hc_logo'),  // Use PNG as large icon
-      styleInformation: BigTextStyleInformation(body ?? ''),
-    );
-
-    final notificationDetails = NotificationDetails(android: androidDetails);
-
-    // Show notification
-    await bgLocalNotifications.show(
-      message.hashCode & 0x7fffffff,
-      title ?? 'Notification',
-      body ?? '',
-      notificationDetails,
-      payload: message.data.isNotEmpty ? message.data.toString() : null,
-    );
-  } catch (e) {
-    if (kDebugMode) {
-      print('❌ Error in background message handler: $e');
-    }
+  // Firebase automatically shows the notification.
+  // We only need to process data here if needed (e.g., update badge count, cache data)
+  
+  // TODO: Add any background data processing here if needed
+  // Examples:
+  // - Update badge count
+  // - Cache message data
+  // - Update local database
+  
+  if (kDebugMode) {
+    print('✅ Background message processed (notification shown by Firebase)');
   }
 }
 
@@ -154,12 +106,9 @@ class NotificationService {
         // Get FCM token
         await _getFCMToken();
 
-        // Register background message handler (ensure this is set once)
-        if (kDebugMode) {
-          print('🛠 Registering background message handler...');
-        }
-        FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
+        // NOTE: Background message handler is already registered in main.dart
+        // Registering it here would cause duplicate notifications!
+        
         // Setup notification tap handling (when app is opened from background/terminated)
         if (kDebugMode) {
           print('🎯 Setting up onMessageOpenedApp listener...');
