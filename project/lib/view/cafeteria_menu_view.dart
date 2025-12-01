@@ -662,8 +662,8 @@ class _SectionWidget extends StatelessWidget {
   IconData _iconForHeader(String header) {
     final h = header.toLowerCase();
     if (h.contains('alacarte')) return Icons.restaurant_menu;
-    if (h.contains('piece')) return Icons.list_alt;
-    if (h.contains('fix')) return Icons.dinner_dining;
+    if (h.contains('part prices')) return Icons.list_alt;
+    if (h.contains('fixed meals')) return Icons.dinner_dining;
     if (h.contains('coke') ||
         h.contains('ayran') ||
         h.contains('water') ||

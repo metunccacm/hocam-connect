@@ -477,23 +477,21 @@ class _ChatViewState extends State<ChatView> {
     // Set sending flag IMMEDIATELY and synchronously to prevent double-tap
     _sending = true;
 
-    final text = _controller.text.trim();
-    if (text.isEmpty) {
-      _sending = false;
-      return;
-    }
-
-    if (_isDm && (_iBlocked || _blockedMe)) {
-      _show('You cannot send messages in this conversation.');
-      _sending = false;
-      return;
-    }
-
-    // Clear controller and update UI
-    _controller.clear();
-    if (mounted) setState(() {});
-
     try {
+      final text = _controller.text.trim();
+      if (text.isEmpty) {
+        return;
+      }
+
+      if (_isDm && (_iBlocked || _blockedMe)) {
+        _show('You cannot send messages in this conversation.');
+        return;
+      }
+
+      // Clear controller and update UI
+      _controller.clear();
+      if (mounted) setState(() {});
+
       await _svc.sendTextEncrypted(
         conversationId: widget.conversationId,
         text: text,
