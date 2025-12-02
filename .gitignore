@@ -44,4 +44,5 @@ project/*.md
 **/android/*.jks
 **/android/*.keystore
 **/android/upload-keystore.jks
+upload-keystore.jks
 project/macos/Runner.xcodeproj/project.pbxproj
