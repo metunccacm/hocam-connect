@@ -27,7 +27,8 @@ dependencies {
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
@@ -82,6 +83,7 @@ buildTypes {
                 println("⚠️ No key.properties, release build will be unsigned.")
             }
             isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
