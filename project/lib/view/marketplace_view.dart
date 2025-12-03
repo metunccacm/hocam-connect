@@ -1,9 +1,10 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:project/view/product_form_view.dart';
 import 'package:project/view/category_view.dart';
 import 'package:project/view/product_detail_view.dart';
-import 'package:project/view/chat_list_view.dart';
 import 'package:provider/provider.dart';
 import 'package:project/viewmodel/marketplace_viewmodel.dart';
 import '../models/product.dart';
@@ -67,8 +68,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
   Widget _shimmerRect(
       {double borderRadius = 0, double? width, double? height}) {
     final cs = Theme.of(context).colorScheme;
-    final base = cs.surfaceContainerHighest.withOpacity(0.6);
-    final highlight = cs.surfaceContainerHighest.withOpacity(0.85);
+    final base = cs.surfaceContainerHighest.withValues(alpha: 0.6);
+    final highlight = cs.surfaceContainerHighest.withValues(alpha: 0.85);
     return Shimmer.fromColors(
       baseColor: base,
       highlightColor: highlight,
@@ -85,8 +86,8 @@ class _MarketplaceViewState extends State<MarketplaceView> {
 
   Widget _shimmerCircle({double size = 24}) {
     final cs = Theme.of(context).colorScheme;
-    final base = cs.surfaceContainerHighest.withOpacity(0.6);
-    final highlight = cs.surfaceContainerHighest.withOpacity(0.85);
+    final base = cs.surfaceContainerHighest.withValues(alpha: 0.6);
+    final highlight = cs.surfaceContainerHighest.withValues(alpha: 0.85);
     return Shimmer.fromColors(
       baseColor: base,
       highlightColor: highlight,
@@ -146,7 +147,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                   hintText: 'Search products...',
                   border: InputBorder.none,
                   hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                    color: onSurface.withOpacity(0.6),
+                    color: onSurface.withValues(alpha: 0.6),
                   ),
                 ),
                 style: theme.textTheme.bodyMedium
@@ -252,7 +253,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
                           child: Text(
                             'No products found.',
                             style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: onSurface.withOpacity(0.8)),
+                                ?.copyWith(color: onSurface.withValues(alpha: 0.8)),
                           ),
                         ),
                       ],
@@ -500,43 +501,65 @@ class _MarketplaceViewState extends State<MarketplaceView> {
     showDialog(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Sort'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RadioListTile<SortOption>(
-                title: const Text('Newest'),
-                value: SortOption.newest,
-                groupValue: viewModel.currentSortOption,
-                onChanged: (v) {
-                  if (v != null) {
-                    viewModel.sortProducts(v);
-                    Navigator.pop(dialogContext);
-                  }
-                },
+        SortOption selectedSort = viewModel.currentSortOption;
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Sort'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ignore: deprecated_member_use
+                RadioListTile<SortOption>(
+                  title: const Text('Newest'),
+                  value: SortOption.newest,
+                  // ignore: deprecated_member_use
+                  groupValue: selectedSort,
+                  // ignore: deprecated_member_use
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => selectedSort = v);
+                    }
+                  },
+                ),
+                // ignore: deprecated_member_use
+                RadioListTile<SortOption>(
+                  title: const Text('Price: Low to High'),
+                  value: SortOption.priceAsc,
+                  // ignore: deprecated_member_use
+                  groupValue: selectedSort,
+                  // ignore: deprecated_member_use
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => selectedSort = v);
+                    }
+                  },
+                ),
+                // ignore: deprecated_member_use
+                RadioListTile<SortOption>(
+                  title: const Text('Price: High to Low'),
+                  value: SortOption.priceDesc,
+                  // ignore: deprecated_member_use
+                  groupValue: selectedSort,
+                  // ignore: deprecated_member_use
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => selectedSort = v);
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
               ),
-              RadioListTile<SortOption>(
-                title: const Text('Price: Low to High'),
-                value: SortOption.priceAsc,
-                groupValue: viewModel.currentSortOption,
-                onChanged: (v) {
-                  if (v != null) {
-                    viewModel.sortProducts(v);
-                    Navigator.pop(dialogContext);
-                  }
+              FilledButton(
+                onPressed: () {
+                  viewModel.sortProducts(selectedSort);
+                  Navigator.pop(dialogContext);
                 },
-              ),
-              RadioListTile<SortOption>(
-                title: const Text('Price: High to Low'),
-                value: SortOption.priceDesc,
-                groupValue: viewModel.currentSortOption,
-                onChanged: (v) {
-                  if (v != null) {
-                    viewModel.sortProducts(v);
-                    Navigator.pop(dialogContext);
-                  }
-                },
+                child: const Text('Apply'),
               ),
             ],
           ),
@@ -618,8 +641,8 @@ class MyItemsView extends StatelessWidget {
   Widget _shimmerRect(BuildContext context, {double? height}) {
     final cs = Theme.of(context).colorScheme;
     return Shimmer.fromColors(
-      baseColor: cs.surfaceContainerHighest.withOpacity(0.6),
-      highlightColor: cs.surfaceContainerHighest.withOpacity(0.85),
+      baseColor: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+      highlightColor: cs.surfaceContainerHighest.withValues(alpha: 0.85),
       child:
           Container(height: height ?? 160, color: cs.surfaceContainerHighest),
     );
@@ -807,7 +830,7 @@ class MyItemsView extends StatelessWidget {
                     child: Text(
                       "You don't have any posts yet.",
                       style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: onSurface.withOpacity(0.8)),
+                          ?.copyWith(color: onSurface.withValues(alpha: 0.8)),
                     ),
                   ),
                 ],

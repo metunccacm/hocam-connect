@@ -699,7 +699,7 @@ class _ProductFormViewState extends State<ProductFormView> {
                             onTap: () => _removeExistingImageAt(index),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.8),
+                                color: Colors.red.withValues(alpha: 0.8),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -747,7 +747,7 @@ class _ProductFormViewState extends State<ProductFormView> {
                           onTap: () => viewModel.removeImage(entry.key),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.8),
+                              color: Colors.red.withValues(alpha: 0.8),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(

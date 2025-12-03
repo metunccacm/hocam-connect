@@ -149,7 +149,7 @@ class _MainTabViewState extends State<MainTabView>
               GestureDetector(
                 onTap: _toggleMenu,
                 child: Container(
-                  color: Colors.black.withOpacity(0.3 * animationValue),
+                  color: Colors.black.withValues(alpha: 0.3 * animationValue),
                 ),
               ),
               // GPA Calculator
