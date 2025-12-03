@@ -87,8 +87,6 @@ buildTypes {
             }
             isMinifyEnabled = false
             isShrinkResources = false // AI error fix
-            
-            proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro") // AI error fix
         }
     }
 }

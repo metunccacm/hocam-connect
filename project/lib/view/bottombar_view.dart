@@ -101,7 +101,13 @@ class _MainTabViewState extends State<MainTabView>
                     : 'assets/logo/hc_logo.png',
                 errorBuilder: (context, error, stackTrace) {
                   // Fallback to regular logo if dark logo not found
-                  return Image.asset('assets/logo/hc_logo.png');
+                  return Image.asset(
+                    'assets/logo/hc_logo.png',
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.apps,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  );
                 },
               ),
             );
