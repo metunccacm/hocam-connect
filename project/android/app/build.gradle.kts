@@ -31,6 +31,8 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val hasReleaseKeystore = keystorePropertiesFile.exists() // AI bunu eklettirdi hatanın gitmesi için
+
 android {
     namespace = "com.hocamconnect.android"
     compileSdk = flutter.compileSdkVersion
@@ -72,6 +74,8 @@ signingConfigs {
 buildTypes {
         getByName("debug") {
             // Debug: no special signing needed
+            isMinifyEnabled = false // AI error fix
+            isShrinkResources = false // AI error fix
         }
 
         getByName("release") {
@@ -82,6 +86,9 @@ buildTypes {
                 println("⚠️ No key.properties, release build will be unsigned.")
             }
             isMinifyEnabled = false
+            isShrinkResources = false // AI error fix
+            
+            proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro") // AI error fix
         }
     }
 }

@@ -226,8 +226,9 @@ class _MainTabViewState extends State<MainTabView>
           heroTag: heroTag,
           mini: true,
           onPressed: onPressed,
-          backgroundColor: Colors.white,
-          child: Icon(icon, color: Colors.grey.shade700),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          child: Icon(icon,
+              color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       ),
     );
