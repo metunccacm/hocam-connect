@@ -39,7 +39,9 @@ class _LoginViewState extends State<LoginView> {
                       width: logoSize,
                       height: math.min(logoSize, 360.0),
                       child: Image.asset(
-                        'assets/images/hc_beta.png',
+                        theme.brightness == Brightness.dark
+                            ? 'assets/images/hc_beta_dark.png'
+                            : 'assets/images/hc_beta.png',
                         fit: BoxFit.contain,
                       ),
                     ),

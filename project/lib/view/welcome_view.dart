@@ -28,7 +28,9 @@ class WelcomeView extends StatelessWidget {
                   height: getProportionateScreenHeight(
                       550), // önceki 500 çok büyüktü
                   child: Image.asset(
-                    'assets/images/hc_beta.png', // svg ile değişecek
+                    isDark 
+                        ? 'assets/images/hc_beta_dark.png' 
+                        : 'assets/images/hc_beta.png',
                     fit: BoxFit.contain,
                   ),
                 ),
