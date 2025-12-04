@@ -22,6 +22,11 @@ class _ThisWeekViewState extends State<ThisWeekView>
 
   @override
   bool get wantKeepAlive => true;
+  // safeguard added against memory leak
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
+  }
 
   @override
   void initState() {
@@ -32,19 +37,19 @@ class _ThisWeekViewState extends State<ThisWeekView>
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
-            setState(() {
+            _safeSetState(() {
               _isLoading = true;
               _currentUrl = url;
             });
           },
           onPageFinished: (url) {
-            setState(() {
+            _safeSetState(() {
               _isLoading = false;
               _currentUrl = url;
             });
           },
           onWebResourceError: (error) {
-            setState(() {
+            _safeSetState(() {
               _isLoading = false;
               _hasConnection = false;
             });
@@ -74,20 +79,16 @@ class _ThisWeekViewState extends State<ThisWeekView>
 
   Future<void> _checkConnectionAndLoad() async {
     final result = await Connectivity().checkConnectivity();
-    if (result.contains(ConnectivityResult.none)) {
-      setState(() {
-        _hasConnection = false;
-      });
-    } else {
-      setState(() {
-        _hasConnection = true;
-      });
-      _controller.loadRequest(Uri.parse(_targetUrl));
-    }
+    final hasNet = !result.contains(ConnectivityResult.none);
+    _safeSetState(() {
+      _hasConnection = hasNet;
+    });
+    if (!hasNet || !mounted) return;
+    await _controller.loadRequest(Uri.parse(_targetUrl));
   }
 
   Future<void> _refresh() async {
-    setState(() {
+    _safeSetState(() {
       _isLoading = true;
     });
     await _controller.reload();

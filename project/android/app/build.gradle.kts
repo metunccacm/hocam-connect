@@ -32,7 +32,7 @@ if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
-val hasReleaseKeystore = keystorePropertiesFile.exists() // AI bunu eklettirdi hatanın gitmesi için
+
 
 android {
     namespace = "com.hocamconnect.android"
@@ -84,7 +84,7 @@ buildTypes {
                 signingConfig = signingConfigs.getByName("release")
             } else {
                 // No keystore? Still allow assembleRelease locally but unsigned
-                println("⚠️ No key.properties, release build will be unsigned.")
+                println("No key.properties, release build will be unsigned.")
             }
             isMinifyEnabled = false
             isShrinkResources = false
@@ -97,3 +97,4 @@ flutter {
 }
 
 apply(plugin = "com.google.gms.google-services")
+

@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'view/login_view.dart';
 import 'view/register_view.dart';
@@ -16,6 +17,7 @@ import 'view/welcome_view.dart';
 import 'view/gpa_calculator_view.dart';
 import 'view/cafeteria_menu_view.dart';
 import 'view/chat_view.dart';
+import 'view/onboarding_view.dart';
 
 import 'viewmodel/login_viewmodel.dart';
 import 'viewmodel/marketplace_viewmodel.dart';
@@ -202,7 +204,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     final auth = Supabase.instance.client.auth;
 
     if (auth.currentSession != null) {
-      return const MainTabView();
+      return OnboardingGate(userId: auth.currentSession!.user.id);
     }
 
     return StreamBuilder<AuthState>(
@@ -217,9 +219,68 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         final signedIn = auth.currentSession != null ||
             snap.data?.event == AuthChangeEvent.signedIn;
 
-        return signedIn ? const MainTabView() : const WelcomeView();
+        return signedIn
+            ? OnboardingGate(
+                userId: auth.currentSession?.user.id ??
+                    Supabase.instance.client.auth.currentUser?.id,
+              )
+            : const WelcomeView();
       },
     );
+  }
+}
+
+class OnboardingGate extends StatefulWidget {
+  final String? userId;
+  const OnboardingGate({super.key, required this.userId});
+
+  @override
+  State<OnboardingGate> createState() => _OnboardingGateState();
+}
+
+class _OnboardingGateState extends State<OnboardingGate> {
+  bool _loading = true;
+  bool _showOnboarding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    final userId = widget.userId;
+    if (userId == null || userId.isEmpty) {
+      setState(() {
+        _loading = false;
+        _showOnboarding = false;
+      });
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('onboarding_seen_$userId') ?? false;
+
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _showOnboarding = !seen;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_showOnboarding) {
+      return const OnboardingView();
+    }
+
+    return const MainTabView();
   }
 }
 
@@ -473,6 +534,7 @@ class MyApp extends StatelessWidget {
             '/forgot-password': (_) => const ForgotPasswordView(),
             '/twoc': (_) => const ThisWeekView(),
             '/webmail': (_) => const WebmailView(),
+            '/onboarding': (_) => const OnboardingView(),
             '/chat': (ctx) {
               final args = ModalRoute.of(ctx)?.settings.arguments
                   as Map<String, dynamic>?;
