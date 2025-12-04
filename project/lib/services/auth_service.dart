@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'notification_service.dart';
 
 class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -18,6 +19,8 @@ class AuthService {
 
   //Log out
   Future<void> signOut() async {
+    // Clear FCM token from Supabase before signing out
+    await NotificationService().deleteTokenFromSupabase();
     await _client.auth.signOut();
   }
 
