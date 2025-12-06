@@ -912,7 +912,7 @@ class _CourseRow extends StatelessWidget {
       children: [
         // Course name
         Expanded(
-          flex: 5,
+          flex: 4,
           child: SizedBox(
             height: kFieldHeight,
             child: TextFormField(
@@ -936,13 +936,24 @@ class _CourseRow extends StatelessWidget {
                   availableGrades.contains(course.grade) ? course.grade : null,
               decoration: boxDeco().copyWith(
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
               ),
-              hint: const Text('XX'),
+              hint: const FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text('XX'),
+              ),
               isExpanded: true,
               isDense: true,
               items: availableGrades
-                  .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                  .map((g) => DropdownMenuItem(
+                        value: g,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(g),
+                        ),
+                      ))
                   .toList(),
               onChanged: (v) {
                 course.grade = v;
