@@ -12,6 +12,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'view/login_view.dart';
 import 'view/register_view.dart';
+import 'view/register_request_view.dart';
 import 'view/welcome_view.dart';
 import 'view/gpa_calculator_view.dart';
 import 'view/cafeteria_menu_view.dart';
@@ -468,6 +469,7 @@ class MyApp extends StatelessWidget {
             '/login': (_) => const LoginView(),
             '/welcome': (_) => const WelcomeView(),
             '/register': (_) => const RegistrationView(),
+            '/register-request': (_) => const RegisterRequestView(),
             '/cafeteria-menu': (_) => const CafeteriaMenuView(),
             '/gpa_calculator': (_) => const GpaCalculatorView(),
             '/forgot-password': (_) => const ForgotPasswordView(),

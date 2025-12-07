@@ -25,8 +25,7 @@ class WelcomeView extends StatelessWidget {
               // --- ÜST BLOK: birbirine yakın ---
               Center(
                 child: SizedBox(
-                  height: getProportionateScreenHeight(
-                      550), // önceki 500 çok büyüktü
+                  height: getProportionateScreenHeight(450),
                   child: Image.asset(
                     isDark 
                         ? 'assets/images/hc_beta_dark.png' 
@@ -118,6 +117,24 @@ class WelcomeView extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                ),
+              ),
+
+              SizedBox(height: getProportionateScreenHeight(16)),
+
+              Center(
+                child: GestureDetector(
+                  onTap: () => Navigator.pushNamed(context, '/register-request'),
+                  child: Text(
+                    "Register request for non-metunian users",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: getProportionateScreenWidth(14),
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
                     ),
                   ),
                 ),
