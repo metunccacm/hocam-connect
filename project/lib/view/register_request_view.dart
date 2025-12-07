@@ -6,6 +6,7 @@ import 'package:email_validator/email_validator.dart';
 import 'package:intl/intl.dart';
 import 'package:project/viewmodel/register_request_viewmodel.dart';
 import 'package:project/widgets/custom_appbar.dart';
+import 'package:project/config/size_config.dart';
 
 class RegisterRequestView extends StatelessWidget {
   const RegisterRequestView({super.key});
@@ -38,6 +39,7 @@ class _RegisterRequestBodyState extends State<_RegisterRequestBody> {
   final List<XFile> _selectedFiles = [];
   bool _isSuccess = false;
   bool _isDuplicate = false;
+  bool _didInitMediaQuery = false;
 
   @override
   void dispose() {
@@ -47,6 +49,15 @@ class _RegisterRequestBodyState extends State<_RegisterRequestBody> {
     _dobController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didInitMediaQuery) {
+      SizeConfig().init(context);
+      _didInitMediaQuery = true;
+    }
   }
 
   Future<void> _pickFiles() async {
