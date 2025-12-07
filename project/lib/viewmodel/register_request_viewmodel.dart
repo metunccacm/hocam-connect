@@ -76,6 +76,10 @@ class RegisterRequestViewModel extends ChangeNotifier {
           // Validate file exists and is readable
           if (!await file.exists()) {
             _errorMessage = 'One or more selected files no longer exist.';
+            // Cleanup already uploaded files before returning
+            if (uploadedPaths.isNotEmpty) {
+              await _cleanupUploadedFiles(uploadedPaths);
+            }
             return false;
           }
 
@@ -89,6 +93,7 @@ class RegisterRequestViewModel extends ChangeNotifier {
               file,
               fileOptions: const FileOptions(upsert: false),
             );
+            // Only add to uploadedPaths after successful upload
             uploadedPaths.add(storagePath);
 
             final url = supabase.storage
@@ -98,6 +103,10 @@ class RegisterRequestViewModel extends ChangeNotifier {
           } on StorageException catch (e) {
             debugPrint('Storage error uploading file: ${e.message}');
             _errorMessage = 'Failed to upload documents. Please try again.';
+            // Cleanup already uploaded files before returning
+            if (uploadedPaths.isNotEmpty) {
+              await _cleanupUploadedFiles(uploadedPaths);
+            }
             return false;
           }
         }
@@ -118,6 +127,10 @@ class RegisterRequestViewModel extends ChangeNotifier {
       } on PostgrestException catch (e) {
         debugPrint('Database error inserting request: ${e.message}');
         _errorMessage = 'Failed to submit request. Please try again.';
+        // Cleanup uploaded files since database insert failed
+        if (uploadedPaths.isNotEmpty) {
+          await _cleanupUploadedFiles(uploadedPaths);
+        }
         return false;
       }
       
@@ -125,12 +138,12 @@ class RegisterRequestViewModel extends ChangeNotifier {
     } catch (e) {
       debugPrint('Unexpected error sending request: $e');
       _errorMessage = 'An unexpected error occurred. Please check your connection and try again.';
+      // Cleanup uploaded files on unexpected error
+      if (uploadedPaths.isNotEmpty) {
+        await _cleanupUploadedFiles(uploadedPaths);
+      }
       return false;
     } finally {
-      // Clean up uploaded files on failure
-      if (_errorMessage != null && uploadedPaths.isNotEmpty) {
-        _cleanupUploadedFiles(uploadedPaths);
-      }
       _isLoading = false;
       notifyListeners();
     }
