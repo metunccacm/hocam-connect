@@ -887,7 +887,7 @@ class _CourseRow extends StatelessWidget {
         hintText: hint,
         isDense: true,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         border:
             OutlineInputBorder(borderRadius: BorderRadius.circular(kRadius)),
       );
@@ -936,12 +936,16 @@ class _CourseRow extends StatelessWidget {
                   availableGrades.contains(course.grade) ? course.grade : null,
               decoration: boxDeco().copyWith(
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
               ),
               hint: const FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text('XX'),
+              ),
+              icon: const Padding(
+                padding: EdgeInsets.only(right: 2),
+                child: Icon(Icons.arrow_drop_down, size: 16),
               ),
               isExpanded: true,
               isDense: true,
@@ -974,11 +978,12 @@ class _CourseRow extends StatelessWidget {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: false),
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              textAlign: TextAlign.center,
               decoration: boxDeco('4'),
               onChanged: (v) {
                 final newCredits = int.tryParse(v) ?? 0;
                 final oldCredits = course.credits;
-                course.credits = newCredits;
+                course.credits = newCredits; 
 
                 // If switching between credit/non-credit, reset grade
                 if ((oldCredits == 0) != (newCredits == 0)) {
