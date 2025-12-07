@@ -93,7 +93,6 @@ class RegisterRequestViewModel extends ChangeNotifier {
               file,
               fileOptions: const FileOptions(upsert: false),
             );
-            
             // Only add to uploadedPaths after successful upload
             uploadedPaths.add(storagePath);
 
