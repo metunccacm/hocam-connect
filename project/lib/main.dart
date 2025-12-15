@@ -25,7 +25,7 @@ import 'view/hitchike_view.dart';
 import 'view/create_hitchike_view.dart';
 import 'viewmodel/hitchike_viewmodel.dart';
 import 'viewmodel/create_hitchikepost_viewmodel.dart';
-//Start of main section
+
 // Theme Controller
 import 'theme_controller.dart';
 
@@ -82,7 +82,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     debugPrint('📱 App lifecycle changed to: $state');
-
+    
     // When app resumes from background, check for pending navigation
     if (state == AppLifecycleState.resumed) {
       debugPrint('🔄 App resumed - checking for pending navigation...');
@@ -92,27 +92,27 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
   Future<void> _checkPendingNavigation() async {
     debugPrint('🔍 ========== CHECKING PENDING NAVIGATION ==========');
-
+    
     // Wait a bit for the app to fully initialize
     await Future.delayed(const Duration(milliseconds: 500));
-
+    
     if (!mounted) {
       debugPrint('❌ Widget not mounted, skipping navigation check');
       return;
     }
-
+    
     // Check if there's a pending chat navigation
     final conversationId = NotificationService().getPendingChatNavigation();
     debugPrint('📱 Pending conversation ID: $conversationId');
-
+    
     if (conversationId != null) {
       debugPrint('✅ Found pending navigation to: $conversationId');
-
+      
       // Wait for authentication to complete
       final auth = Supabase.instance.client.auth;
       final session = auth.currentSession;
       debugPrint('🔐 Auth session exists: ${session != null}');
-
+      
       if (session != null) {
         debugPrint('🚀 Starting navigation to chat...');
         // Navigate to chat view
@@ -129,18 +129,18 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   Future<void> _navigateToChat(String conversationId) async {
     debugPrint('🗺️ ========== NAVIGATING TO CHAT ==========');
     debugPrint('   Conversation ID: $conversationId');
-
+    
     if (!mounted) {
       debugPrint('❌ Widget not mounted');
       return;
     }
-
+    
     try {
       // Get conversation details to show proper title
       final supa = Supabase.instance.client;
       final currentUserId = supa.auth.currentUser!.id;
       debugPrint('   Current user ID: $currentUserId');
-
+      
       // Get other participant's info
       debugPrint('📊 Fetching participants...');
       final participants = await supa
@@ -148,13 +148,13 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           .select('user_id')
           .eq('conversation_id', conversationId)
           .neq('user_id', currentUserId);
-
+      
       debugPrint('   Found ${participants.length} other participants');
-
+      
       if (participants.isNotEmpty) {
         final otherUserId = participants[0]['user_id'] as String;
         debugPrint('   Other user ID: $otherUserId');
-
+        
         // Get other user's profile
         debugPrint('👤 Fetching profile...');
         final profile = await supa
@@ -162,20 +162,20 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             .select('name, surname')
             .eq('id', otherUserId)
             .maybeSingle();
-
+        
         final title = profile != null
             ? '${profile['name'] ?? ''} ${profile['surname'] ?? ''}'.trim()
             : 'Chat';
-
+        
         debugPrint('   Chat title: $title');
         debugPrint('🚀 Pushing ChatView to navigator...');
-
+        
         // Check if widget is still mounted before navigating
         if (!mounted) {
           debugPrint('❌ Widget no longer mounted, skipping navigation');
           return;
         }
-
+        
         // Navigate to chat
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -185,7 +185,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             ),
           ),
         );
-
+        
         debugPrint('✅ Navigation complete');
       } else {
         debugPrint('❌ No other participants found');
@@ -268,7 +268,7 @@ void main() async {
   } catch (e) {
     debugPrint('⚠️ Hive adapter registration error: $e');
   }
-
+  
   // Note: Hive boxes are no longer used since migration to SupabaseSocialRepository
   // Social data is now stored in Supabase PostgreSQL database
 
@@ -291,7 +291,7 @@ void main() async {
 
   // Global navigatorKey (used by password recovery and notifications)
   final navigatorKey = GlobalKey<NavigatorState>();
-
+  
   // Set navigator key for notification service
   NotificationService().setNavigatorKey(navigatorKey);
 
@@ -317,7 +317,7 @@ void main() async {
       }).catchError((e) {
         debugPrint('⚠️ Error clearing FCM token: $e');
       });
-
+      
       // Clear all cached data on logout
       ChatCacheService().clearAllCaches().then((_) {
         debugPrint('✅ All caches cleared on sign out');
