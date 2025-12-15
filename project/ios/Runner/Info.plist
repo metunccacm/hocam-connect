@@ -50,6 +50,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>whatsapp</string>
+		<string>https</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>We need access to your camera to take photos of items you want to sell.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
