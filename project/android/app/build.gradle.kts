@@ -27,9 +27,12 @@ dependencies {
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+
+val hasReleaseKeystore = keystorePropertiesFile.exists() // AI bunu eklettirdi hatanın gitmesi için
 
 android {
     namespace = "com.hocamconnect.android"
@@ -72,6 +75,8 @@ signingConfigs {
 buildTypes {
         getByName("debug") {
             // Debug: no special signing needed
+            isMinifyEnabled = false // AI error fix
+            isShrinkResources = false // AI error fix
         }
 
         getByName("release") {
@@ -82,6 +87,7 @@ buildTypes {
                 println("⚠️ No key.properties, release build will be unsigned.")
             }
             isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

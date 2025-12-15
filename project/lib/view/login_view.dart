@@ -17,7 +17,6 @@ class _LoginViewState extends State<LoginView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
     
     final w = MediaQuery.of(context).size.width;
     // Make the logo ~70% of screen width, clamp between 200–420 px
@@ -32,7 +31,7 @@ class _LoginViewState extends State<LoginView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const SizedBox(height: 64),
+                  const SizedBox(height: 32),
 
                   // BIGGER hc_beta image (centered)
                   Center(
@@ -40,13 +39,15 @@ class _LoginViewState extends State<LoginView> {
                       width: logoSize,
                       height: math.min(logoSize, 360.0),
                       child: Image.asset(
-                        'assets/images/hc_beta.png',
+                        theme.brightness == Brightness.dark
+                            ? 'assets/images/hc_beta_dark.png'
+                            : 'assets/images/hc_beta.png',
                         fit: BoxFit.contain,
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 24),
 
                   Text(
                     'Welcome!',
@@ -56,7 +57,7 @@ class _LoginViewState extends State<LoginView> {
                       color: colorScheme.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 24),
 
                   TextFormField(
                     controller: viewModel.emailController,
@@ -68,11 +69,12 @@ class _LoginViewState extends State<LoginView> {
                         borderRadius: const BorderRadius.all(Radius.circular(10.0)),
                         borderSide: BorderSide(color: colorScheme.outline),
                       ),
+                      errorText: viewModel.emailError.isEmpty ? null : viewModel.emailError,
                     ),
                     keyboardType: TextInputType.emailAddress,
                     enabled: !viewModel.isLoading,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
                   TextFormField(
                     controller: viewModel.passwordController,
@@ -84,6 +86,7 @@ class _LoginViewState extends State<LoginView> {
                         borderRadius: const BorderRadius.all(Radius.circular(10.0)),
                         borderSide: BorderSide(color: colorScheme.outline),
                       ),
+                      errorText: viewModel.passwordError.isEmpty ? null : viewModel.passwordError,
                       suffixIcon: IconButton(
                         icon: Icon(
                           _isPasswordVisible
@@ -137,7 +140,7 @@ class _LoginViewState extends State<LoginView> {
                       child: const Text('Login'),
                     ),
 
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 16),
 
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -160,6 +163,7 @@ class _LoginViewState extends State<LoginView> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),

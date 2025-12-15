@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/auth_service.dart';
 
 class ResetPasswordView extends StatefulWidget {
   const ResetPasswordView({super.key});
@@ -71,7 +72,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
       );
 
       // sign out to clear the temporary recovery session:
-      await Supabase.instance.client.auth.signOut();
+      await AuthService().signOut();
 
       // Navigate user back to your sign-in or root.
       if (!mounted) return;
@@ -184,7 +185,7 @@ class _PasswordRulesChecklist extends StatelessWidget {
                 _RuleRow(label: 'Uppercase letter', ok: _hasUppercase(s)),
                 _RuleRow(label: 'Lowercase letter', ok: _hasLowercase(s)),
                 _RuleRow(label: 'Number', ok: _hasDigit(s)),
-                _RuleRow(label: 'Special character', ok: _hasSpecial(s)),
+                _RuleRow(label: 'Special character ( !@#\$%^&*(),.?":{}|<> )', ok: _hasSpecial(s)),
                 _RuleRow(label: 'At least 8 characters', ok: _hasMinLength(s)),
               ],
             ),

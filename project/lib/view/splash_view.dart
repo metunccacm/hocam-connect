@@ -110,6 +110,8 @@ class _SplashViewState extends State<SplashView> {
 
     // Otherwise, show splash screen with connectivity check
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -122,12 +124,12 @@ class _SplashViewState extends State<SplashView> {
                 SizedBox(
                   height: 200,
                   child: Image.asset(
-                    'assets/logo/hc_logo.png',
+                    isDark ? 'assets/logo/hc_logo_dark.png' : 'assets/logo/hc_logo.png',
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, __, ___) => Icon(
                       Icons.school,
                       size: 120,
-                      color: Color(0xFF007BFF),
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                 ),
@@ -135,15 +137,16 @@ class _SplashViewState extends State<SplashView> {
 
                 // Status
                 if (_checking) ...[
-                  const CircularProgressIndicator(
+                  CircularProgressIndicator(
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xFF007BFF)),
+                        AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
                   ),
                   const SizedBox(height: 24),
                   Text(
                     'Checking your connection…',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -151,7 +154,7 @@ class _SplashViewState extends State<SplashView> {
                   Text(
                     _funny,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.black54,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -167,6 +170,7 @@ class _SplashViewState extends State<SplashView> {
                     'No Internet Connection',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -174,7 +178,7 @@ class _SplashViewState extends State<SplashView> {
                   Text(
                     'Please check your Wi-Fi or mobile data and try again.',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.black54,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -182,13 +186,26 @@ class _SplashViewState extends State<SplashView> {
                   SizedBox(
                     width: 200,
                     height: 48,
-                    child: ElevatedButton.icon(
+                    child: ElevatedButton(
                       onPressed: _checkConnection,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Try Again'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007BFF),
-                        foregroundColor: Colors.white,
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: theme.colorScheme.onPrimary,
+                        padding: EdgeInsets.zero,
+                        alignment: Alignment.center,
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(Icons.refresh, size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            'Try Again',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
                       ),
                     ),
                   ),

@@ -15,11 +15,16 @@ class CategoryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    
     return Scaffold(
+      backgroundColor: cs.surface,
       appBar: HCAppBar(
-        titleWidget:
-            Text(categoryName, style: const TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
+        titleWidget: Text(categoryName,
+            style: TextStyle(
+                color: theme.appBarTheme.foregroundColor ?? cs.onSurface)),
+        backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
         elevation: 1,
       ),
       body: GridView.builder(
@@ -54,15 +59,14 @@ class CategoryView extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Container(
-                      color: const Color(0xFFEAF2FF),
+                      color: cs.surfaceContainerHighest,
                       child: Image.network(
                         cover,
                         fit: BoxFit.cover,
                         width: double.infinity,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Center(
+                        errorBuilder: (context, error, stackTrace) => Center(
                           child: Icon(Icons.image_not_supported_outlined,
-                              color: Colors.grey, size: 40),
+                              color: cs.onSurfaceVariant, size: 40),
                         ),
                       ),
                     ),
@@ -70,13 +74,16 @@ class CategoryView extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
                     child: Text(product.title,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: cs.onSurface)),
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
                     child: Text(
                       '${product.currency == 'TL' ? '₺' : product.currency == 'USD' ? '\$' : '€'}${product.price.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, color: cs.onSurface),
                     ),
                   ),
                   Padding(
@@ -88,10 +95,10 @@ class CategoryView extends StatelessWidget {
                           backgroundImage: product.sellerImageUrl.isNotEmpty
                               ? NetworkImage(product.sellerImageUrl)
                               : null,
-                          backgroundColor: Colors.grey.shade200,
+                          backgroundColor: cs.surfaceContainerHighest,
                           child: product.sellerImageUrl.isEmpty
-                              ? const Icon(Icons.person,
-                                  size: 14, color: Colors.grey)
+                              ? Icon(Icons.person,
+                                  size: 14, color: cs.onSurfaceVariant)
                               : null,
                         ),
                         const SizedBox(width: 8),
@@ -99,7 +106,7 @@ class CategoryView extends StatelessWidget {
                           child: Text(
                             product.sellerName,
                             style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade700),
+                                fontSize: 12, color: cs.onSurfaceVariant),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

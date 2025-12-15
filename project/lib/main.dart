@@ -12,6 +12,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'view/login_view.dart';
 import 'view/register_view.dart';
+import 'view/register_request_view.dart';
 import 'view/welcome_view.dart';
 import 'view/gpa_calculator_view.dart';
 import 'view/cafeteria_menu_view.dart';
@@ -45,7 +46,6 @@ import 'services/social_repository.dart';
 import 'view/social_view.dart';
 import 'view/user_profile_view.dart';
 import 'view/splash_view.dart';
-import 'view/notification_debug_view.dart';
 
 // NEW: connectivity wrapper
 import 'widgets/connectivity_gate.dart';
@@ -469,6 +469,7 @@ class MyApp extends StatelessWidget {
             '/login': (_) => const LoginView(),
             '/welcome': (_) => const WelcomeView(),
             '/register': (_) => const RegistrationView(),
+            '/register-request': (_) => const RegisterRequestView(),
             '/cafeteria-menu': (_) => const CafeteriaMenuView(),
             '/gpa_calculator': (_) => const GpaCalculatorView(),
             '/forgot-password': (_) => const ForgotPasswordView(),
@@ -513,7 +514,6 @@ class MyApp extends StatelessWidget {
               final fallback = repo ?? SupabaseSocialRepository();
               return UserProfileView(userId: userId, repository: fallback);
             },
-            '/notification-debug': (_) => const NotificationDebugView(),
           },
         );
       },

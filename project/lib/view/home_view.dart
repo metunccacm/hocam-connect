@@ -246,12 +246,12 @@ class _HomeViewState extends State<HomeView> {
         gradient: const [Color(0xFFFF512F), Color(0xFFF09819)],
         onTap: () => _openOrSnack('/cafeteria-menu'),
       ),
-      tile(
-        icon: Icons.chat_bubble_outline,
-        label: 'Sosyal',
-        gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-        onTap: () => _openOrSnack('/social'),
-      ),
+      // tile(
+      //   icon: Icons.chat_bubble_outline,
+      //   label: 'Sosyal',
+      //   gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+      //   onTap: () => _openOrSnack('/social'),
+      // ),
       tile(
         icon: Icons.campaign_rounded,
         label: 'TWOC',

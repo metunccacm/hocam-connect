@@ -28,6 +28,9 @@ class ChatCacheService {
   Map<String, String?>? _cachedAvatars;
   Map<String, String>? _cachedSnippets;
   Map<String, DateTime?>? _cachedLastTimes;
+  Map<String, bool>? _cachedIsDm;
+  Map<String, bool>? _cachedIBlocked;
+  Map<String, bool>? _cachedBlockedMe;
   DateTime? _conversationListCachedAt;
   
   // Cache for individual chat messages (per conversation)
@@ -230,12 +233,18 @@ class ChatCacheService {
     required Map<String, String?> avatars,
     required Map<String, String> snippets,
     required Map<String, DateTime?> lastTimes,
+    Map<String, bool>? isDm,
+    Map<String, bool>? iBlocked,
+    Map<String, bool>? blockedMe,
   }) {
     _cachedConversationIds = List.from(conversationIds);
     _cachedTitles = Map.from(titles);
     _cachedAvatars = Map.from(avatars);
     _cachedSnippets = Map.from(snippets);
     _cachedLastTimes = Map.from(lastTimes);
+    if (isDm != null) _cachedIsDm = Map.from(isDm);
+    if (iBlocked != null) _cachedIBlocked = Map.from(iBlocked);
+    if (blockedMe != null) _cachedBlockedMe = Map.from(blockedMe);
     _conversationListCachedAt = DateTime.now();
   }
   
@@ -254,6 +263,9 @@ class ChatCacheService {
       _cachedAvatars = null;
       _cachedSnippets = null;
       _cachedLastTimes = null;
+      _cachedIsDm = null;
+      _cachedIBlocked = null;
+      _cachedBlockedMe = null;
       _conversationListCachedAt = null;
       return null;
     }
@@ -264,6 +276,9 @@ class ChatCacheService {
       'avatars': _cachedAvatars!,
       'snippets': _cachedSnippets!,
       'lastTimes': _cachedLastTimes!,
+      'isDm': _cachedIsDm ?? {},
+      'iBlocked': _cachedIBlocked ?? {},
+      'blockedMe': _cachedBlockedMe ?? {},
     };
   }
   
@@ -314,6 +329,9 @@ class ChatCacheService {
       _cachedAvatars = null;
       _cachedSnippets = null;
       _cachedLastTimes = null;
+      _cachedIsDm = null;
+      _cachedIBlocked = null;
+      _cachedBlockedMe = null;
       _conversationListCachedAt = null;
       
       // Clear chat messages cache

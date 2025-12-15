@@ -95,6 +95,18 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
         _avatar.addAll(Map<String, String?>.from(cachedState['avatars'] as Map));
         _snippet.addAll(Map<String, String>.from(cachedState['snippets'] as Map));
         _lastTime.addAll(Map<String, DateTime?>.from(cachedState['lastTimes'] as Map));
+        
+        // Restore block status
+        if (cachedState['isDm'] != null) {
+          _isDm.addAll(Map<String, bool>.from(cachedState['isDm'] as Map));
+        }
+        if (cachedState['iBlocked'] != null) {
+          _iBlocked.addAll(Map<String, bool>.from(cachedState['iBlocked'] as Map));
+        }
+        if (cachedState['blockedMe'] != null) {
+          _blockedMe.addAll(Map<String, bool>.from(cachedState['blockedMe'] as Map));
+        }
+        
         _loading = false;
       });
     }
@@ -109,6 +121,9 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
         avatars: _avatar,
         snippets: _snippet,
         lastTimes: _lastTime,
+        isDm: _isDm,
+        iBlocked: _iBlocked,
+        blockedMe: _blockedMe,
       );
     }
   }
