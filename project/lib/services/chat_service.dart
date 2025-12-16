@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -302,7 +301,7 @@ class ChatService {
       }
     } catch (e) {
       // Don't fail the message send if notification fails
-      debugPrint('⚠️ Failed to send push notification: $e');
+      print('⚠️ Failed to send push notification: $e');
     }
   }
 
@@ -379,7 +378,6 @@ class ChatService {
             }
           }
         } else if (state is List) {
-          // state is already a List
           for (final item in (state as List)) {
             final dynamic d = item;
             List<dynamic>? metas;

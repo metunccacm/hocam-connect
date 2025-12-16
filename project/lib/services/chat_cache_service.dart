@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
@@ -61,7 +60,7 @@ class ChatCacheService {
       cacheData[userId] = profileData;
       await prefs.setString(_profileCacheKey, json.encode(cacheData));
     } catch (e) {
-      debugPrint('Error caching user profile: $e');
+      print('Error caching user profile: $e');
     }
   }
 
@@ -98,7 +97,7 @@ class ChatCacheService {
       
       return profile;
     } catch (e) {
-      debugPrint('Error getting cached user profile: $e');
+      print('Error getting cached user profile: $e');
       return null;
     }
   }
@@ -127,7 +126,7 @@ class ChatCacheService {
       cacheData[conversationId] = metaData;
       await prefs.setString(_conversationCacheKey, json.encode(cacheData));
     } catch (e) {
-      debugPrint('Error caching conversation meta: $e');
+      print('Error caching conversation meta: $e');
     }
   }
 
@@ -164,7 +163,7 @@ class ChatCacheService {
       
       return conversation;
     } catch (e) {
-      debugPrint('Error getting cached conversation meta: $e');
+      print('Error getting cached conversation meta: $e');
       return null;
     }
   }
@@ -188,7 +187,7 @@ class ChatCacheService {
       
       await prefs.setString(_avatarCacheKey, json.encode(cacheData));
     } catch (e) {
-      debugPrint('Error caching avatar URL: $e');
+      print('Error caching avatar URL: $e');
     }
   }
 
@@ -222,7 +221,7 @@ class ChatCacheService {
       
       return url;
     } catch (e) {
-      debugPrint('Error getting cached avatar URL: $e');
+      print('Error getting cached avatar URL: $e');
       return null;
     }
   }
@@ -344,7 +343,7 @@ class ChatCacheService {
       await prefs.remove(_conversationCacheKey);
       await prefs.remove(_avatarCacheKey);
     } catch (e) {
-      debugPrint('Error clearing caches: $e');
+      print('Error clearing caches: $e');
     }
   }
 
@@ -389,7 +388,7 @@ class ChatCacheService {
       });
       await prefs.setString(_avatarCacheKey, json.encode(avatars));
     } catch (e) {
-      debugPrint('Error clearing expired caches: $e');
+      print('Error clearing expired caches: $e');
     }
   }
 

@@ -19,10 +19,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Background handlers run in their own isolate. Keep logic minimal.
   if (kDebugMode) {
-    debugPrint('🌙 Background message received: ${message.messageId}');
-    debugPrint('   Title: ${message.notification?.title}');
-    debugPrint('   Body: ${message.notification?.body}');
-    debugPrint('   Data: ${message.data}');
+    print('🌙 Background message received: ${message.messageId}');
+    print('   Title: ${message.notification?.title}');
+    print('   Body: ${message.notification?.body}');
+    print('   Data: ${message.data}');
   }
 
   // Firebase automatically shows the notification.
@@ -35,7 +35,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // - Update local database
   
   if (kDebugMode) {
-    debugPrint('✅ Background message processed (notification shown by Firebase)');
+    print('✅ Background message processed (notification shown by Firebase)');
   }
 }
 
@@ -70,17 +70,17 @@ class NotificationService {
       // Check if Firebase is initialized
       if (Firebase.apps.isEmpty) {
         if (kDebugMode) {
-          debugPrint(
+          print(
               '⚠️ Firebase not initialized. Skipping notification service setup.');
-          debugPrint(
+          print(
               '📝 Add Firebase configuration files to enable push notifications.');
         }
         return;
       }
 
       if (kDebugMode) {
-        debugPrint('🚀 Starting notification service initialization...');
-        debugPrint('📱 Platform: ${Platform.isIOS ? "iOS" : "Android"}');
+        print('🚀 Starting notification service initialization...');
+        print('📱 Platform: ${Platform.isIOS ? "iOS" : "Android"}');
       }
 
       // Initialize local notifications
@@ -88,19 +88,19 @@ class NotificationService {
 
       // Request permission
       if (kDebugMode) {
-        debugPrint('🔔 Requesting notification permissions...');
+        print('🔔 Requesting notification permissions...');
       }
       final notificationSettings = await _requestPermission();
 
       if (kDebugMode) {
-        debugPrint(
+        print(
             '🔔 Permission status: ${notificationSettings.authorizationStatus}');
       }
 
       if (notificationSettings.authorizationStatus ==
           AuthorizationStatus.authorized) {
         if (kDebugMode) {
-          debugPrint('✅ Notification permission granted, getting FCM token...');
+          print('✅ Notification permission granted, getting FCM token...');
         }
 
         // Get FCM token
@@ -111,29 +111,29 @@ class NotificationService {
         
         // Setup notification tap handling (when app is opened from background/terminated)
         if (kDebugMode) {
-          debugPrint('🎯 Setting up onMessageOpenedApp listener...');
+          print('🎯 Setting up onMessageOpenedApp listener...');
         }
         FirebaseMessaging.onMessageOpenedApp.listen((message) {
           if (kDebugMode) {
-            debugPrint('🔔 onMessageOpenedApp triggered!');
+            print('🔔 onMessageOpenedApp triggered!');
           }
           _handleNotificationTap(message);
         });
 
         // Handle notification that opened the app from terminated state
         if (kDebugMode) {
-          debugPrint('🔍 Checking for initial message (app opened from terminated)...');
+          print('🔍 Checking for initial message (app opened from terminated)...');
         }
         final initialMessage =
             await FirebaseMessaging.instance.getInitialMessage();
         if (initialMessage != null) {
           if (kDebugMode) {
-            debugPrint('✅ Found initial message!');
+            print('✅ Found initial message!');
           }
           _handleNotificationTap(initialMessage);
         } else {
           if (kDebugMode) {
-            debugPrint('ℹ️ No initial message found');
+            print('ℹ️ No initial message found');
           }
         }
 
@@ -142,16 +142,16 @@ class NotificationService {
 
         _isInitialized = true;
         if (kDebugMode) {
-          debugPrint('NotificationService initialized successfully');
+          print('NotificationService initialized successfully');
         }
       } else {
         if (kDebugMode) {
-          debugPrint('Notification permission not granted');
+          print('Notification permission not granted');
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Error initializing notification service: $e');
+        print('Error initializing notification service: $e');
       }
     }
   }
@@ -209,42 +209,42 @@ class NotificationService {
   Future<void> _getFCMToken() async {
     try {
       if (kDebugMode) {
-        debugPrint('🔑 _getFCMToken() called');
+        print('🔑 _getFCMToken() called');
       }
 
       // For iOS, we need to wait for APNS token first
       if (Platform.isIOS) {
         if (kDebugMode) {
-          debugPrint('🍎 iOS detected - checking for APNS token...');
+          print('🍎 iOS detected - checking for APNS token...');
         }
 
         // Try multiple times with increasing delays
         String? apnsToken;
         for (int i = 0; i < 3; i++) {
           if (kDebugMode) {
-            debugPrint('🔍 Attempt ${i + 1}/3: Calling getAPNSToken()...');
+            print('🔍 Attempt ${i + 1}/3: Calling getAPNSToken()...');
           }
 
           try {
             apnsToken = await _firebaseMessaging.getAPNSToken();
             if (kDebugMode) {
               if (apnsToken != null) {
-                debugPrint(
+                print(
                     '✅ APNS token received on attempt ${i + 1}: ${apnsToken.substring(0, min(20, apnsToken.length))}...');
               } else {
-                debugPrint('❌ APNS token is null on attempt ${i + 1}');
+                print('❌ APNS token is null on attempt ${i + 1}');
               }
             }
             if (apnsToken != null) break;
           } catch (e) {
             if (kDebugMode) {
-              debugPrint('❌ Error getting APNS token on attempt ${i + 1}: $e');
+              print('❌ Error getting APNS token on attempt ${i + 1}: $e');
             }
           }
 
           if (apnsToken == null && i < 2) {
             if (kDebugMode) {
-              debugPrint('⏳ Waiting ${2 + i} seconds before retry...');
+              print('⏳ Waiting ${2 + i} seconds before retry...');
             }
             await Future.delayed(Duration(seconds: 2 + i)); // 2s, 3s, 4s
           }
@@ -252,13 +252,13 @@ class NotificationService {
 
         if (apnsToken == null) {
           if (kDebugMode) {
-            debugPrint(
+            print(
                 '⚠️ APNS token not available after 3 attempts. Will retry in background...');
-            debugPrint('💡 Make sure:');
-            debugPrint('   1. You\'re testing on a REAL iOS device (not simulator)');
-            debugPrint('   2. Push Notifications capability is enabled in Xcode');
-            debugPrint('   3. APNs is configured in Firebase Console');
-            debugPrint('   4. Runner.entitlements has aps-environment key');
+            print('💡 Make sure:');
+            print('   1. You\'re testing on a REAL iOS device (not simulator)');
+            print('   2. Push Notifications capability is enabled in Xcode');
+            print('   3. APNs is configured in Firebase Console');
+            print('   4. Runner.entitlements has aps-environment key');
           }
           // Set up background retry mechanism
           _setupAPNSTokenListener();
@@ -266,7 +266,7 @@ class NotificationService {
         }
 
         if (kDebugMode) {
-          debugPrint(
+          print(
               '✅ APNS token available: ${apnsToken.substring(0, min(20, apnsToken.length))}...');
         }
       }
@@ -283,12 +283,12 @@ class NotificationService {
         }
 
         if (kDebugMode) {
-          debugPrint('FCM Token: $token');
+          print('FCM Token: $token');
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Error getting FCM token: $e');
+        print('Error getting FCM token: $e');
       }
     }
   }
@@ -305,7 +305,7 @@ class NotificationService {
       {required int attempts, required int maxAttempts}) async {
     if (attempts >= maxAttempts) {
       if (kDebugMode) {
-        debugPrint(
+        print(
             '⚠️ Max attempts reached. FCM token will be retrieved on next app launch.');
       }
       return;
@@ -322,7 +322,7 @@ class NotificationService {
       final apnsToken = await _firebaseMessaging.getAPNSToken();
       if (apnsToken != null) {
         if (kDebugMode) {
-          debugPrint(
+          print(
               '✅ APNS token now available (attempt ${attempts + 1}), getting FCM token...');
         }
 
@@ -339,19 +339,19 @@ class NotificationService {
           }
 
           if (kDebugMode) {
-            debugPrint('✅ FCM Token retrieved: $token');
+            print('✅ FCM Token retrieved: $token');
           }
           return; // Success!
         }
       } else {
         if (kDebugMode) {
-          debugPrint(
+          print(
               '⏳ Still waiting for APNS token (attempt ${attempts + 1}/$maxAttempts)...');
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Error during retry attempt ${attempts + 1}: $e');
+        print('Error during retry attempt ${attempts + 1}: $e');
       }
     }
 
@@ -375,10 +375,10 @@ class NotificationService {
   Future<void> _saveTokenToSupabase(String token, String userId) async {
     try {
       if (kDebugMode) {
-        debugPrint('💾 Saving FCM token to profiles table...');
-        debugPrint('   User ID: $userId');
-        debugPrint('   Token: ${token.substring(0, min(20, token.length))}...');
-        debugPrint('   Platform: ${Platform.isIOS ? 'ios' : 'android'}');
+        print('💾 Saving FCM token to profiles table...');
+        print('   User ID: $userId');
+        print('   Token: ${token.substring(0, min(20, token.length))}...');
+        print('   Platform: ${Platform.isIOS ? 'ios' : 'android'}');
       }
 
       await Supabase.instance.client.from('profiles').update({
@@ -387,11 +387,11 @@ class NotificationService {
       }).eq('id', userId);
 
       if (kDebugMode) {
-        debugPrint('✅ FCM token saved to profiles table successfully');
+        print('✅ FCM token saved to profiles table successfully');
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('❌ Error saving FCM token to Supabase profiles: $e');
+        print('❌ Error saving FCM token to Supabase profiles: $e');
       }
     }
   }
@@ -407,12 +407,12 @@ class NotificationService {
         }).eq('id', user.id);
 
         if (kDebugMode) {
-          debugPrint('✅ FCM token cleared from profiles table');
+          print('✅ FCM token cleared from profiles table');
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Error deleting FCM token from Supabase: $e');
+        print('Error deleting FCM token from Supabase: $e');
       }
     }
   }
@@ -424,7 +424,7 @@ class NotificationService {
       // Check if Firebase is initialized
       if (Firebase.apps.isEmpty) {
         if (kDebugMode) {
-          debugPrint('⚠️ Firebase not initialized. Cannot save FCM token.');
+          print('⚠️ Firebase not initialized. Cannot save FCM token.');
         }
         return;
       }
@@ -432,7 +432,7 @@ class NotificationService {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
         if (kDebugMode) {
-          debugPrint('No user logged in, cannot save FCM token');
+          print('No user logged in, cannot save FCM token');
         }
         return;
       }
@@ -442,7 +442,7 @@ class NotificationService {
         final apnsToken = await _firebaseMessaging.getAPNSToken();
         if (apnsToken == null) {
           if (kDebugMode) {
-            debugPrint('⏳ APNS token not available yet. Will retry when available.');
+            print('⏳ APNS token not available yet. Will retry when available.');
           }
           // Setup retry mechanism
           _setupAPNSTokenListener();
@@ -465,16 +465,16 @@ class NotificationService {
       if (token != null) {
         await _saveTokenToSupabase(token, user.id);
         if (kDebugMode) {
-          debugPrint('✅ FCM token saved for user: ${user.id}');
+          print('✅ FCM token saved for user: ${user.id}');
         }
       } else {
         if (kDebugMode) {
-          debugPrint('⚠️ No FCM token available to save');
+          print('⚠️ No FCM token available to save');
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Error saving FCM token for current user: $e');
+        print('Error saving FCM token for current user: $e');
       }
     }
   }
@@ -493,12 +493,12 @@ class NotificationService {
   /// Handle notification tap (when app was in background/terminated)
   void _handleNotificationTap(RemoteMessage message) {
     if (kDebugMode) {
-      debugPrint('🔔 ========== NOTIFICATION TAPPED ==========');
-      debugPrint('   Message ID: ${message.messageId}');
-      debugPrint('   Notification: ${message.notification?.toMap()}');
-      debugPrint('   Data: ${message.data}');
-      debugPrint('   Data keys: ${message.data.keys.toList()}');
-      debugPrint('   Data values: ${message.data.values.toList()}');
+      print('🔔 ========== NOTIFICATION TAPPED ==========');
+      print('   Message ID: ${message.messageId}');
+      print('   Notification: ${message.notification?.toMap()}');
+      print('   Data: ${message.data}');
+      print('   Data keys: ${message.data.keys.toList()}');
+      print('   Data values: ${message.data.values.toList()}');
     }
 
     // Navigate based on notification type
@@ -506,24 +506,24 @@ class NotificationService {
     final conversationId = message.data['conversation_id'] as String?;
 
     if (kDebugMode) {
-      debugPrint('   Parsed type: $type');
-      debugPrint('   Parsed conversation_id: $conversationId');
+      print('   Parsed type: $type');
+      print('   Parsed conversation_id: $conversationId');
     }
 
     if (type == 'chat' && conversationId != null) {
       // Store navigation intent - will be handled by main app after it fully loads
       _pendingChatNavigation = conversationId;
       if (kDebugMode) {
-        debugPrint('✅ Pending navigation stored: $conversationId');
-        debugPrint('==========================================');
+        print('✅ Pending navigation stored: $conversationId');
+        print('==========================================');
       }
       
       // Try immediate navigation if navigator is available
       _tryImmediateNavigation(conversationId);
     } else {
       if (kDebugMode) {
-        debugPrint('❌ Navigation NOT stored - type: $type, conversationId: $conversationId');
-        debugPrint('==========================================');
+        print('❌ Navigation NOT stored - type: $type, conversationId: $conversationId');
+        print('==========================================');
       }
     }
 
@@ -533,9 +533,9 @@ class NotificationService {
   /// Try to navigate immediately if the app is already running
   Future<void> _tryImmediateNavigation(String conversationId) async {
     if (kDebugMode) {
-      debugPrint('🚀 Attempting immediate navigation...');
-      debugPrint('   Navigator key available: ${_navigatorKey != null}');
-      debugPrint('   Current context: ${_navigatorKey?.currentContext != null}');
+      print('🚀 Attempting immediate navigation...');
+      print('   Navigator key available: ${_navigatorKey != null}');
+      print('   Current context: ${_navigatorKey?.currentContext != null}');
     }
 
     // Wait a brief moment for the app to come to foreground
@@ -543,7 +543,7 @@ class NotificationService {
 
     if (_navigatorKey?.currentContext != null) {
       if (kDebugMode) {
-        debugPrint('✅ Navigator context available, navigating now...');
+        print('✅ Navigator context available, navigating now...');
       }
 
       try {
@@ -553,13 +553,13 @@ class NotificationService {
 
         if (currentUserId == null) {
           if (kDebugMode) {
-            debugPrint('❌ No authenticated user');
+            print('❌ No authenticated user');
           }
           return;
         }
 
         if (kDebugMode) {
-          debugPrint('📊 Fetching chat details for: $conversationId');
+          print('📊 Fetching chat details for: $conversationId');
         }
 
         // Get other participant's info
@@ -571,14 +571,14 @@ class NotificationService {
 
         if (participants.isEmpty) {
           if (kDebugMode) {
-            debugPrint('❌ No participants found');
+            print('❌ No participants found');
           }
           return;
         }
 
         final otherUserId = participants.first['user_id'] as String;
         if (kDebugMode) {
-          debugPrint('👤 Other user ID: $otherUserId');
+          print('👤 Other user ID: $otherUserId');
         }
 
         // Get other user's profile
@@ -590,7 +590,7 @@ class NotificationService {
 
         final chatTitle = '${profile['name']} ${profile['surname']}';
         if (kDebugMode) {
-          debugPrint('💬 Navigating to chat with: $chatTitle');
+          print('💬 Navigating to chat with: $chatTitle');
         }
 
         // Navigate to ChatView
@@ -607,18 +607,18 @@ class NotificationService {
         _pendingChatNavigation = null;
         
         if (kDebugMode) {
-          debugPrint('✅ Navigation completed!');
+          print('✅ Navigation completed!');
         }
       } catch (e, stackTrace) {
         if (kDebugMode) {
-          debugPrint('❌ Error during immediate navigation: $e');
-          debugPrint('   Stack trace: $stackTrace');
-          debugPrint('   Pending navigation will be handled by AuthGate');
+          print('❌ Error during immediate navigation: $e');
+          print('   Stack trace: $stackTrace');
+          print('   Pending navigation will be handled by AuthGate');
         }
       }
     } else {
       if (kDebugMode) {
-        debugPrint('⏳ Navigator not ready, will be handled by AuthGate lifecycle');
+        print('⏳ Navigator not ready, will be handled by AuthGate lifecycle');
       }
     }
   }
@@ -629,13 +629,13 @@ class NotificationService {
   /// Get and clear pending chat navigation
   String? getPendingChatNavigation() {
     if (kDebugMode) {
-      debugPrint('📞 getPendingChatNavigation() called');
-      debugPrint('   Current pending value: $_pendingChatNavigation');
+      print('📞 getPendingChatNavigation() called');
+      print('   Current pending value: $_pendingChatNavigation');
     }
     final pending = _pendingChatNavigation;
     _pendingChatNavigation = null;
     if (kDebugMode) {
-      debugPrint('   Returning: $pending (pending cleared)');
+      print('   Returning: $pending (pending cleared)');
     }
     return pending;
   }
@@ -643,7 +643,7 @@ class NotificationService {
   /// Handle local notification tap
   void _onNotificationTapped(NotificationResponse response) {
     if (kDebugMode) {
-      debugPrint('Local notification tapped: ${response.payload}');
+      print('Local notification tapped: ${response.payload}');
     }
     // TODO: Handle navigation based on payload
   }
@@ -659,7 +659,7 @@ class NotificationService {
     // Check if Firebase is initialized
     if (Firebase.apps.isEmpty) {
       if (kDebugMode) {
-        debugPrint('⚠️ Cannot enable notifications: Firebase not initialized');
+        print('⚠️ Cannot enable notifications: Firebase not initialized');
       }
       throw Exception(
           'Firebase not initialized. Add Firebase configuration files first.');

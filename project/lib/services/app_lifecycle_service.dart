@@ -42,9 +42,9 @@ class AppLifecycleService extends WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _currentState = state;
-    debugPrint('🔄 App lifecycle state changed: $state');
-    debugPrint('   - isInForeground: $isInForeground');
-    debugPrint('   - isInBackground: $isInBackground');
+    print('🔄 App lifecycle state changed: $state');
+    print('   - isInForeground: $isInForeground');
+    print('   - isInBackground: $isInBackground');
 
     // Notify all listeners
     for (final listener in _listeners) {

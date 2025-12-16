@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import '../models/product.dart';
 import '../viewmodel/product_detail_viewmodel.dart';
@@ -17,8 +16,8 @@ class _ShimmerBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final base = cs.surfaceContainerHighest.withValues(alpha: 0.6);
-    final highlight = cs.surfaceContainerHighest.withValues(alpha: 0.85);
+    final base = cs.surfaceContainerHighest.withOpacity(0.6);
+    final highlight = cs.surfaceContainerHighest.withOpacity(0.85);
     return Shimmer.fromColors(
       baseColor: base,
       highlightColor: highlight,
@@ -543,8 +542,8 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
       final y = -position.dy * (scale - 1);
 
       _transformationController.value = Matrix4.identity()
-        ..translateByVector3(Vector3(x, y, 0))
-        ..scale(scale, scale, scale);
+        ..translate(x, y, 0)
+        ..scale(scale, scale, 1);
     }
   }
 

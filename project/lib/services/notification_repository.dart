@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Helper class for sending push notifications
@@ -43,7 +42,7 @@ class NotificationRepository {
         throw Exception('Push notification failed: ${response.data}');
       }
     } catch (e) {
-      debugPrint('⚠️ Error sending push notification: $e');
+      print('⚠️ Error sending push notification: $e');
       rethrow;
     }
   }
@@ -67,7 +66,7 @@ class NotificationRepository {
 
       return response as String;
     } catch (e) {
-      debugPrint('Error broadcasting notification: $e');
+      print('Error broadcasting notification: $e');
       rethrow;
     }
   }
@@ -91,7 +90,7 @@ class NotificationRepository {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      debugPrint('Error fetching notifications: $e');
+      print('Error fetching notifications: $e');
       rethrow;
     }
   }
@@ -108,7 +107,7 @@ class NotificationRepository {
 
       return response;
     } catch (e) {
-      debugPrint('Error fetching notification status: $e');
+      print('Error fetching notification status: $e');
       return null;
     }
   }
