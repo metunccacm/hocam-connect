@@ -1,5 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:project/view/product_form_view.dart';
@@ -508,39 +506,30 @@ class _MarketplaceViewState extends State<MarketplaceView> {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // ignore: deprecated_member_use
                 RadioListTile<SortOption>(
                   title: const Text('Newest'),
                   value: SortOption.newest,
-                  // ignore: deprecated_member_use
                   groupValue: selectedSort,
-                  // ignore: deprecated_member_use
                   onChanged: (v) {
                     if (v != null) {
                       setState(() => selectedSort = v);
                     }
                   },
                 ),
-                // ignore: deprecated_member_use
                 RadioListTile<SortOption>(
                   title: const Text('Price: Low to High'),
                   value: SortOption.priceAsc,
-                  // ignore: deprecated_member_use
                   groupValue: selectedSort,
-                  // ignore: deprecated_member_use
                   onChanged: (v) {
                     if (v != null) {
                       setState(() => selectedSort = v);
                     }
                   },
                 ),
-                // ignore: deprecated_member_use
                 RadioListTile<SortOption>(
                   title: const Text('Price: High to Low'),
                   value: SortOption.priceDesc,
-                  // ignore: deprecated_member_use
                   groupValue: selectedSort,
-                  // ignore: deprecated_member_use
                   onChanged: (v) {
                     if (v != null) {
                       setState(() => selectedSort = v);

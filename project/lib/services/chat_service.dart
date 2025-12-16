@@ -378,7 +378,7 @@ class ChatService {
               }
             }
           }
-        } else {
+        } else if (state is List) {
           // state is already a List
           for (final item in (state as List)) {
             final dynamic d = item;
