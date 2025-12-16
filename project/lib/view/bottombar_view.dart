@@ -78,20 +78,38 @@ class _MainTabViewState extends State<MainTabView>
       floatingActionButton: FloatingActionButton(
         heroTag: 'main_menu_fab',
         shape: const CircleBorder(),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).colorScheme.surface
+            : Colors.white,
         elevation: 4.0,
         onPressed: _toggleMenu,
         child: AnimatedBuilder(
           animation: _animationController,
           builder: (context, child) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
             // When menu is open, show a close icon
             if (_animationController.isCompleted) {
-              return const Icon(Icons.close, color: Colors.black);
+              return Icon(Icons.close,
+                  color: Theme.of(context).colorScheme.onSurface);
             }
             // Otherwise, show the logo
             return Padding(
               padding: const EdgeInsets.all(10.0),
-              child: Image.asset('assets/logo/hc_logo.png'),
+              child: Image.asset(
+                isDark
+                    ? 'assets/logo/hc_logo_dark.png'
+                    : 'assets/logo/hc_logo.png',
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback to regular logo if dark logo not found
+                  return Image.asset(
+                    'assets/logo/hc_logo.png',
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.apps,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  );
+                },
+              ),
             );
           },
         ),
@@ -226,8 +244,9 @@ class _MainTabViewState extends State<MainTabView>
           heroTag: heroTag,
           mini: true,
           onPressed: onPressed,
-          backgroundColor: Colors.white,
-          child: Icon(icon, color: Colors.grey.shade700),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          child: Icon(icon,
+              color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       ),
     );

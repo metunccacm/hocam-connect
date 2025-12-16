@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'settings_view.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import '../utils/network_error_handler.dart';
+import '../services/auth_service.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -329,7 +330,8 @@ class _ProfileViewState extends State<ProfileView> {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
-    await Supabase.instance.client.auth.signOut();
+    // Use AuthService to sign out (clears FCM token)
+    await AuthService().signOut();
 
     // Navigate to login and remove all previous routes
     navigator.pushNamedAndRemoveUntil('/login', (route) => false);

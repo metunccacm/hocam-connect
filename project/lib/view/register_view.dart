@@ -432,6 +432,22 @@ class _RegistrationViewState extends State<RegistrationView> {
                         )
                       ],
                     ),
+                    const SizedBox(height: 24),
+                    Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(context, '/register-request');
+                        },
+                        child: Text(
+                          "Register request for non-metunian users",
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

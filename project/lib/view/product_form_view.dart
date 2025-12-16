@@ -8,7 +8,6 @@ import 'package:mime/mime.dart';
 
 import '../config/size_config.dart';
 import '../../viewmodel/additem_viewmodel.dart';
-import 'package:project/widgets/custom_appbar.dart';
 
 /// Unified view for both adding new products and editing existing ones.
 /// - If [productId] is null: "Add Product" mode
@@ -45,8 +44,6 @@ class ProductFormView extends StatefulWidget {
 class _ProductFormViewState extends State<ProductFormView> {
   final _formKey = GlobalKey<FormBuilderState>();
   final _supa = Supabase.instance.client;
-
-  static const Color acmBlue = Color.fromARGB(255, 1, 130, 172);
 
   bool _didInitMediaQuery = false;
   bool _busy = false;
@@ -315,126 +312,189 @@ class _ProductFormViewState extends State<ProductFormView> {
           final isEditMode = widget.isEditMode;
           final isBusy = isEditMode ? _busy : viewModel.isListing;
 
+          final theme = Theme.of(context);
+          final cs = theme.colorScheme;
+          
           return Scaffold(
-            backgroundColor:
-                Theme.of(context).colorScheme.surfaceContainerHighest,
-            appBar: isEditMode
-                ? AppBar(
-                    title: const Text('Edit Product',
-                        style: TextStyle(color: Colors.white)),
-                    centerTitle: true,
-                    backgroundColor: acmBlue,
-                    elevation: 0,
-                  )
-                : const HCAppBar(
-                    title: 'List Product',
-                    centerTitle: true,
-                    backgroundColor: acmBlue,
-                    elevation: 0,
+            backgroundColor: cs.surface,
+            appBar: AppBar(
+              centerTitle: true,
+              title: Text(
+                isEditMode ? 'Edit Product' : 'List Product',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.appBarTheme.foregroundColor ?? cs.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              backgroundColor: theme.appBarTheme.backgroundColor ?? cs.surface,
+              foregroundColor: theme.appBarTheme.foregroundColor ?? cs.onSurface,
+              elevation: 1,
+            ),
+            body: FormBuilder(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  // Title
+                  FormBuilderTextField(
+                    name: 'title',
+                    initialValue: widget.initialTitle,
+                    decoration: InputDecoration(
+                      labelText: 'Product Title *',
+                      hintText: 'e.g., iPhone 13 Pro Max 256GB',
+                      prefixIcon: Icon(Icons.shopping_bag_outlined, color: cs.primary),
+                      border: const OutlineInputBorder(),
+                      helperText: 'Make it clear and specific',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Title is required';
+                      }
+                      if (value.length < 3) {
+                        return 'Title must be at least 3 characters';
+                      }
+                      return null;
+                    },
                   ),
-            body: SingleChildScrollView(
-              padding: EdgeInsets.all(getProportionateScreenWidth(16)),
-              child: FormBuilder(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    _buildSection(
-                      'Basic Information',
-                      children: [
-                        FormBuilderTextField(
-                          name: 'title',
-                          initialValue: widget.initialTitle,
-                          decoration: _inputDecoration('Product Title'),
+                  const SizedBox(height: 16),
+                  
+                  // Category
+                  FormBuilderDropdown<String>(
+                    key: ValueKey(
+                        'cat-${cats.length}-${hasInitial ? 1 : 0}'),
+                    name: 'category',
+                    initialValue: safeInitialCategory,
+                    decoration: InputDecoration(
+                      labelText: 'Category *',
+                      prefixIcon: Icon(Icons.category_outlined, color: cs.primary),
+                      border: const OutlineInputBorder(),
+                      helperText: 'Choose the best match',
+                    ),
+                    dropdownColor: cs.surface,
+                    items: viewModel.categories.map((String category) {
+                      return DropdownMenuItem(
+                        value: category,
+                        child: Text(category),
+                      );
+                    }).toList(),
+                    onChanged: viewModel.onCategoryChanged,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Category is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Price and Currency
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: FormBuilderTextField(
+                          name: 'price',
+                          initialValue: widget.initialPrice?.toStringAsFixed(0),
+                          decoration: InputDecoration(
+                            labelText: 'Price *',
+                            hintText: '0',
+                            prefixIcon: Icon(Icons.attach_money, color: cs.primary),
+                            border: const OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(6),
+                          ],
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return '*Title field must be filled!';
+                              return 'Required';
+                            }
+                            final price = int.tryParse(value);
+                            if (price == null || price <= 0) {
+                              return 'Enter valid price';
                             }
                             return null;
                           },
                         ),
-                        SizedBox(height: getProportionateScreenHeight(16)),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 1,
-                              child: FormBuilderDropdown<String>(
-                                key: ValueKey(
-                                    'cat-${cats.length}-${hasInitial ? 1 : 0}'),
-                                name: 'category',
-                                initialValue: safeInitialCategory,
-                                decoration: _inputDecoration('Category'),
-                                isExpanded: true,
-                                items:
-                                    viewModel.categories.map((String category) {
-                                  return DropdownMenuItem(
-                                    value: category,
-                                    child: Text(category),
-                                  );
-                                }).toList(),
-                                onChanged: viewModel.onCategoryChanged,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return '*Category must be selected!';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                            SizedBox(width: getProportionateScreenWidth(16)),
-                            Expanded(
-                              flex: 1,
-                              child: _buildPriceInput(viewModel),
-                            ),
-                          ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 1,
+                        child: FormBuilderDropdown<String>(
+                          name: 'currency',
+                          decoration: const InputDecoration(
+                            labelText: 'Currency',
+                            border: OutlineInputBorder(),
+                          ),
+                          dropdownColor: cs.surface,
+                          initialValue: widget.initialCurrency ?? 'TL',
+                          items: ['TL', 'USD', 'EUR'].map((String currency) {
+                            return DropdownMenuItem(
+                              value: currency,
+                              child: Text(currency),
+                            );
+                          }).toList(),
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Description
+                  FormBuilderTextField(
+                    name: 'description',
+                    initialValue: widget.initialDescription,
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      hintText: 'Describe condition, features, and details...',
+                      prefixIcon: Icon(Icons.description_outlined, color: cs.primary),
+                      border: const OutlineInputBorder(),
+                      helperText: 'Add details to attract buyers',
+                      alignLabelWithHint: true,
                     ),
-                    _buildSection(
-                      'Description',
-                      children: [
-                        FormBuilderTextField(
-                          name: 'description',
-                          initialValue: widget.initialDescription,
-                          decoration: _inputDecoration('Detailed Description'),
-                          maxLines: 5,
-                        ),
-                      ],
-                    ),
-                    if (viewModel.selectedCategory == 'Clothes')
-                      _buildSizeSection(viewModel),
-                    _buildImageSection(viewModel),
-                    SizedBox(height: getProportionateScreenHeight(24)),
-                    ElevatedButton(
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Size section (only for Clothes)
+                  if (viewModel.selectedCategory == 'Clothes') ..._buildSizeFields(viewModel),
+                  
+                  // Images section
+                  ..._buildImageFields(viewModel),
+                  
+                  const SizedBox(height: 24),
+                  // Submit button
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
                       onPressed: isBusy ? null : () => _handleSave(viewModel),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: acmBlue,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                            vertical: getProportionateScreenHeight(16)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: cs.primary,
+                        foregroundColor: cs.onPrimary,
+                        disabledBackgroundColor: cs.surfaceContainerHighest,
+                        disabledForegroundColor: cs.onSurfaceVariant,
+                        minimumSize: const Size(double.infinity, 48),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                              getProportionateScreenWidth(12)),
-                        ),
-                        elevation: 4,
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                       child: isBusy
                           ? const SizedBox(
-                              height: 24,
-                              width: 24,
+                              height: 22,
+                              width: 22,
                               child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 3,
-                              ),
+                                  strokeWidth: 2, color: Colors.white),
                             )
                           : Text(
                               isEditMode ? 'Save Changes' : 'List Product',
                               style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold),
+                                  fontSize: 16, fontWeight: FontWeight.w600),
                             ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );
@@ -443,352 +503,315 @@ class _ProductFormViewState extends State<ProductFormView> {
     );
   }
 
-  Widget _buildSection(String title, {required List<Widget> children}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(
-              top: getProportionateScreenHeight(16),
-              bottom: getProportionateScreenHeight(8)),
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-        ),
-        ...children,
-        SizedBox(height: getProportionateScreenHeight(16)),
-        Divider(height: 1, color: Theme.of(context).colorScheme.outline),
-      ],
-    );
-  }
-
-  InputDecoration _inputDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(getProportionateScreenWidth(8)),
-        borderSide: BorderSide.none,
-      ),
-      filled: true,
-      fillColor: Theme.of(context).colorScheme.surface,
-      contentPadding: EdgeInsets.symmetric(
-          horizontal: getProportionateScreenWidth(16),
-          vertical: getProportionateScreenHeight(12)),
-    );
-  }
-
-  Widget _buildPriceInput(AddItemViewModel viewModel) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 1,
-          child: FormBuilderTextField(
-            name: 'price',
-            initialValue: widget.initialPrice?.toStringAsFixed(0),
-            decoration: InputDecoration(
-              labelText: 'Price',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(getProportionateScreenWidth(8)),
-                  bottomLeft: Radius.circular(getProportionateScreenWidth(8)),
-                ),
-                borderSide: BorderSide.none,
-              ),
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
-              contentPadding: EdgeInsets.symmetric(
-                  horizontal: getProportionateScreenWidth(16),
-                  vertical: getProportionateScreenHeight(12)),
-            ),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(6),
-            ],
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return '*Price must be filled!';
-              }
-              return null;
-            },
-          ),
-        ),
-        Expanded(
-          flex: 1,
-          child: FormBuilderDropdown<String>(
-            name: 'currency',
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.only(
-                  topRight: Radius.circular(getProportionateScreenWidth(8)),
-                  bottomRight: Radius.circular(getProportionateScreenWidth(8)),
-                ),
-                borderSide: BorderSide.none,
-              ),
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
-              contentPadding: EdgeInsets.symmetric(
-                  horizontal: getProportionateScreenWidth(16),
-                  vertical: getProportionateScreenHeight(12)),
-            ),
-            initialValue: widget.initialCurrency ?? 'TL',
-            items: ['TL', 'USD', 'EUR'].map((String currency) {
-              return DropdownMenuItem(
-                value: currency,
-                child: Text(currency),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSizeSection(AddItemViewModel viewModel) {
+  // Size fields for Clothes category
+  List<Widget> _buildSizeFields(AddItemViewModel viewModel) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final init = (widget.initialSizeValue ?? '').trim();
     final isDigits = RegExp(r'^\d+([.,]\d+)?$').hasMatch(init);
     final isLetter =
         {'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'}.contains(init.toUpperCase());
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Size'),
-        SizedBox(height: getProportionateScreenHeight(16)),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              _buildSizeButton(viewModel, 'LETTER'),
-              SizedBox(width: getProportionateScreenWidth(8)),
-              _buildSizeButton(viewModel, 'NUMERIC'),
-              SizedBox(width: getProportionateScreenWidth(8)),
-              _buildSizeButton(viewModel, 'STANDARD'),
-            ],
-          ),
-        ),
-        if (viewModel.selectedSizeOption == 'NUMERIC')
-          Padding(
-            padding: EdgeInsets.only(top: getProportionateScreenHeight(16)),
-            child: SizedBox(
-              width: getProportionateScreenWidth(150),
-              child: FormBuilderTextField(
-                name: 'numeric_size',
-                initialValue: isDigits ? init : '',
-                decoration: _inputDecoration('45,46...'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '*Size must be filled!';
-                  }
-                  return null;
-                },
-              ),
-            ),
-          ),
-        if (viewModel.selectedSizeOption == 'LETTER')
-          Padding(
-            padding: EdgeInsets.only(top: getProportionateScreenHeight(16)),
-            child: SizedBox(
-              width: getProportionateScreenWidth(150),
-              child: FormBuilderDropdown<String>(
-                name: 'letter_size',
-                initialValue: isLetter ? init.toUpperCase() : null,
-                decoration: _inputDecoration('Select Size'),
-                isExpanded: true,
-                items: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL']
-                    .map((String size) {
-                  return DropdownMenuItem(
-                    value: size,
-                    child: Text(size),
-                  );
-                }).toList(),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '*Size must be selected!';
-                  }
-                  return null;
-                },
-              ),
-            ),
-          ),
-        SizedBox(height: getProportionateScreenHeight(16)),
-        Divider(height: 1, color: Theme.of(context).colorScheme.outline),
-      ],
-    );
-  }
-
-  Widget _buildSizeButton(AddItemViewModel viewModel, String label) {
-    bool isSelected = viewModel.selectedSizeOption == label;
-    return ElevatedButton(
-      onPressed: () => viewModel.onSizeOptionChanged(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected
-            ? acmBlue
-            : Theme.of(context).colorScheme.surfaceContainerHighest,
-        foregroundColor:
-            isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
-        shape: const StadiumBorder(),
-        elevation: 0,
-        padding: EdgeInsets.symmetric(
-          horizontal: getProportionateScreenWidth(16),
-          vertical: getProportionateScreenHeight(12),
+    return [
+      Text(
+        'Size Option',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: cs.onSurface,
+          fontWeight: FontWeight.w500,
         ),
       ),
-      child: Text(label),
+      const SizedBox(height: 8),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildSizeOptionChip(viewModel, 'LETTER'),
+            const SizedBox(width: 8),
+            _buildSizeOptionChip(viewModel, 'NUMERIC'),
+            const SizedBox(width: 8),
+            _buildSizeOptionChip(viewModel, 'STANDARD'),
+          ],
+        ),
+      ),
+      const SizedBox(height: 12),
+      if (viewModel.selectedSizeOption == 'NUMERIC')
+        FormBuilderTextField(
+          name: 'numeric_size',
+          initialValue: isDigits ? init : '',
+          decoration: const InputDecoration(
+            labelText: 'Size (e.g., 45, 46)',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Size is required';
+            }
+            return null;
+          },
+        ),
+      if (viewModel.selectedSizeOption == 'LETTER')
+        FormBuilderDropdown<String>(
+          name: 'letter_size',
+          initialValue: isLetter ? init.toUpperCase() : null,
+          decoration: const InputDecoration(
+            labelText: 'Select Size',
+            border: OutlineInputBorder(),
+          ),
+          dropdownColor: cs.surface,
+          items: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL']
+              .map((String size) {
+            return DropdownMenuItem(
+              value: size,
+              child: Text(size),
+            );
+          }).toList(),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Size is required';
+            }
+            return null;
+          },
+        ),
+      const SizedBox(height: 16),
+    ];
+  }
+
+  Widget _buildSizeOptionChip(AddItemViewModel viewModel, String label) {
+    final isSelected = viewModel.selectedSizeOption == label;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => viewModel.onSizeOptionChanged(label),
+      backgroundColor: cs.surfaceContainerHighest,
+      selectedColor: cs.primaryContainer,
+      labelStyle: TextStyle(
+        color: isSelected ? cs.onPrimaryContainer : cs.onSurface,
+      ),
     );
   }
 
-  Widget _buildImageSection(AddItemViewModel viewModel) {
+  // Image fields
+  List<Widget> _buildImageFields(AddItemViewModel viewModel) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final totalImageCount =
         _existingImages.length + viewModel.selectedImages.length;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Images'),
-        SizedBox(height: getProportionateScreenHeight(16)),
+    return [
+      Row(
+        children: [
+          Icon(Icons.photo_library_outlined, color: cs.primary, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            'Product Photos',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: totalImageCount >= 4
+                  ? cs.primaryContainer
+                  : cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '$totalImageCount/4',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: totalImageCount >= 4
+                    ? cs.onPrimaryContainer
+                    : cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'Add up to 4 photos. First photo will be the cover.',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: cs.onSurfaceVariant,
+        ),
+      ),
+      const SizedBox(height: 12),
+      if (totalImageCount == 0)
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: cs.outline.withOpacity(0.5),
+              width: 2,
+              style: BorderStyle.solid,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(Icons.add_photo_alternate_outlined,
+                  size: 48, color: cs.onSurfaceVariant),
+              const SizedBox(height: 12),
+              Text(
+                'No photos yet',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Tap the + button below to add photos',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        )
+      else
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              // Edit mode: Show existing images from DB
+              // Existing images (edit mode)
               if (widget.isEditMode)
                 ..._existingImages.asMap().entries.map((entry) {
                   final index = entry.key;
                   final img = entry.value;
                   return Padding(
-                    padding:
-                        EdgeInsets.only(right: getProportionateScreenWidth(16)),
-                    child: Stack(
-                      children: [
-                        Container(
-                          width: getProportionateScreenWidth(80),
-                          height: getProportionateScreenWidth(80),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(
-                                getProportionateScreenWidth(8)),
-                            border: Border.all(color: Colors.grey, width: 1),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(
-                                getProportionateScreenWidth(8)),
-                            child: Image.network(
-                              img.url,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Center(
-                                    child: Icon(Icons.broken_image));
-                              },
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: getProportionateScreenHeight(4),
-                          right: getProportionateScreenWidth(4),
-                          child: GestureDetector(
-                            onTap: () => _removeExistingImageAt(index),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.8),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.close,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    padding: const EdgeInsets.only(right: 12),
+                    child: _buildImageThumbnail(
+                      imageUrl: img.url,
+                      onRemove: () => _removeExistingImageAt(index),
+                      isFirst: index == 0 &&
+                          viewModel.selectedImages.isEmpty,
                     ),
                   );
                 }),
-
-              // Newly selected images (both add and edit modes)
+              // New images
               ...viewModel.selectedImages.asMap().entries.map((entry) {
-                final imageFile = entry.value;
                 return Padding(
-                  padding:
-                      EdgeInsets.only(right: getProportionateScreenWidth(16)),
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: getProportionateScreenWidth(80),
-                        height: getProportionateScreenWidth(80),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(
-                              getProportionateScreenWidth(8)),
-                          border: Border.all(color: Colors.grey, width: 1),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(
-                              getProportionateScreenWidth(8)),
-                          child: Image.file(
-                            imageFile,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: getProportionateScreenHeight(4),
-                        right: getProportionateScreenWidth(4),
-                        child: GestureDetector(
-                          onTap: () => viewModel.removeImage(entry.key),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.8),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  padding: const EdgeInsets.only(right: 12),
+                  child: _buildImageThumbnail(
+                    imageFile: entry.value,
+                    onRemove: () => viewModel.removeImage(entry.key),
+                    isFirst: entry.key == 0 && _existingImages.isEmpty,
                   ),
                 );
               }),
-
-              // Add image button
-              if (totalImageCount < 4)
-                GestureDetector(
-                  onTap: viewModel.isPickingImage
-                      ? null
-                      : () => _showImageSourceSheet(context, viewModel),
-                  child: Container(
-                    width: getProportionateScreenWidth(80),
-                    height: getProportionateScreenWidth(80),
-                    decoration: BoxDecoration(
-                      color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
-                      borderRadius:
-                          BorderRadius.circular(getProportionateScreenWidth(8)),
-                      border: Border.all(
-                          color: Theme.of(context).colorScheme.outline),
-                    ),
-                    child: Center(
-                      child: viewModel.isPickingImage
-                          ? const CircularProgressIndicator()
-                          : Icon(Icons.add,
-                              color: Theme.of(context).colorScheme.onSurface),
-                    ),
-                  ),
-                ),
             ],
+          ),
+        ),
+      const SizedBox(height: 12),
+      // Add button
+      if (totalImageCount < 4)
+        OutlinedButton.icon(
+          onPressed: viewModel.isPickingImage
+              ? null
+              : () => _showImageSourceSheet(context, viewModel),
+          icon: viewModel.isPickingImage
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: cs.primary),
+                )
+              : Icon(Icons.add_photo_alternate, color: cs.primary),
+          label: Text(
+            viewModel.isPickingImage ? 'Loading...' : 'Add Photo',
+            style: TextStyle(color: cs.primary),
+          ),
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: cs.primary),
+            minimumSize: const Size(double.infinity, 48),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      const SizedBox(height: 16),
+    ];
+  }
+
+  Widget _buildImageThumbnail({
+    String? imageUrl,
+    File? imageFile,
+    required VoidCallback onRemove,
+    bool isFirst = false,
+  }) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    
+    return Stack(
+      children: [
+        Container(
+          width: 100,
+          height: 100,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isFirst ? cs.primary : cs.outline,
+              width: isFirst ? 2 : 1,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(11),
+            child: imageFile != null
+                ? Image.file(imageFile, fit: BoxFit.cover)
+                : imageUrl != null
+                    ? Image.network(imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                              color: cs.surfaceContainerHighest,
+                              child: Icon(Icons.broken_image,
+                                  color: cs.onSurfaceVariant),
+                            ))
+                    : const SizedBox(),
+          ),
+        ),
+        // Cover badge
+        if (isFirst)
+          Positioned(
+            bottom: 4,
+            left: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: cs.primary,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'COVER',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ),
+        // Remove button
+        Positioned(
+          top: 4,
+          right: 4,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 16),
+            ),
           ),
         ),
       ],
@@ -796,15 +819,18 @@ class _ProductFormViewState extends State<ProductFormView> {
   }
 
   void _showImageSourceSheet(BuildContext context, AddItemViewModel viewModel) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     showModalBottomSheet(
       context: context,
+      backgroundColor: cs.surface,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take Photo'),
+              leading: Icon(Icons.camera_alt, color: cs.onSurface),
+              title: Text('Take Photo', style: TextStyle(color: cs.onSurface)),
               onTap: () {
                 Navigator.of(ctx).pop();
                 if (!viewModel.isPickingImage) {
@@ -813,8 +839,9 @@ class _ProductFormViewState extends State<ProductFormView> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
+              leading: Icon(Icons.photo_library, color: cs.onSurface),
+              title: Text('Choose from Gallery',
+                  style: TextStyle(color: cs.onSurface)),
               onTap: () {
                 Navigator.of(ctx).pop();
                 if (!viewModel.isPickingImage) {
@@ -822,25 +849,14 @@ class _ProductFormViewState extends State<ProductFormView> {
                 }
               },
             ),
-            const Divider(height: 1),
+            Divider(height: 1, color: cs.outline),
             ListTile(
-              leading: const Icon(Icons.close),
-              title: const Text('Cancel'),
+              leading: Icon(Icons.close, color: cs.onSurface),
+              title: Text('Cancel', style: TextStyle(color: cs.onSurface)),
               onTap: () => Navigator.of(ctx).pop(),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: Theme.of(context).colorScheme.onSurface,
       ),
     );
   }
