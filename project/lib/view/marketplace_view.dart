@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:project/view/product_form_view.dart';
@@ -500,43 +502,65 @@ class _MarketplaceViewState extends State<MarketplaceView> {
     showDialog(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Sort'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RadioListTile<SortOption>(
-                title: const Text('Newest'),
-                value: SortOption.newest,
-                groupValue: viewModel.currentSortOption,
-                onChanged: (v) {
-                  if (v != null) {
-                    viewModel.sortProducts(v);
-                    Navigator.pop(dialogContext);
-                  }
-                },
+        SortOption selectedSort = viewModel.currentSortOption;
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Sort'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ignore: deprecated_member_use
+                RadioListTile<SortOption>(
+                  title: const Text('Newest'),
+                  value: SortOption.newest,
+                  // ignore: deprecated_member_use
+                  groupValue: selectedSort,
+                  // ignore: deprecated_member_use
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => selectedSort = v);
+                    }
+                  },
+                ),
+                // ignore: deprecated_member_use
+                RadioListTile<SortOption>(
+                  title: const Text('Price: Low to High'),
+                  value: SortOption.priceAsc,
+                  // ignore: deprecated_member_use
+                  groupValue: selectedSort,
+                  // ignore: deprecated_member_use
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => selectedSort = v);
+                    }
+                  },
+                ),
+                // ignore: deprecated_member_use
+                RadioListTile<SortOption>(
+                  title: const Text('Price: High to Low'),
+                  value: SortOption.priceDesc,
+                  // ignore: deprecated_member_use
+                  groupValue: selectedSort,
+                  // ignore: deprecated_member_use
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => selectedSort = v);
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
               ),
-              RadioListTile<SortOption>(
-                title: const Text('Price: Low to High'),
-                value: SortOption.priceAsc,
-                groupValue: viewModel.currentSortOption,
-                onChanged: (v) {
-                  if (v != null) {
-                    viewModel.sortProducts(v);
-                    Navigator.pop(dialogContext);
-                  }
+              FilledButton(
+                onPressed: () {
+                  viewModel.sortProducts(selectedSort);
+                  Navigator.pop(dialogContext);
                 },
-              ),
-              RadioListTile<SortOption>(
-                title: const Text('Price: High to Low'),
-                value: SortOption.priceDesc,
-                groupValue: viewModel.currentSortOption,
-                onChanged: (v) {
-                  if (v != null) {
-                    viewModel.sortProducts(v);
-                    Navigator.pop(dialogContext);
-                  }
-                },
+                child: const Text('Apply'),
               ),
             ],
           ),

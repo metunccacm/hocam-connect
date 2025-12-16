@@ -859,6 +859,7 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
       await _supa.rpc('block_user_in_dm', params: {'_conversation_id': id});
       _iBlocked[id] = true; // immediate reflect
       if (mounted) setState(() {});
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('User blocked')));
       await _reportAfterBlock(id);
@@ -873,6 +874,7 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
       await _supa.rpc('unblock_user_in_dm', params: {'_conversation_id': id});
       _iBlocked[id] = false; // immediate reflect
       if (mounted) setState(() {});
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('User unblocked')));
     } catch (e) {

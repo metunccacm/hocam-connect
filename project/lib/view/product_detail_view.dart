@@ -542,8 +542,9 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
       final y = -position.dy * (scale - 1);
 
       _transformationController.value = Matrix4.identity()
-        ..translate(x, y, 0)
-        ..scale(scale, scale, 1);
+        ..translateByVector3(Vector3(x, y, 0))
+        // ignore: deprecated_member_use
+        ..scale(scale);
     }
   }
 
