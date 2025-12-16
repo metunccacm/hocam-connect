@@ -501,7 +501,7 @@ class _ChatViewState extends State<ChatView> {
     } catch (e) {
       if (e is PostgrestException) {
         final code = e.code ?? '';
-        final message = e.message.trim();
+        final message = (e.message ?? '').trim();
         final lower = message.toLowerCase();
         final isPerm = code == '42501' ||
             lower.contains('permission denied') ||
