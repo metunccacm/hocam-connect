@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:project/view/chat_list_view.dart';
 import '../services/webmail_credentials_service.dart';
 
 class WebmailView extends StatefulWidget {

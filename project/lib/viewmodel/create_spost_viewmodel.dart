@@ -25,7 +25,9 @@ class CreateSPostViewModel extends ChangeNotifier {
   bool isLoading = false;
 
   // Picked images (cached as bytes to upload)
+  // ignore: library_private_types_in_public_api
   final List<_PickedImage> _images = [];
+  // ignore: library_private_types_in_public_api
   List<_PickedImage> get images => List.unmodifiable(_images);
 
   // Friends cache for @mentions
@@ -195,7 +197,7 @@ class CreateSPostViewModel extends ChangeNotifier {
     // Return the post ID string
     return post.id;
   } catch (e) {
-    print('Error creating post: $e');
+    debugPrint('Error creating post: $e');
     rethrow;
   } finally {
     isSubmitting = false;

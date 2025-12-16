@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -370,29 +371,19 @@ class ChatService {
         final state = ch.presenceState();
         final typing = <String>{};
 
-        if (state is Map) {
-          for (final metas in (state as Map).values) {
-            if (metas is List) {
-              for (final meta in metas) {
-                consumeMeta(meta, typing);
-              }
-            }
-          }
-        } else {
-          // state is already a List
-          for (final item in (state as List)) {
-            final dynamic d = item;
-            List<dynamic>? metas;
-            try {
-              metas = (d.metas as List?);
-            } catch (_) {}
-            try {
-              metas ??= (d.payload as List?);
-            } catch (_) {}
-            if (metas != null) {
-              for (final meta in metas) {
-                consumeMeta(meta, typing);
-              }
+        // state is List<SinglePresenceState>
+        for (final item in state) {
+          final dynamic d = item;
+          List<dynamic>? metas;
+          try {
+            metas = (d.metas as List?);
+          } catch (_) {}
+          try {
+            metas ??= (d.payload as List?);
+          } catch (_) {}
+          if (metas != null) {
+            for (final meta in metas) {
+              consumeMeta(meta, typing);
             }
           }
         }

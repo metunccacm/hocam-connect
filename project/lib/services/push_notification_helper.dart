@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Helper class for sending push notifications via Supabase Edge Function
@@ -21,7 +22,7 @@ class PushNotificationHelper {
         if (imageUrl != null) 'imageUrl': imageUrl,
       });
     } catch (e) {
-      print('Error sending push notification: $e');
+      debugPrint('Error sending push notification: $e');
       rethrow;
     }
   }
@@ -43,7 +44,7 @@ class PushNotificationHelper {
         if (imageUrl != null) 'imageUrl': imageUrl,
       });
     } catch (e) {
-      print('Error sending push notifications: $e');
+      debugPrint('Error sending push notifications: $e');
       rethrow;
     }
   }

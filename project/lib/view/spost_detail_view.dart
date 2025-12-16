@@ -1,5 +1,4 @@
 // lib/views/spost_detail_view.dart
-// ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -104,16 +103,16 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
                                 ),
                                PopupMenuButton<String>(
   onSelected: (v) async {
-    print('Popup selected: $v');
+    debugPrint('Popup selected: $v');
 
     if (v == 'edit') {
       // Safety guard: only allow if it's my post
       if (!vm.isMine(post.authorId)) {
-        print('Not owner, edit blocked. meId=${vm.meId} author=${post.authorId}');
+        debugPrint('Not owner, edit blocked. meId=${vm.meId} author=${post.authorId}');
         return;
       }
 
-      print('🟢 Opening EditSPostView for post: ${post.id}');
+      debugPrint('🟢 Opening EditSPostView for post: ${post.id}');
       try {
         final changed = await Navigator.push(
           context,
@@ -127,26 +126,31 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
         );
 
         if (changed == true) {
-          print('Edit finished. Refreshing...');
+          debugPrint('Edit finished. Refreshing...');
           await vm.refreshAll();
         }
       } catch (e) {
-        print('Edit navigation error: $e');
+        debugPrint('Edit navigation error: $e');
       }
     }
 
     if (v == 'delete') {
       if (!vm.isMine(post.authorId)) return;
+      // ignore: use_build_context_synchronously
+      final navigator = Navigator.of(context);
+      // ignore: use_build_context_synchronously
       final ok = await _confirm(context, 'Delete post?', 'This cannot be undone.');
       if (ok) {
         await vm.deletePost();
-        if (mounted) Navigator.pop(context, true);
+        if (mounted) navigator.pop(true);
       }
     }
 
     if (v == 'report') {
       if (vm.isMine(post.authorId)) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      // ignore: use_build_context_synchronously
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
         const SnackBar(content: Text('Thanks for the report.')),
       );
     }
@@ -656,14 +660,16 @@ class _CommentTileState extends State<_CommentTile> {
                     }
                   }
                   if (v == 'delete' && vm.isMine(c.authorId)) {
+                    // ignore: use_build_context_synchronously
                     final ok = await showDialog<bool>(
+                      // ignore: use_build_context_synchronously
                       context: context,
-                      builder: (_) => AlertDialog(
+                      builder: (dialogContext) => AlertDialog(
                         title: const Text('Delete comment'),
                         content: const Text('This cannot be undone.'),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
+                          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Delete')),
                         ],
                       ),
                     );
@@ -673,7 +679,9 @@ class _CommentTileState extends State<_CommentTile> {
                     }
                   }
                   if (v == 'report' && !vm.isMine(c.authorId)) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    // ignore: use_build_context_synchronously
+                    final messenger = ScaffoldMessenger.of(context);
+                    messenger.showSnackBar(
                       const SnackBar(content: Text('Thanks for the report.')),
                     );
                   }
@@ -772,14 +780,16 @@ class _CommentTileState extends State<_CommentTile> {
                               }
                             }
                             if (v == 'delete' && vm.isMine(r.authorId)) {
+                              // ignore: use_build_context_synchronously
                               final ok = await showDialog<bool>(
+                                // ignore: use_build_context_synchronously
                                 context: context,
-                                builder: (_) => AlertDialog(
+                                builder: (dialogContext) => AlertDialog(
                                   title: const Text('Delete reply'),
                                   content: const Text('This cannot be undone.'),
                                   actions: [
-                                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                                    FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                                    TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
+                                    FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Delete')),
                                   ],
                                 ),
                               );
@@ -791,7 +801,9 @@ class _CommentTileState extends State<_CommentTile> {
                               }
                             }
                             if (v == 'report' && !vm.isMine(r.authorId)) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              // ignore: use_build_context_synchronously
+                              final messenger = ScaffoldMessenger.of(context);
+                              messenger.showSnackBar(
                                 const SnackBar(content: Text('Thanks for the report.')),
                               );
                             }
