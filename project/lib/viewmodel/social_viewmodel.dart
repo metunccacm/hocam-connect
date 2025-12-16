@@ -388,9 +388,8 @@ class SocialViewModel extends ChangeNotifier {
   void reorderPendingImages(int from, int to) {
     if (from == to) return;
     if (from < 0 || to < 0) return;
-    if (from >= pendingImagePaths.length || to >= pendingImagePaths.length) {
+    if (from >= pendingImagePaths.length || to >= pendingImagePaths.length)
       return;
-    }
     final tmp = pendingImagePaths[from];
     pendingImagePaths[from] = pendingImagePaths[to];
     pendingImagePaths[to] = tmp;

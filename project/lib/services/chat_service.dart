@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -302,7 +302,7 @@ class ChatService {
       }
     } catch (e) {
       // Don't fail the message send if notification fails
-      debugPrint('⚠️ Failed to send push notification: $e');
+      debugPrint('Failed to send push notification: $e');
     }
   }
 

@@ -212,7 +212,6 @@ class _ChatViewState extends State<ChatView> {
     final supa = Supabase.instance.client;
     final me = supa.auth.currentUser?.id;
     if (me == null) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Not authenticated')));
       return;
@@ -232,7 +231,6 @@ class _ChatViewState extends State<ChatView> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Report submitted.')));
     } on PostgrestException catch (e) {
-      if (!mounted) return;
       if (e.code == '23505') {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('You already reported this conversation.')));
@@ -565,6 +563,18 @@ class _ChatViewState extends State<ChatView> {
   }
 
   // debug helpers (opsiyonel)
+  Future<void> _repairE2ee() async {
+    try {
+      try {
+        await Supabase.instance.client
+            .rpc('reset_conv_cek', params: {'_cid': widget.conversationId});
+      } catch (_) {}
+      await _svc.bootstrapCekIfMissing(widget.conversationId);
+      _show('E2EE repair attempted. Try sending again.');
+    } catch (e) {
+      _show('Repair failed: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

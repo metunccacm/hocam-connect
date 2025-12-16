@@ -127,8 +127,8 @@ class CafeteriaMenuViewModel extends ChangeNotifier {
     final startStr = _yyyyMmDd(_weekStart);
     final endStr = _yyyyMmDd(_weekStart.add(const Duration(days: 6)));
 
-    debugPrint('Debug - Loading week from $startStr to $endStr');
-    debugPrint('Debug - Table name: $tableName');
+    print('Debug - Loading week from $startStr to $endStr');
+    print('Debug - Table name: $tableName');
 
     try {
       final rows = await NetworkErrorHandler.handleNetworkCall(

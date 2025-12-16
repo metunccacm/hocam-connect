@@ -261,9 +261,8 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
     String selected = _reportReasons.first;
     _chatReportCtrl.clear();
 
-    if (!mounted) return;
-    final ok = await showDialog<bool>(
-      context: context,
+  final ok = await showDialog<bool>(
+    context: context,
     builder: (_) => AlertDialog(
       title: const Text('Report user'),
       content: Column(
@@ -316,7 +315,6 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Report submitted.')));
     } on PostgrestException catch (e) {
-      if (!mounted) return;
       if (e.code == '23505') {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('You already reported this conversation.')));
@@ -759,7 +757,6 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
       
       if (result.isEmpty) {
         debugPrint('⚠️ Warning: No participant record found to hide');
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Conversation not found')),
         );
@@ -771,17 +768,89 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
       _removeLocal(id);
       
       debugPrint('✅ Conversation hidden successfully');
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Conversation removed')),
       );
     } catch (e, stack) {
       debugPrint('❌ Delete failed: $e');
       debugPrint('Stack trace: $stack');
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Delete failed: $e')),
       );
+    }
+  }
+
+  /// Unhide a conversation (called when user actively engages with it)
+  Future<void> _unhideConversation(String id) async {
+    try {
+      final me = _supa.auth.currentUser!.id;
+      debugPrint('👁️ Unhiding conversation: $id');
+      
+      await _supa.from('participants').update({
+        'hidden_at': null,
+      }).eq('conversation_id', id).eq('user_id', me);
+      
+      // Remove from hidden set
+      _hiddenConvIds.remove(id);
+      
+      // Re-add to conversation list if not already there
+      if (!_convIds.contains(id)) {
+        await _onNewConversationDetected(id);
+      }
+      
+      debugPrint('✅ Conversation unhidden');
+    } catch (e) {
+      debugPrint('❌ Unhide failed: $e');
+    }
+  }
+
+  Future<void> _deleteEverywhere(String id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete conversation?'),
+        content: const Text(
+            'This will permanently delete all messages for this conversation.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    try {
+      await _supa
+          .rpc('hard_delete_conversation', params: {'_conversation_id': id});
+      _removeLocal(id);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Conversation deleted')));
+    } catch (e) {
+      final fallback = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Not allowed to delete for everyone'),
+          content: const Text('Remove it only for you?'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete for me')),
+          ],
+        ),
+      );
+      if (fallback == true) {
+        await _deleteForMe(id);
+      } else {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+      }
     }
   }
 
@@ -795,7 +864,6 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
           .showSnackBar(const SnackBar(content: Text('User blocked')));
       await _reportAfterBlock(id);
     } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Block failed: $e')));
     }
@@ -810,7 +878,6 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('User unblocked')));
     } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Unblock failed: $e')));
     }
@@ -983,7 +1050,7 @@ class _ChatListViewState extends State<ChatListView> with AutomaticKeepAliveClie
                     Padding(
                       padding: const EdgeInsets.only(left: 6),
                       child: Icon(Icons.block,
-                          size: 16, color: Colors.red.withValues(alpha: 0.8)),
+                          size: 16, color: Colors.red.withOpacity(0.8)),
                     ),
                 ],
               ),
