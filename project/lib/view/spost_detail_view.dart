@@ -1,4 +1,5 @@
 // lib/views/spost_detail_view.dart
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -102,16 +103,16 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
                                 ),
                                PopupMenuButton<String>(
   onSelected: (v) async {
-    print('Popup selected: $v');
+    debugPrint('Popup selected: $v');
 
     if (v == 'edit') {
       // Safety guard: only allow if it's my post
       if (!vm.isMine(post.authorId)) {
-        print('Not owner, edit blocked. meId=${vm.meId} author=${post.authorId}');
+        debugPrint('Not owner, edit blocked. meId=${vm.meId} author=${post.authorId}');
         return;
       }
 
-      print('🟢 Opening EditSPostView for post: ${post.id}');
+      debugPrint('🟢 Opening EditSPostView for post: ${post.id}');
       try {
         final changed = await Navigator.push(
           context,
@@ -125,11 +126,11 @@ class _SPostDetailBodyState extends State<_SPostDetailBody> {
         );
 
         if (changed == true) {
-          print('Edit finished. Refreshing...');
+          debugPrint('Edit finished. Refreshing...');
           await vm.refreshAll();
         }
       } catch (e) {
-        print('Edit navigation error: $e');
+        debugPrint('Edit navigation error: $e');
       }
     }
 

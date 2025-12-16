@@ -321,7 +321,7 @@ class _ImagesGrid extends StatelessWidget {
                 onTap: () => onRemove(i),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.45),
+                    color: Colors.black.withValues(alpha: 0.45),
                     shape: BoxShape.circle,
                   ),
                   padding: const EdgeInsets.all(4),

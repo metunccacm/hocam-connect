@@ -1,4 +1,6 @@
 // lib/view/social_view.dart
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -424,7 +426,7 @@ class _SocialViewBodyState extends State<_SocialViewBody>
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05), // Very subtle shadow
+                color: Colors.black.withValues(alpha: 0.05), // Very subtle shadow
                 blurRadius: 8.0,
                 offset: const Offset(0, -2), // Shadow above the bar
                 spreadRadius: 0,
@@ -515,7 +517,7 @@ class _SocialViewBodyState extends State<_SocialViewBody>
             children: [
               GestureDetector(
                 onTap: _toggleMenu,
-                child: Container(color: Colors.black.withOpacity(0.3 * animationValue)),
+                child: Container(color: Colors.black.withValues(alpha: 0.3 * animationValue)),
               ),
               _buildMenuItem(
                 icon: Icons.calculate_outlined,
@@ -612,7 +614,7 @@ class _ShimmerBox extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.grey.shade800.withOpacity(0.25),
+        color: Colors.grey.shade800.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(8),
       ),
     );
@@ -1539,7 +1541,7 @@ class _BottomBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         border: Border(top: BorderSide(color: Colors.grey.shade200, width: 0.5)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8.0, offset: const Offset(0, -2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8.0, offset: const Offset(0, -2))],
       ),
       child: BottomAppBar(
         color: Colors.grey.shade50,

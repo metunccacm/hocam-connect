@@ -47,7 +47,7 @@ class NotificationsView extends StatelessWidget {
             leading: CircleAvatar(
               backgroundColor:
                   (it.color ?? Theme.of(context).colorScheme.primary)
-                      .withOpacity(0.15),
+                      .withValues(alpha: 0.15),
               child: Icon(it.icon,
                   color: it.color ?? Theme.of(context).colorScheme.primary),
             ),
