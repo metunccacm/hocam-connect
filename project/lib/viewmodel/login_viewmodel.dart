@@ -62,8 +62,21 @@ class LoginViewModel extends ChangeNotifier {
       passwordController.clear();
 
       if (context.mounted) {
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil('/home', (route) => false);
+        // Check if we can pop (meaning we are on top of AuthGate/WelcomeView)
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        } else {
+          // If we can't pop, we are likely the root, so we restart the app flow
+          // We use pushReplacement to /home or / depending on setup, 
+          // but since we want to trigger AuthGate logic, we should probably go to /
+          // However, let's try popping first. If that fails, we force /home 
+          // BUT /home bypasses onboarding. 
+          // So we should navigate to a route that uses AuthGate.
+          // Since / isn't a named route in routes map (it's home), 
+          // let's try pushing a new MaterialPageRoute with AuthGate if needed.
+          // But for now, let's assume pop works or we use pushReplacementNamed('/')
+          Navigator.of(context).pushReplacementNamed('/');
+        }
       }
     } on AuthException catch (e) {
       if (context.mounted) {

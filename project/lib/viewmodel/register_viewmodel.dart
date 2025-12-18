@@ -95,7 +95,11 @@ class RegistrationViewModel extends ChangeNotifier {
       final hasSession = Supabase.instance.client.auth.currentSession != null;
       if (hasSession) {
         if (context.mounted) {
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          } else {
+            Navigator.of(context).pushReplacementNamed('/');
+          }
         }
       } else {
         if (context.mounted) {

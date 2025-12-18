@@ -28,7 +28,7 @@ import 'view/create_hitchike_view.dart';
 import 'viewmodel/hitchike_viewmodel.dart';
 import 'viewmodel/create_hitchikepost_viewmodel.dart';
 
-// Theme Controller
+// import 'services/auth_gate.dart'; // REMOVE THIS IF IT EXISTS OR ENSURE WE USE THE ONE IN MAIN.DART
 import 'theme_controller.dart';
 
 // Cache Service
@@ -202,8 +202,10 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final auth = Supabase.instance.client.auth;
+    debugPrint('🚪 AuthGate build. Session: ${auth.currentSession != null}');
 
     if (auth.currentSession != null) {
+      debugPrint('👉 AuthGate returning OnboardingGate (direct session)');
       return OnboardingGate(userId: auth.currentSession!.user.id);
     }
 
@@ -218,6 +220,8 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
         final signedIn = auth.currentSession != null ||
             snap.data?.event == AuthChangeEvent.signedIn;
+        
+        debugPrint('🚪 AuthGate StreamBuilder. SignedIn: $signedIn');
 
         return signedIn
             ? OnboardingGate(
@@ -250,7 +254,10 @@ class _OnboardingGateState extends State<OnboardingGate> {
 
   Future<void> _checkOnboardingStatus() async {
     final userId = widget.userId;
+    debugPrint('🔍 Checking onboarding status for user: $userId');
+
     if (userId == null || userId.isEmpty) {
+      debugPrint('❌ User ID is null or empty. Skipping onboarding.');
       setState(() {
         _loading = false;
         _showOnboarding = false;
@@ -260,16 +267,19 @@ class _OnboardingGateState extends State<OnboardingGate> {
 
     final prefs = await SharedPreferences.getInstance();
     final seen = prefs.getBool('onboarding_seen_$userId') ?? false;
+    debugPrint('👀 Onboarding seen status from prefs: $seen');
 
     if (!mounted) return;
     setState(() {
       _loading = false;
       _showOnboarding = !seen;
     });
+    debugPrint('🚀 Final decision - Show onboarding: $_showOnboarding');
   }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('🏗️ OnboardingGate build called. Loading: $_loading, Show: $_showOnboarding');
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -277,9 +287,11 @@ class _OnboardingGateState extends State<OnboardingGate> {
     }
 
     if (_showOnboarding) {
+      debugPrint('👉 Returning OnboardingView');
       return const OnboardingView();
     }
 
+    debugPrint('👉 Returning MainTabView');
     return const MainTabView();
   }
 }
@@ -514,18 +526,24 @@ class MyApp extends StatelessWidget {
           darkTheme: _darkTheme(),
           themeMode: c.mode,
           // Splash screen with initial connectivity check
-          home: SplashView(
-            funnyMessages: const [
-              'Polishing the antenna…',
-              'Waving at the router 👋',
-              'Asking packets to hurry up…',
-              'Consulting the fiber oracle…',
-            ],
-            child: const ConnectivityGate(
-              child: AuthGate(),
-            ),
-          ),
+          // home: SplashView(
+          //   funnyMessages: const [
+          //     'Polishing the antenna…',
+          //     'Waving at the router 👋',
+          //     'Asking packets to hurry up…',
+          //     'Consulting the fiber oracle…',
+          //   ],
+          //   child: const ConnectivityGate(
+          //     child: AuthGate(),
+          //   ),
+          // ),
+          initialRoute: '/',
           routes: {
+            '/': (_) => const SplashView(
+                  child: ConnectivityGate(
+                    child: AuthGate(),
+                  ),
+                ),
             '/login': (_) => const LoginView(),
             '/welcome': (_) => const WelcomeView(),
             '/register': (_) => const RegistrationView(),

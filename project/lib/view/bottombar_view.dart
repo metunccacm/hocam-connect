@@ -65,6 +65,7 @@ class _MainTabViewState extends State<MainTabView>
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('🏠 MainTabView build called');
     return Scaffold(
       body: Stack(
         children: [
