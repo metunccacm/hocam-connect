@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'view/login_view.dart';
 import 'view/register_view.dart';
@@ -17,6 +18,7 @@ import 'view/welcome_view.dart';
 import 'view/gpa_calculator_view.dart';
 import 'view/cafeteria_menu_view.dart';
 import 'view/chat_view.dart';
+import 'view/onboarding_view.dart';
 
 import 'viewmodel/login_viewmodel.dart';
 import 'viewmodel/marketplace_viewmodel.dart';
@@ -27,7 +29,7 @@ import 'view/create_hitchike_view.dart';
 import 'viewmodel/hitchike_viewmodel.dart';
 import 'viewmodel/create_hitchikepost_viewmodel.dart';
 
-// Theme Controller
+// import 'services/auth_gate.dart'; // REMOVE THIS IF IT EXISTS OR ENSURE WE USE THE ONE IN MAIN.DART
 import 'theme_controller.dart';
 
 // Cache Service
@@ -201,9 +203,11 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final auth = Supabase.instance.client.auth;
+    debugPrint('🚪 AuthGate build. Session: ${auth.currentSession != null}');
 
     if (auth.currentSession != null) {
-      return const MainTabView();
+      debugPrint('👉 AuthGate returning OnboardingGate (direct session)');
+      return OnboardingGate(userId: auth.currentSession!.user.id);
     }
 
     return StreamBuilder<AuthState>(
@@ -217,10 +221,79 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
         final signedIn = auth.currentSession != null ||
             snap.data?.event == AuthChangeEvent.signedIn;
+        
+        debugPrint('🚪 AuthGate StreamBuilder. SignedIn: $signedIn');
 
-        return signedIn ? const MainTabView() : const WelcomeView();
+        return signedIn
+            ? OnboardingGate(
+                userId: auth.currentSession?.user.id ??
+                    Supabase.instance.client.auth.currentUser?.id,
+              )
+            : const WelcomeView();
       },
     );
+  }
+}
+
+class OnboardingGate extends StatefulWidget {
+  final String? userId;
+  const OnboardingGate({super.key, required this.userId});
+
+  @override
+  State<OnboardingGate> createState() => _OnboardingGateState();
+}
+
+class _OnboardingGateState extends State<OnboardingGate> {
+  bool _loading = true;
+  bool _showOnboarding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    final userId = widget.userId;
+    debugPrint('🔍 Checking onboarding status for user: $userId');
+
+    if (userId == null || userId.isEmpty) {
+      debugPrint('❌ User ID is null or empty. Skipping onboarding.');
+      setState(() {
+        _loading = false;
+        _showOnboarding = false;
+      });
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('onboarding_seen_$userId') ?? false;
+    debugPrint('👀 Onboarding seen status from prefs: $seen');
+
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _showOnboarding = !seen;
+    });
+    debugPrint('🚀 Final decision - Show onboarding: $_showOnboarding');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    debugPrint('🏗️ OnboardingGate build called. Loading: $_loading, Show: $_showOnboarding');
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_showOnboarding) {
+      debugPrint('👉 Returning OnboardingView');
+      return const OnboardingView();
+    }
+
+    debugPrint('👉 Returning MainTabView');
+    return const MainTabView();
   }
 }
 
@@ -454,18 +527,24 @@ class MyApp extends StatelessWidget {
           darkTheme: _darkTheme(),
           themeMode: c.mode,
           // Splash screen with initial connectivity check
-          home: SplashView(
-            funnyMessages: const [
-              'Polishing the antenna…',
-              'Waving at the router 👋',
-              'Asking packets to hurry up…',
-              'Consulting the fiber oracle…',
-            ],
-            child: const ConnectivityGate(
-              child: AuthGate(),
-            ),
-          ),
+          // home: SplashView(
+          //   funnyMessages: const [
+          //     'Polishing the antenna…',
+          //     'Waving at the router 👋',
+          //     'Asking packets to hurry up…',
+          //     'Consulting the fiber oracle…',
+          //   ],
+          //   child: const ConnectivityGate(
+          //     child: AuthGate(),
+          //   ),
+          // ),
+          initialRoute: '/',
           routes: {
+            '/': (_) => const SplashView(
+                  child: ConnectivityGate(
+                    child: AuthGate(),
+                  ),
+                ),
             '/login': (_) => const LoginView(),
             '/welcome': (_) => const WelcomeView(),
             '/register': (_) => const RegistrationView(),
@@ -475,6 +554,7 @@ class MyApp extends StatelessWidget {
             '/forgot-password': (_) => const ForgotPasswordView(),
             '/twoc': (_) => const ThisWeekView(),
             '/webmail': (_) => const WebmailView(),
+            '/onboarding': (_) => const OnboardingView(),
             '/chat': (ctx) {
               final args = ModalRoute.of(ctx)?.settings.arguments
                   as Map<String, dynamic>?;
