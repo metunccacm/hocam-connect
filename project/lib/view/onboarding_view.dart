@@ -4,8 +4,7 @@ import 'package:liquid_swipe/liquid_swipe.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-const double _phi = 1.618; // Golden ratio for spatial rhythm
-const double _baseSpacing = 16.0;
+const double _phi = 1.618;
 
 class OnboardingView extends StatefulWidget {
   const OnboardingView({super.key});
@@ -22,8 +21,7 @@ class _OnboardingViewState extends State<OnboardingView> {
     OnboardingPageData(
       tag: 'Marketplace',
       title: 'Your Campus Bazaar',
-      body:
-          'Buy and sell textbooks, dorm gear, and essentials with fellow students. DM safely within the app to connect.',
+      body: 'Buy and sell textbooks, dorm gear, and essentials with fellow students. DM safely within the app to connect.',
       highlights: const ['Peer-to-peer deals', 'Secure DMs'],
       darkGradient: const [Color(0xFF0F4C75), Color(0xFF3282B8)],
       lightGradient: const [Color(0xFFE3F2FD), Color(0xFF90CAF9)],
@@ -32,8 +30,7 @@ class _OnboardingViewState extends State<OnboardingView> {
     OnboardingPageData(
       tag: 'Academics',
       title: 'Master Your Grades & Quick Links',
-      body:
-          'Calculate your CGPA using department-specific templates and access all essential school websites in one tap.',
+      body: 'Calculate your CGPA using department-specific templates and access all essential school websites in one tap.',
       highlights: const ['CGPA templates', 'One-tap portals'],
       darkGradient: const [Color(0xFF0F3D3E), Color(0xFF145DA0)],
       lightGradient: const [Color(0xFFE0F2F1), Color(0xFF80CBC4)],
@@ -42,8 +39,7 @@ class _OnboardingViewState extends State<OnboardingView> {
     OnboardingPageData(
       tag: 'Mobility',
       title: 'Catch a Ride, Make a Friend',
-      body:
-          'Secure hitchhiking between students. Find a ride across campus or back to town easily.',
+      body: 'Secure hitchhiking between students. Find a ride across campus or back to town easily.',
       highlights: const ['Student-only rides', 'Safety-first matching'],
       darkGradient: const [Color(0xFF16222A), Color(0xFF3A6073)],
       lightGradient: const [Color(0xFFECEFF1), Color(0xFFB0BEC5)],
@@ -52,8 +48,7 @@ class _OnboardingViewState extends State<OnboardingView> {
     OnboardingPageData(
       tag: 'Food & Dining',
       title: 'Fuel Up Fast',
-      body:
-          'Check cafeteria menus instantly or browse off-campus restaurants and order directly via WhatsApp.',
+      body: 'Check cafeteria menus instantly or browse off-campus restaurants and order directly via WhatsApp.',
       highlights: const ['Live cafeteria menus', 'WhatsApp ordering'],
       darkGradient: const [Color(0xFFEE7724), Color(0xFFD8363A)],
       lightGradient: const [Color(0xFFFFF3E0), Color(0xFFFFCC80)],
@@ -62,8 +57,7 @@ class _OnboardingViewState extends State<OnboardingView> {
     OnboardingPageData(
       tag: 'Ready?',
       title: 'Join the Community',
-      body:
-          'Everything you need to thrive on campus lives here. Verify once, and you are in.',
+      body: 'Everything you need to thrive on campus lives here. Verify once, and you are in.',
       highlights: const ['Unified student hub', 'Switch to home anytime'],
       darkGradient: const [Color(0xFF0B1026), Color(0xFF163F93)],
       lightGradient: const [Color(0xFFE8EAF6), Color(0xFF9FA8DA)],
@@ -78,16 +72,15 @@ class _OnboardingViewState extends State<OnboardingView> {
 
   Future<void> _markOnboardingSeen() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    debugPrint('📝 Attempting to mark onboarding as seen for user: $userId');
-    
+    debugPrint('Attempting to mark onboarding as seen for user: $userId');
     if (userId == null) {
-      debugPrint('❌ Cannot mark onboarding seen: User ID is null');
+      debugPrint('Cannot mark onboarding seen: User ID is null');
       return;
     }
-    
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_seen_$userId', true);
-    debugPrint('✅ Onboarding successfully marked as seen in SharedPreferences');
+    final key = 'onboarding_seen_$userId';
+    await prefs.setBool(key, true);
+    debugPrint('Onboarding successfully marked as seen with key: $key');
   }
 
   Future<void> _goToHome() async {
@@ -98,8 +91,9 @@ class _OnboardingViewState extends State<OnboardingView> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('🎨 OnboardingView build called');
-    final goldenSpacing = _baseSpacing * _phi;
+    final screenSize = MediaQuery.of(context).size;
+    final baseSpacing = screenSize.width * 0.04;
+    final goldenSpacing = baseSpacing * _phi;
     final isLastPage = _activePage == _pages.length - 1;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottomTextStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -118,7 +112,7 @@ class _OnboardingViewState extends State<OnboardingView> {
                 (index) => _OnboardingPage(
                   data: _pages[index],
                   goldenSpacing: goldenSpacing,
-                  baseSpacing: _baseSpacing,
+                  baseSpacing: baseSpacing,
                   isLast: index == _pages.length - 1,
                   onPrimaryAction: _goToHome,
                 ),
@@ -126,12 +120,11 @@ class _OnboardingViewState extends State<OnboardingView> {
               liquidController: _controller,
               enableLoop: false,
               fullTransitionValue: 600,
-              // Enable liquid effect both directions without peeking the next page.
               enableSideReveal: false,
               waveType: WaveType.liquidReveal,
               onPageChangeCallback: _handlePageChange,
             ),
-            _SkipButton(onTap: _goToHome),
+            _SkipButton(onTap: _goToHome, baseSpacing: baseSpacing),
             Positioned(
               bottom: goldenSpacing,
               left: 0,
@@ -141,17 +134,14 @@ class _OnboardingViewState extends State<OnboardingView> {
                 children: [
                   if (!isLastPage)
                     Padding(
-                      padding: EdgeInsets.only(bottom: _baseSpacing * 0.8),
-                      child: Text(
-                        'Swipe to continue',
-                        style: bottomTextStyle,
-                      ),
+                      padding: EdgeInsets.only(bottom: baseSpacing * 0.8),
+                      child: Text('Swipe to continue', style: bottomTextStyle),
                     ),
                   _PageIndicator(
                     total: _pages.length,
                     active: _activePage,
                     goldenSpacing: goldenSpacing,
-                    baseSpacing: _baseSpacing,
+                    baseSpacing: baseSpacing,
                   ),
                 ],
               ),
@@ -180,22 +170,30 @@ class _OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final gradient = isDark ? data.darkGradient : data.lightGradient;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? Colors.white.withOpacity(0.85) : Colors.black54;
+    final subTextColor = isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black54;
     final decorationColor = isDark ? Colors.white : Colors.black;
 
     final textTheme = Theme.of(context).textTheme;
+    final titleFontSize = screenSize.width * 0.065;
+    final bodyFontSize = screenSize.width * 0.038;
+
     final titleStyle = textTheme.headlineMedium?.copyWith(
       color: textColor,
       fontWeight: FontWeight.w700,
       height: 1.05,
+      fontSize: titleFontSize.clamp(20.0, 32.0),
     );
     final bodyStyle = textTheme.bodyLarge?.copyWith(
       color: subTextColor,
       height: 1.45,
+      fontSize: bodyFontSize.clamp(14.0, 18.0),
     );
+
+    final imageHeight = screenSize.height * 0.3;
 
     return Container(
       decoration: BoxDecoration(
@@ -205,88 +203,97 @@ class _OnboardingPage extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: goldenSpacing * 0.9 + goldenSpacing / 1.4),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: goldenSpacing),
-            child: _TagPill(
-              label: data.tag,
-              baseSpacing: baseSpacing,
-              textColor: textColor,
-              decorationColor: decorationColor,
-            ),
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: screenSize.height -
+                MediaQuery.of(context).padding.top -
+                MediaQuery.of(context).padding.bottom,
           ),
-          SizedBox(height: goldenSpacing / 1.2),
-          AspectRatio(
-            aspectRatio: 1.0,
-            child: _OnboardingImage(
-              data: data,
-              baseSpacing: baseSpacing,
-              iconColor: decorationColor,
-            ),
-          ),
-          SizedBox(height: goldenSpacing),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: goldenSpacing),
-            child: Text(data.title, style: titleStyle),
-          ),
-          SizedBox(height: baseSpacing * 0.9),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: goldenSpacing),
-            child: Text(data.body, style: bodyStyle),
-          ),
-          SizedBox(height: goldenSpacing / 1.1),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: goldenSpacing),
-            child: Wrap(
-              spacing: baseSpacing * 0.7,
-              runSpacing: baseSpacing * 0.6,
-              children: data.highlights
-                  .map((item) => _HighlightChip(
-                        label: item,
-                        baseSpacing: baseSpacing,
-                        textColor: textColor,
-                        decorationColor: decorationColor,
-                      ))
-                  .toList(),
-            ),
-          ),
-          const Spacer(),
-          if (isLast)
-            Padding(
-              padding: EdgeInsets.only(
-                left: goldenSpacing,
-                right: goldenSpacing,
-                bottom: goldenSpacing * 0.9,
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? Colors.white : Colors.black87,
-                    foregroundColor: isDark ? gradient.last : Colors.white,
-                    minimumSize: Size(double.infinity, goldenSpacing),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(baseSpacing * 1.1),
-                    ),
-                    elevation: 0,
-                  ),
-                  onPressed: onPrimaryAction,
-                  child: Text(
-                    data.ctaLabel ?? 'Get Started',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                    ),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: goldenSpacing * 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: goldenSpacing * 1.5),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: goldenSpacing),
+                  child: _TagPill(
+                    label: data.tag,
+                    baseSpacing: baseSpacing,
+                    textColor: textColor,
+                    decorationColor: decorationColor,
                   ),
                 ),
-              ),
-            )
-          else
-            SizedBox(height: goldenSpacing * 0.9),
-        ],
+                SizedBox(height: goldenSpacing * 0.6),
+                SizedBox(
+                  height: imageHeight,
+                  child: _OnboardingImage(
+                    data: data,
+                    baseSpacing: baseSpacing,
+                    iconColor: decorationColor,
+                  ),
+                ),
+                SizedBox(height: goldenSpacing * 0.6),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: goldenSpacing),
+                  child: Text(data.title, style: titleStyle),
+                ),
+                SizedBox(height: baseSpacing * 0.6),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: goldenSpacing),
+                  child: Text(data.body, style: bodyStyle),
+                ),
+                SizedBox(height: goldenSpacing * 0.6),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: goldenSpacing),
+                  child: Wrap(
+                    spacing: baseSpacing * 0.5,
+                    runSpacing: baseSpacing * 0.4,
+                    children: data.highlights
+                        .map((item) => _HighlightChip(
+                              label: item,
+                              baseSpacing: baseSpacing,
+                              textColor: textColor,
+                              decorationColor: decorationColor,
+                            ))
+                        .toList(),
+                  ),
+                ),
+                if (isLast) ...[
+                  SizedBox(height: goldenSpacing),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: goldenSpacing),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: goldenSpacing * 2,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isDark ? Colors.white : Colors.black87,
+                          foregroundColor: isDark ? gradient.last : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(baseSpacing * 0.8),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: onPrimaryAction,
+                        child: Text(
+                          data.ctaLabel ?? 'Get Started',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: (baseSpacing * 1.1).clamp(14.0, 18.0),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -309,13 +316,13 @@ class _TagPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: baseSpacing * 0.9,
-        vertical: baseSpacing * 0.45,
+        horizontal: baseSpacing * 0.7,
+        vertical: baseSpacing * 0.35,
       ),
       decoration: BoxDecoration(
-        color: decorationColor.withOpacity(0.14),
-        borderRadius: BorderRadius.circular(baseSpacing * 1.2),
-        border: Border.all(color: decorationColor.withOpacity(0.24)),
+        color: decorationColor.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(baseSpacing),
+        border: Border.all(color: decorationColor.withValues(alpha: 0.24)),
       ),
       child: Text(
         label.toUpperCase(),
@@ -323,6 +330,7 @@ class _TagPill extends StatelessWidget {
               color: textColor,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.9,
+              fontSize: (baseSpacing * 0.75).clamp(10.0, 14.0),
             ),
       ),
     );
@@ -371,21 +379,12 @@ class _ImagePlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: iconColor.withOpacity(0.06),
+        color: iconColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(baseSpacing * _phi),
-        border: Border.all(color: iconColor.withOpacity(0.18)),
+        border: Border.all(color: iconColor.withValues(alpha: 0.18)),
       ),
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: baseSpacing * _phi * 2.4,
-              color: iconColor,
-            ),
-          ],
-        ),
+        child: Icon(icon, size: baseSpacing * 4, color: iconColor),
       ),
     );
   }
@@ -408,24 +407,25 @@ class _HighlightChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: baseSpacing * 0.8,
-        vertical: baseSpacing * 0.45,
+        horizontal: baseSpacing * 0.6,
+        vertical: baseSpacing * 0.35,
       ),
       decoration: BoxDecoration(
-        color: decorationColor.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(baseSpacing * 1.1),
-        border: Border.all(color: decorationColor.withOpacity(0.24)),
+        color: decorationColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(baseSpacing * 0.8),
+        border: Border.all(color: decorationColor.withValues(alpha: 0.24)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.check_circle, size: 16, color: textColor.withOpacity(0.7)),
-          SizedBox(width: baseSpacing * 0.4),
+          Icon(Icons.check_circle, size: baseSpacing * 0.9, color: textColor.withValues(alpha: 0.7)),
+          SizedBox(width: baseSpacing * 0.3),
           Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: textColor,
                   fontWeight: FontWeight.w600,
+                  fontSize: (baseSpacing * 0.7).clamp(10.0, 14.0),
                 ),
           ),
         ],
@@ -460,11 +460,11 @@ class _PageIndicator extends StatelessWidget {
           final isActive = index == active;
           return AnimatedContainer(
             duration: const Duration(milliseconds: 240),
-            margin: EdgeInsets.symmetric(horizontal: baseSpacing * 0.35),
-            width: isActive ? goldenSpacing / 1.3 : baseSpacing * 0.8,
-            height: baseSpacing * 0.3,
+            margin: EdgeInsets.symmetric(horizontal: baseSpacing * 0.25),
+            width: isActive ? goldenSpacing : baseSpacing * 0.6,
+            height: baseSpacing * 0.25,
             decoration: BoxDecoration(
-              color: indicatorColor.withOpacity(isActive ? 0.95 : 0.4),
+              color: indicatorColor.withValues(alpha: isActive ? 0.95 : 0.4),
               borderRadius: BorderRadius.circular(baseSpacing),
             ),
           );
@@ -476,31 +476,40 @@ class _PageIndicator extends StatelessWidget {
 
 class _SkipButton extends StatelessWidget {
   final VoidCallback onTap;
+  final double baseSpacing;
 
-  const _SkipButton({required this.onTap});
+  const _SkipButton({required this.onTap, required this.baseSpacing});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final bgColor = isDark ? Colors.black.withOpacity(0.15) : Colors.black.withOpacity(0.08);
+    final bgColor = isDark
+        ? Colors.black.withValues(alpha: 0.15)
+        : Colors.black.withValues(alpha: 0.08);
 
     return Positioned(
-      top: _baseSpacing,
-      right: _baseSpacing,
+      top: baseSpacing,
+      right: baseSpacing,
       child: TextButton(
         style: TextButton.styleFrom(
           foregroundColor: textColor,
           backgroundColor: bgColor,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: baseSpacing * 0.9,
+            vertical: baseSpacing * 0.5,
+          ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(baseSpacing * 1.5),
           ),
         ),
         onPressed: onTap,
-        child: const Text(
+        child: Text(
           'Skip',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: (baseSpacing * 0.85).clamp(12.0, 16.0),
+          ),
         ),
       ),
     );

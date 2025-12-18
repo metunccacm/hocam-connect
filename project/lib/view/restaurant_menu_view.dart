@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:project/viewmodel/delivery_menu_viewmodel.dart';
 import 'package:project/widgets/custom_appbar.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RestaurantMenuView extends StatefulWidget {
@@ -165,15 +166,51 @@ class _RestaurantMenuViewState extends State<RestaurantMenuView> {
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
-    // Remove spaces and special characters to ensure the URI is valid
-    final cleanNumber = phoneNumber.replaceAll(RegExp(r'\s+'), '');
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: cleanNumber,
-    );
-    // Use externalApplication mode to ensure it opens the dialer
-    if (!await launchUrl(launchUri, mode: LaunchMode.externalApplication)) {
-      debugPrint('Could not launch $launchUri');
+    try {
+      // Keep only digits and + sign for international format
+      String cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+      
+      // Create the tel URL string
+      final String telUrl = 'tel:$cleanNumber';
+      
+      debugPrint('Making call to: $telUrl');
+      
+      // Launch directly without canLaunchUrlString check
+      // iOS handles tel: URLs natively and canLaunchUrlString can return false incorrectly
+      final bool launched = await launchUrlString(
+        telUrl,
+        mode: LaunchMode.externalApplication,
+      );
+      
+      debugPrint('Launch result: $launched');
+      
+      if (!launched) {
+        // Fallback: Copy to clipboard
+        await Clipboard.setData(ClipboardData(text: cleanNumber));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Phone number copied: $cleanNumber'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error making phone call: $e');
+      // Fallback: Copy to clipboard on error
+      try {
+        String cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+        await Clipboard.setData(ClipboardData(text: cleanNumber));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Phone number copied: $cleanNumber'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } catch (_) {}
     }
   }
 
@@ -201,12 +238,39 @@ class _RestaurantMenuViewState extends State<RestaurantMenuView> {
     );
 
     if (shouldLaunch == true) {
-      // Remove any non-digit characters for the API
-      final cleanNumber = phoneNumber.replaceAll(RegExp(r'\D'), '');
-      final Uri launchUri = Uri.parse('https://wa.me/$cleanNumber');
-      
-      if (!await launchUrl(launchUri, mode: LaunchMode.externalApplication)) {
-        debugPrint('Could not launch $launchUri');
+      try {
+        // Remove spaces, dashes, parentheses but keep + for international
+        final cleanNumber = phoneNumber.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+        // Remove leading + if present for wa.me URL (wa.me expects just digits)
+        final numberForWhatsApp = cleanNumber.replaceAll('+', '');
+        
+        final String whatsappUrl = 'https://wa.me/$numberForWhatsApp';
+        
+        debugPrint('Attempting to open WhatsApp: $whatsappUrl');
+        
+        // Launch WhatsApp
+        if (await canLaunchUrlString(whatsappUrl)) {
+          await launchUrlString(whatsappUrl);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not open WhatsApp'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Error opening WhatsApp: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open WhatsApp. Please check if it is installed.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }

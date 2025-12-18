@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:project/view/gpa_calculator_view.dart';
 import 'package:project/view/hitchike_view.dart';
 import 'package:project/view/marketplace_view.dart';
-import 'package:project/view/onboarding_view.dart';
 import 'package:project/view/student_handbook_eng_view.dart';
 import 'package:project/view/delivery_menu_view.dart';
 import 'package:project/widgets/custom_appbar.dart';
@@ -209,13 +208,13 @@ class _HomeViewState extends State<HomeView> {
   List<Widget> _quickActions(BuildContext context) {
     // --- 1. INTERNAL APP FEATURES ---
     List<Widget> internalActions = [
-      tile(
-        icon: Icons.rocket_launch_outlined,
-        label: 'Onboarding',
-        gradient: const [Color(0xFF0F4C75), Color(0xFF3282B8)],
-        onTap: () => Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const OnboardingView())),
-      ),
+      // tile(
+      //   icon: Icons.rocket_launch_outlined,
+      //   label: 'Onboarding',
+      //   gradient: const [Color(0xFF0F4C75), Color(0xFF3282B8)],
+      //   onTap: () => Navigator.of(context)
+      //       .push(MaterialPageRoute(builder: (_) => const OnboardingView())),
+      // ),
       tile(
         icon: Icons.book,
         label: 'Handbook',
