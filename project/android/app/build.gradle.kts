@@ -33,6 +33,7 @@ if (hasReleaseKeystore) {
 }
 
 
+
 android {
     namespace = "com.hocamconnect.android"
     compileSdk = flutter.compileSdkVersion

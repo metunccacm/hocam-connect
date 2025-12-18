@@ -649,7 +649,7 @@ class _ProductFormViewState extends State<ProductFormView> {
             color: cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: cs.outline.withOpacity(0.5),
+              color: cs.outline.withValues(alpha: 0.5),
               width: 2,
               style: BorderStyle.solid,
             ),
@@ -807,7 +807,7 @@ class _ProductFormViewState extends State<ProductFormView> {
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
+                color: Colors.black.withValues(alpha: 0.7),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.close, color: Colors.white, size: 16),

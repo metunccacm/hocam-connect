@@ -81,7 +81,7 @@ class _HitchikeViewState extends State<HitchikeView> {
                   border: InputBorder.none,
                   hintStyle: theme.textTheme.bodyMedium?.copyWith(
                     color: (theme.appBarTheme.foregroundColor ?? cs.onSurface)
-                        .withOpacity(0.6),
+                        .withValues(alpha: 0.6),
                   ),
                 ),
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -177,7 +177,7 @@ class _HitchikeViewState extends State<HitchikeView> {
                           child: Text(
                             'No hitchike posts yet.',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: cs.onSurface.withOpacity(0.8),
+                              color: cs.onSurface.withValues(alpha: 0.8),
                             ),
                           ),
                         ),
@@ -381,7 +381,7 @@ class _MyHitchikePostsView extends StatelessWidget {
                     child: Text(
                       "You don't have any posts yet.",
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurface.withOpacity(0.8),
+                        color: cs.onSurface.withValues(alpha: 0.8),
                       ),
                     ),
                   ),

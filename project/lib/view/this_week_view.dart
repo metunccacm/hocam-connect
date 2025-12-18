@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:project/view/chat_list_view.dart';
 
 class ThisWeekView extends StatefulWidget {
   const ThisWeekView({super.key});
@@ -141,7 +140,7 @@ class _ThisWeekViewState extends State<ThisWeekView>
                     color: Theme.of(context).colorScheme.surface,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
