@@ -1,9 +1,12 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_controller.dart'; //Theme Controller
 import '../services/notification_service.dart';
+import '../services/auth_service.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -131,7 +134,7 @@ class _SettingsViewState extends State<SettingsView> {
       }
 
     // Sign out locally (the auth user is already deleted server-side)
-    await _supa.auth.signOut();
+    await AuthService().signOut();
     if (!context.mounted) return;
     Navigator.of(context, rootNavigator: true)
     .pushNamedAndRemoveUntil('/welcome', (route) => false);

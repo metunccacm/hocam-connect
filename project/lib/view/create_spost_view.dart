@@ -66,6 +66,7 @@ class _CreateSPostBodyState extends State<_CreateSPostBody> {
       _localImagePaths.addAll(paths);
     });
     // Push to VM for upload later
+    if (!mounted) return;
     await context.read<CreateSPostViewModel>().addImagePaths(paths);
   }
 

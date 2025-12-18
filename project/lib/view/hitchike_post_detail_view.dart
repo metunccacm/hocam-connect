@@ -1,4 +1,6 @@
 // lib/view/hitchike_detail_view.dart
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:project/models/hitchike_post.dart';
@@ -141,7 +143,9 @@ class _HitchikeDetailViewState extends State<HitchikeDetailView> {
         ..writeln('• Empty seats: $_seats');
       if (_fuelShared == 1) {
         sb.writeln('• Fuel will be shared');
-      } else if (_fuelShared == 0) sb.writeln('• Fuel will NOT be shared');
+      } else if (_fuelShared == 0) {
+        sb.writeln('• Fuel will NOT be shared');
+      }
 
       await _svc.sendTextEncrypted(conversationId: convId, text: sb.toString());
 

@@ -4,6 +4,7 @@ import 'package:project/view/hitchike_view.dart';
 import 'package:project/view/marketplace_view.dart';
 import 'package:project/view/onboarding_view.dart';
 import 'package:project/view/student_handbook_eng_view.dart';
+import 'package:project/view/delivery_menu_view.dart';
 import 'package:project/widgets/custom_appbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -66,7 +67,7 @@ class _HomeViewState extends State<HomeView> {
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: gradient.last.withOpacity(0.25),
+                color: gradient.last.withValues(alpha: 0.25),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -99,6 +100,7 @@ class _HomeViewState extends State<HomeView> {
     // Avoid crashing if the route doesn't exist yet
     if (Navigator.canPop(context) || ModalRoute.of(context) != null) {
       return Navigator.pushNamed(context, routeName).catchError((error) {
+        if (!mounted) return error;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Route not found: $routeName')),
         );
@@ -253,6 +255,13 @@ class _HomeViewState extends State<HomeView> {
         label: 'Cafeteria',
         gradient: const [Color(0xFFFF512F), Color(0xFFF09819)],
         onTap: () => _openOrSnack('/cafeteria-menu'),
+      ),
+      tile(
+        icon: Icons.delivery_dining,
+        label: 'Delivery',
+        gradient: const [Color(0xFFFF9966), Color(0xFFFF5E62)],
+        onTap: () => Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const DeliveryMenuView())),
       ),
       // tile(
       //   icon: Icons.chat_bubble_outline,

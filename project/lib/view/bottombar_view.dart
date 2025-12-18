@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project/view/gpa_calculator_view.dart';
-
+import 'package:project/view/delivery_menu_view.dart';
 import 'package:project/view/home_view.dart';
 import 'package:project/view/marketplace_view.dart';
 import 'package:project/view/settings_view.dart';
@@ -159,6 +159,66 @@ class _MainTabViewState extends State<MainTabView>
         // The menu is only visible when the animation is running or completed
         if (animationValue == 0) return const SizedBox.shrink();
 
+        // Define menu items
+        final menuItems = [
+          {
+            'icon': Icons.calculate_outlined,
+            'heroTag': 'menu_calc',
+            'onPressed': () {
+              _toggleMenu();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const GpaCalculatorView()),
+              );
+            },
+          },
+          {
+            'icon': Icons.settings,
+            'heroTag': 'menu_settings',
+            'onPressed': () {
+              _toggleMenu();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const SettingsView()),
+              );
+            },
+          },
+          {
+            'icon': Icons.directions_car_outlined,
+            'heroTag': 'menu_hitch',
+            'onPressed': () {
+              _toggleMenu();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const HitchikeView()),
+              );
+            },
+          },
+          {
+            'icon': Icons.delivery_dining,
+            'heroTag': 'menu_delivery',
+            'onPressed': () {
+              _toggleMenu();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const DeliveryMenuView()),
+              );
+            },
+          },
+        ];
+
+        // Calculate dynamic angles based on number of items
+        // Spread items evenly in a wider arc for better spacing
+        final totalItems = menuItems.length;
+        final startAngle = -30.0; // Start more to the right
+        final endAngle = -150.0; // End more to the left
+        final totalAngleRange = endAngle - startAngle; // -120 degrees
+        final angleStep = totalAngleRange / (totalItems - 1);
+        
         return Positioned.fill(
           child: Stack(
             alignment: Alignment.bottomCenter,
@@ -168,54 +228,22 @@ class _MainTabViewState extends State<MainTabView>
               GestureDetector(
                 onTap: _toggleMenu,
                 child: Container(
-                  color: Colors.black.withOpacity(0.3 * animationValue),
+                  color: Colors.black.withValues(alpha: 0.3 * animationValue),
                 ),
               ),
-              // GPA Calculator
-              _buildMenuItem(
-                icon: Icons.calculate_outlined,
-                heroTag: 'menu_calc',
-                angle: -135, // Top-left
-                animationValue: animationValue,
-                onPressed: () {
-                  _toggleMenu();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const GpaCalculatorView()),
-                  );
-                },
-              ),
-              // Marketplace
-              _buildMenuItem(
-                icon: Icons.settings,
-                heroTag: 'menu_settings',
-                angle: -90, // Top-center
-                animationValue: animationValue,
-                onPressed: () {
-                  _toggleMenu();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const SettingsView()),
-                  );
-                },
-              ),
-              // Hitchhike
-              _buildMenuItem(
-                icon: Icons.directions_car_outlined,
-                heroTag: 'menu_hitch',
-                angle: -45, // Top-right
-                animationValue: animationValue,
-                onPressed: () {
-                  _toggleMenu();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const HitchikeView()),
-                  );
-                },
-              ),
+              // Build menu items with dynamic angles
+              ...List.generate(totalItems, (index) {
+                final item = menuItems[index];
+                final angle = startAngle + (index * angleStep);
+                
+                return _buildMenuItem(
+                  icon: item['icon'] as IconData,
+                  heroTag: item['heroTag'] as String,
+                  angle: angle,
+                  animationValue: animationValue,
+                  onPressed: item['onPressed'] as VoidCallback,
+                );
+              }),
             ],
           ),
         );
@@ -231,7 +259,7 @@ class _MainTabViewState extends State<MainTabView>
     required double animationValue,
     required VoidCallback onPressed,
   }) {
-    final radius = 80.0;
+    final radius = 90.0; // Increased radius for better spacing
     final x = radius * math.cos(angle * math.pi / 180);
     final y = radius * math.sin(angle * math.pi / 180);
 
