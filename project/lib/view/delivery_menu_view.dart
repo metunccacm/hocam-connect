@@ -13,7 +13,7 @@ class DeliveryMenuView extends StatelessWidget {
       create: (_) => DeliveryMenuViewModel(),
       child: Scaffold(
         appBar: const HCAppBar(
-          title: 'Delivery Menus',
+          title: 'Restaurants',
         ),
         body: Consumer<DeliveryMenuViewModel>(
           builder: (context, viewModel, child) {
@@ -73,49 +73,85 @@ class DeliveryMenuView extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (restaurant.logoUrl != null)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Image.network(
-                    restaurant.logoUrl!,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.restaurant, size: 48, color: Colors.grey),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Background Image or Icon
+              if (restaurant.logoUrl != null)
+                Image.network(
+                  restaurant.logoUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: Icon(
+                      Icons.restaurant,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: Icon(
+                    Icons.restaurant,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-              )
-            else
-              const Expanded(
-                child: Icon(Icons.restaurant, size: 48, color: Colors.grey),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                restaurant.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+              
+              // Gradient overlay for text readability
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.8),
+                        Colors.black.withValues(alpha: 0.6),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(12.0),
+                  child: Text(
+                    restaurant.name,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          offset: Offset(0, 1),
+                          blurRadius: 3,
+                          color: Colors.black,
+                        ),
+                      ],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -32,7 +32,6 @@ if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
-val hasReleaseKeystore = keystorePropertiesFile.exists() // AI bunu eklettirdi hatanın gitmesi için
 
 android {
     namespace = "com.hocamconnect.android"
