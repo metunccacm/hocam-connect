@@ -2,7 +2,7 @@ name: project
 description: "METU NCC Super APP"
 publish_to: 'none'
 
-version: 0.0.8+1
+version: 1.0.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
