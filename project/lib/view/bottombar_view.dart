@@ -130,18 +130,33 @@ class _MainTabViewState extends State<MainTabView>
           _buildMenuOverlay(),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'main_menu_fab',
-        shape: const CircleBorder(),
-        backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? Theme.of(context).colorScheme.surface
-            : Colors.white,
-        elevation: 4.0,
-        onPressed: _toggleMenu,
-        child: AnimatedBuilder(
-          animation: _animationController,
-          builder: (context, child) {
-            final isDark = Theme.of(context).brightness == Brightness.dark;
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white,
+            width: 0.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.3),
+              blurRadius: 3,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          heroTag: 'main_menu_fab',
+          shape: const CircleBorder(),
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context).colorScheme.surface
+              : Colors.white,
+          elevation: 4.0,
+          onPressed: _toggleMenu,
+          child: AnimatedBuilder(
+            animation: _animationController,
+            builder: (context, child) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
             // When menu is open, show a close icon
             if (_animationController.isCompleted) {
               return Icon(Icons.close,
@@ -168,6 +183,7 @@ class _MainTabViewState extends State<MainTabView>
             );
           },
         ),
+      ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
