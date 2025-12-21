@@ -108,17 +108,21 @@ class _RestaurantMenuViewState extends State<RestaurantMenuView> {
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: List.generate(5, (index) {
                   final starValue = index + 1;
-                  return IconButton(
-                    icon: Icon(
-                      starValue <= tempRating ? Icons.star : Icons.star_border,
-                      color: starValue <= tempRating ? Colors.amber : Colors.grey,
-                      size: 40,
-                    ),
-                    onPressed: () {
+                  return GestureDetector(
+                    onTap: () {
                       setState(() => tempRating = starValue);
                     },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        starValue <= tempRating ? Icons.star : Icons.star_border,
+                        color: starValue <= tempRating ? Colors.amber : Colors.grey,
+                        size: 36,
+                      ),
+                    ),
                   );
                 }),
               ),

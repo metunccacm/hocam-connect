@@ -22,16 +22,28 @@ class WelcomeView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              // --- ÜST BLOK: birbirine yakın ---
+              // Spacer to push logo to center between top and buttons
+              const Spacer(),
+
+              // --- Logo with proper aspect ratio (centered) ---
               Center(
-                child: SizedBox(
-                  height: getProportionateScreenHeight(450),
-                  child: Image.asset(
-                    isDark 
-                        ? 'assets/images/hc_beta_dark.png' 
-                        : 'assets/images/hc_beta.png',
-                    fit: BoxFit.contain,
-                  ),
+                child: Builder(
+                  builder: (context) {
+                    final w = MediaQuery.of(context).size.width;
+                    // Logo is trimmed (2619x1440 = ~1.82:1 aspect ratio)
+                    final logoWidth = (w * 0.75).clamp(280.0, 500.0);
+                    final logoHeight = logoWidth * 0.55;
+                    return SizedBox(
+                      width: logoWidth,
+                      height: logoHeight,
+                      child: Image.asset(
+                        isDark 
+                            ? 'assets/hc_logo/hc_logo_bw.png' 
+                            : 'assets/hc_logo/hc_logo_color.png',
+                        fit: BoxFit.contain,
+                      ),
+                    );
+                  },
                 ),
               ),
 
@@ -58,7 +70,7 @@ class WelcomeView extends StatelessWidget {
                 ),
               ),
 
-              // --- Orta alanı boş bırakma, aşağıyı tek Spacer ile it ---
+              // Spacer to push buttons to bottom
               const Spacer(),
 
               // --- Get Started ---

@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodel/login_viewmodel.dart';
@@ -19,8 +18,11 @@ class _LoginViewState extends State<LoginView> {
     final colorScheme = theme.colorScheme;
     
     final w = MediaQuery.of(context).size.width;
-    // Make the logo ~70% of screen width, clamp between 200–420 px
-    final logoSize = (w * 0.70).clamp(200.0, 420.0);
+    final h = MediaQuery.of(context).size.height;
+    // Make the logo bigger - 75% of screen width, clamp between 280–500 px
+    // Height based on screen height to scale properly
+    final logoWidth = (w * 0.75).clamp(280.0, 500.0);
+    final logoHeight = (h * 0.35).clamp(250.0, 420.0);
 
     return Consumer<LoginViewModel>(
       builder: (context, viewModel, child) {
@@ -36,12 +38,12 @@ class _LoginViewState extends State<LoginView> {
                   // BIGGER hc_beta image (centered)
                   Center(
                     child: SizedBox(
-                      width: logoSize,
-                      height: math.min(logoSize, 360.0),
+                      width: logoWidth,
+                      height: logoHeight,
                       child: Image.asset(
                         theme.brightness == Brightness.dark
-                            ? 'assets/images/hc_beta_dark.png'
-                            : 'assets/images/hc_beta.png',
+                        ? 'assets/hc_logo/hc_logo_bw.png' 
+                        : 'assets/hc_logo/hc_logo_color.png',
                         fit: BoxFit.contain,
                       ),
                     ),
