@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:project/view/gpa_calculator_view.dart';
 import 'package:project/view/delivery_menu_view.dart';
 import 'package:project/view/home_view.dart';
@@ -63,10 +64,63 @@ class _MainTabViewState extends State<MainTabView>
     }
   }
 
+  /// Handles back button press on Android.
+  /// Returns true if the back action was handled internally (don't pop),
+  /// returns false if the system should handle the back action.
+  Future<bool> _onBackPressed() async {
+    // First, close the menu if it's open
+    if (_animationController.isCompleted) {
+      _animationController.reverse();
+      return true; // Handled - don't pop
+    }
+
+    // If not on Home tab (index 0), navigate to Home
+    if (_selectedIndex != 0) {
+      setState(() {
+        _selectedIndex = 0;
+      });
+      return true; // Handled - don't pop
+    }
+
+    // On Home tab with no screens to go back to - show exit confirmation
+    final shouldExit = await _showExitConfirmationDialog();
+    if (shouldExit == true) {
+      // Exit the app
+      SystemNavigator.pop();
+    }
+    return true; // Always handled - we manage the exit ourselves
+  }
+
+  Future<bool?> _showExitConfirmationDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Hocam Connect?'),
+        content: const Text('Are you sure you want to exit the app?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     debugPrint('🏠 MainTabView build called');
-    return Scaffold(
+    return PopScope(
+      canPop: false, // We handle all back navigation ourselves
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return; // Already popped, nothing to do
+        await _onBackPressed();
+      },
+      child: Scaffold(
       body: Stack(
         children: [
           IndexedStack(
@@ -145,6 +199,7 @@ class _MainTabViewState extends State<MainTabView>
           ),
         ),
       ),
+    ),
     );
   }
 
